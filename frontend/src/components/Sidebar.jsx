@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, FileText, BarChart2, Shield } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, FileText, BarChart2, Shield, Activity } from 'lucide-react';
 import { AuthContext } from '../contexts/AuthContext';
 import './Sidebar.css';
 
@@ -33,12 +33,20 @@ const Sidebar = () => {
             </NavLink>
           </li>
           {user && user.role === 'Admin' && (
-            <li>
-              <NavLink to="/reports" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-                <BarChart2 size={20} />
-                <span>Reports</span>
-              </NavLink>
-            </li>
+            <>
+              <li>
+                <NavLink to="/reports" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                  <BarChart2 size={20} />
+                  <span>Reports</span>
+                </NavLink>
+              </li>
+              <li>
+                <NavLink to="/audit-logs" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+                  <Activity size={20} />
+                  <span>Audit Logs</span>
+                </NavLink>
+              </li>
+            </>
           )}
           {user && user.role === 'Admin' && (
             <li>

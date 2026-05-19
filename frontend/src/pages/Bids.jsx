@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { format } from 'date-fns';
+import { io } from 'socket.io-client';
 
 const Bids = () => {
   const [bids, setBids] = useState([]);
@@ -13,6 +14,7 @@ const Bids = () => {
   const [formData, setFormData] = useState({
     enquiryId: '',
     amount: '',
+    industry: 'Technology',
     submissionDate: '',
     assignedEmployee: '',
     remarks: ''
@@ -39,6 +41,35 @@ const Bids = () => {
   useEffect(() => {
     fetchBids();
     fetchEnquiries();
+    
+    const socket = io('http://localhost:5000');
+    
+    socket.on('new_comment', (data) => {
+      setBids(prevBids => prevBids.map(bid => {
+        if (bid._id === data.bid_id) {
+          // Check if comment already exists (e.g., if we're the sender)
+          const commentExists = bid.comments && bid.comments.some(c => 
+            c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date
+          );
+          if (commentExists) return bid;
+          return { ...bid, comments: [...(bid.comments || []), data.comment] };
+        }
+        return bid;
+      }));
+      
+      setSelectedBid(prevSelected => {
+        if (prevSelected && prevSelected._id === data.bid_id) {
+          const commentExists = prevSelected.comments && prevSelected.comments.some(c => 
+            c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date
+          );
+          if (commentExists) return prevSelected;
+          return { ...prevSelected, comments: [...(prevSelected.comments || []), data.comment] };
+        }
+        return prevSelected;
+      });
+    });
+    
+    return () => socket.disconnect();
   }, []);
 
   const handleSubmit = async (e) => {
@@ -119,10 +150,23 @@ const Bids = () => {
                 <td style={{ fontWeight: 600 }}>{bid.bidId}</td>
                 <td>{bid.enquiryId}</td>
                 <td style={{ fontWeight: 500 }}>{formatCurrency(bid.amount)}</td>
-                <td>
+                <td title="Prediction based on amount, deadline, and customer history">
                   {bid.aiPrediction ? (
-                    <span style={{ color: bid.aiPrediction > 70 ? 'var(--success)' : (bid.aiPrediction > 40 ? 'var(--warning)' : 'var(--danger)') }}>
-                      {bid.aiPrediction}%
+                    <span style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      padding: '4px 8px',
+                      borderRadius: '12px',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      background: 'rgba(255,255,255,0.05)',
+                      color: bid.aiPrediction >= 70 ? 'var(--success)' : (bid.aiPrediction >= 40 ? 'var(--warning)' : 'var(--danger)')
+                    }}>
+                      {bid.aiPrediction >= 70 ? '🟢' : (bid.aiPrediction >= 40 ? '🟡' : '🔴')} {bid.aiPrediction}% 
+                      <span style={{color: 'var(--text-secondary)', marginLeft: '4px', fontWeight: 'normal'}}>
+                        {bid.aiPrediction >= 70 ? 'High' : (bid.aiPrediction >= 40 ? 'Medium' : 'Risk')}
+                      </span>
                     </span>
                   ) : 'N/A'}
                 </td>
@@ -182,6 +226,17 @@ const Bids = () => {
               <div className="input-group">
                 <label>Assigned Employee</label>
                 <input className="input-field" required value={formData.assignedEmployee} onChange={e => setFormData({...formData, assignedEmployee: e.target.value})} />
+              </div>
+              <div className="input-group">
+                <label>Client Industry</label>
+                <select className="input-field" value={formData.industry} onChange={e => setFormData({...formData, industry: e.target.value})}>
+                  <option value="Technology">Technology</option>
+                  <option value="Banking">Banking</option>
+                  <option value="Manufacturing">Manufacturing</option>
+                  <option value="Retail">Retail</option>
+                  <option value="Healthcare">Healthcare</option>
+                  <option value="Other">Other</option>
+                </select>
               </div>
               <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
                 <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowModal(false)}>Cancel</button>

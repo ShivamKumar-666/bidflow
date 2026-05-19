@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard';
 import Enquiries from './pages/Enquiries';
 import Bids from './pages/Bids';
 import Reports from './pages/Reports';
+import AuditLogs from './pages/AuditLogs';
 
 const AppLayout = ({ children }) => {
   return (
@@ -53,6 +54,12 @@ const AppRoutes = () => {
       <Route path="/reports" element={
         <ProtectedRoute>
           <AppLayout><Reports /></AppLayout>
+        </ProtectedRoute>
+      } />
+
+      <Route path="/audit-logs" element={
+        <ProtectedRoute>
+          <AppLayout><AuditLogs /></AppLayout>
         </ProtectedRoute>
       } />
       

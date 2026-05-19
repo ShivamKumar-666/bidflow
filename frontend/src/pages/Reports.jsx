@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const Reports = () => {
   const [metrics, setMetrics] = useState(null);
@@ -27,9 +29,44 @@ const Reports = () => {
       document.body.appendChild(link);
       link.click();
       link.remove();
-      toast.success("Export successful!");
+      toast.success("CSV Export successful!");
     } catch (err) {
-      toast.error("Export failed");
+      toast.error("CSV Export failed");
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const res = await api.get('/bids/');
+      const bidsData = res.data;
+      
+      const doc = new jsPDF();
+      doc.text("BidFlow - Bids Report", 14, 15);
+      
+      const tableColumn = ["Bid ID", "Enquiry ID", "Amount", "Status", "Assigned To"];
+      const tableRows = [];
+
+      bidsData.forEach(bid => {
+        const bidData = [
+          bid.bidId || "N/A",
+          bid.enquiryId || "N/A",
+          `$${bid.amount || 0}`,
+          bid.status || "N/A",
+          bid.assignedEmployee || "N/A"
+        ];
+        tableRows.push(bidData);
+      });
+
+      doc.autoTable({
+        head: [tableColumn],
+        body: tableRows,
+        startY: 20,
+      });
+
+      doc.save("bids_report.pdf");
+      toast.success("PDF Export successful!");
+    } catch (err) {
+      toast.error("Failed to export PDF");
     }
   };
 
@@ -37,9 +74,14 @@ const Reports = () => {
     <div className="reports-page animate-fade-in">
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1 className="page-title">Reports & Analytics</h1>
-        <button className="btn-primary" onClick={handleExport} style={{ width: 'auto' }}>
-          Export Bids to CSV
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button className="btn-outline" onClick={handleExportPDF} style={{ width: 'auto' }}>
+            Export PDF
+          </button>
+          <button className="btn-primary" onClick={handleExport} style={{ width: 'auto' }}>
+            Export CSV
+          </button>
+        </div>
       </div>
       
       {metrics ? (

@@ -7,6 +7,8 @@ from routes.enquiries import enquiries_bp
 from routes.bids import bids_bp
 from routes.documents import documents_bp
 from routes.analytics import analytics_bp
+from routes.audit import audit_bp
+from extensions import socketio
 import os
 
 def create_app():
@@ -19,6 +21,9 @@ def create_app():
 
     # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
+    # Initialize SocketIO
+    socketio.init_app(app)
 
     # Register blueprints
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
@@ -26,6 +31,7 @@ def create_app():
     app.register_blueprint(bids_bp, url_prefix='/api/bids')
     app.register_blueprint(documents_bp, url_prefix='/api/documents')
     app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
+    app.register_blueprint(audit_bp, url_prefix='/api/audit')
 
     @app.route('/')
     def index():
@@ -35,4 +41,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5000)
+    socketio.run(app, debug=True, port=5000)
