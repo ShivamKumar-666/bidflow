@@ -16,6 +16,7 @@ BidFlow is a state-of-the-art, secure, and intelligent bid management platform d
 * **Multi-lingual Client**: Fully translated interface using `react-i18next`.
 * **7 Supported Languages**: English, Hindi, Gujarati, Spanish, French, German, Arabic.
 * **Bi-directional Layout**: Automatically adjusts `dir="rtl"` for Arabic, with correct alignments.
+* **Accessibility (A11y)**: Fully integrated standard ARIA roles and labels (e.g., for custom verification codes, theme switchers, progress bars, and password hide/show buttons) for comprehensive screen-reader compatibility.
 
 ### 3. 🌗 Dynamic Glassmorphic Theme Engine
 * **Light & Dark Mode**: Persists user preference in `localStorage` and responds to system preferences.
@@ -60,6 +61,53 @@ BidFlow is a state-of-the-art, secure, and intelligent bid management platform d
 | **User-controlled win rate** | `get_computed_win_rate()` reads real bid history from `db.Bids`; profile `winRate` is display-only |
 | **Sequential IDOR-prone IDs** | `secrets.token_hex(4)` → `BID-3a7f9c2b` / `ENQ-a4c82d1f` format (2³² combinations) |
 | **Flask dev server** | `wsgi.py` + `gunicorn.conf.py` for Linux/Docker; `debug` conditional on `FLASK_ENV` |
+
+---
+
+## 📂 Project Structure
+
+```text
+bidflow/
+├── backend/
+│   ├── app.py                # Flask application entrypoint & blueprint registrations
+│   ├── config.py             # Configuration parameters (JWT, MongoDB, Rate Limit, Uploads)
+│   ├── database.py           # MongoDB connection initialization and collection exports
+│   ├── extensions.py         # Flask extension instances (Limiter, SocketIO)
+│   ├── requirements.txt      # Python dependencies list
+│   ├── wsgi.py               # WSGI entrypoint for Gunicorn
+│   ├── gunicorn.conf.py      # Production Gunicorn configuration (Linux/Docker)
+│   ├── backup.py             # Backup script with auto-mongodump detection & TTL pruning
+│   ├── test_suite.py         # Isolated integration test suite with mock DB
+│   ├── test_flow.py          # End-to-end integration test runner
+│   ├── routes/
+│   │   ├── admin.py          # Admin endpoints (retraining)
+│   │   ├── analytics.py      # Analytics and KPI calculations
+│   │   ├── audit.py          # Audit log retrieval route
+│   │   ├── auth.py           # User registration, login, logout with rate limits
+│   │   ├── bids.py           # Bid creation, listing, AI prediction fallback, win-rate computation
+│   │   ├── enquiries.py      # Enquiry CRUD routes
+│   │   └── twofa.py          # Two-factor authentication Setup, Enable, Verify, Disable, Backup Codes
+│   └── ml/
+│       ├── prepare_and_train.py  # Script for preparing training data and initial training
+│       ├── retrain.py            # Live ML retraining pipeline logic
+│       ├── bid_model.pkl         # Trained logistic regression model object
+│       └── industry_encoder.pkl  # Label encoder for industry categories
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx           # Main React App routing setup
+│   │   ├── main.jsx          # Entry point rendering App
+│   │   ├── i18n.js           # internationalization configuration & bi-directional layout handler
+│   │   ├── index.css         # Styling, themes (light/dark) and glassmorphism variables
+│   │   ├── components/       # Reusable components (Navbar, Sidebar, etc.)
+│   │   ├── contexts/         # React Contexts (AuthContext, ThemeContext)
+│   │   ├── locales/          # Translation json dictionaries (ar, de, en, es, fr, gu, hi)
+│   │   ├── pages/            # Application views (Bids, Dashboard, Login, Profile, TwoFASetup, etc.)
+│   │   └── services/         # Axios API connection layer
+│   └── package.json          # Node dependencies and build scripts
+├── start.bat                 # One-click startup script (processes cleanup, MongoDB, backend, frontend)
+├── backup.bat                # Windows backup task execution wrapper
+└── README.md                 # System overview and instruction documentation
+```
 
 ---
 
