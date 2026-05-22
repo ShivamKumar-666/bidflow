@@ -282,6 +282,5 @@ def predict_bid():
             "win_probability":      round(probability * 100, 1),
             "computed_win_rate_pct": round(employee_win_rate * 100, 1)
         }), 200
-
     except Exception as e:
         return jsonify({"msg": f"Prediction error: {str(e)}"}), 400

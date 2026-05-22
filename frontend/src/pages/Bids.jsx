@@ -49,6 +49,7 @@ const Bids = () => {
     socket.on('new_comment', (data) => {
       setBids(prevBids => prevBids.map(bid => {
         if (bid._id === data.bid_id) {
+          // Check if comment already exists (e.g., if we're the sender)
           const commentExists = bid.comments && bid.comments.some(c => 
             c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date
           );

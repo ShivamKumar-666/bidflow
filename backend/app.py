@@ -27,8 +27,8 @@ def create_app():
 
     # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-
-    # ── Socket.IO ─────────────────────────────────────────────────────────────
+    
+    # Initialize SocketIO
     socketio.init_app(app)
 
     # ── JWT Blocklist (revocation) ────────────────────────────────────────────
