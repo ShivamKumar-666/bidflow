@@ -89,7 +89,7 @@ def run_test():
         return
     print(f"   Dashboard Metrics: {json.dumps(r.json(), indent=2)}")
 
-    print("\n✅ All tests passed successfully. The application is fully working with MongoDB!")
+    print("\n[SUCCESS] All tests passed successfully. The application is fully working with MongoDB!")
 
 if __name__ == "__main__":
     try:

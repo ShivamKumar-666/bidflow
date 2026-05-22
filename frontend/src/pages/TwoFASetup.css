@@ -1,0 +1,367 @@
+/* ===== 2FA MODAL OVERLAY ===== */
+.twofa-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+  animation: fadeIn 0.25s ease;
+}
+
+.twofa-modal {
+  width: 100%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 36px;
+  position: relative;
+  border-radius: 24px;
+}
+
+/* ===== HEADER ===== */
+.twofa-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.twofa-header-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  flex-shrink: 0;
+  box-shadow: 0 8px 20px -4px rgba(59, 130, 246, 0.5);
+}
+
+.twofa-header h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.twofa-header p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+
+.twofa-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.twofa-close-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ===== STEP INDICATORS ===== */
+.twofa-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 28px;
+}
+
+.twofa-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  flex: 1;
+  position: relative;
+}
+
+.twofa-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: calc(100% - 90px);
+  height: 1px;
+  background: var(--border-color);
+  left: 90px;
+}
+
+.twofa-step.active {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.twofa-step.done {
+  color: var(--success);
+}
+
+.twofa-step-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.twofa-step.active .twofa-step-dot {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: white;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+.twofa-step.done .twofa-step-dot {
+  background: var(--success);
+  border-color: var(--success);
+  color: white;
+}
+
+/* ===== BODY ===== */
+.twofa-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.twofa-center {
+  align-items: center;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.twofa-instructions {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.twofa-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.twofa-instructions p {
+  color: var(--text-primary);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  padding-top: 4px;
+}
+
+/* ===== QR CODE ===== */
+.twofa-qr-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+}
+
+.twofa-qr {
+  width: 200px;
+  height: 200px;
+}
+
+.twofa-manual {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px 18px;
+}
+
+.twofa-manual p {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.twofa-secret-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.twofa-secret-box code {
+  font-size: 0.9rem;
+  font-family: 'Courier New', monospace;
+  color: var(--accent-primary);
+  letter-spacing: 2px;
+  word-break: break-all;
+}
+
+.twofa-copy-inline {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.twofa-copy-inline:hover {
+  color: var(--accent-primary);
+  background: var(--bg-glass);
+}
+
+/* ===== OTP INPUT ===== */
+.twofa-otp-container {
+  display: flex;
+  justify-content: center;
+}
+
+.twofa-otp-input {
+  width: 200px;
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.4em;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 16px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  font-family: 'Courier New', monospace;
+}
+
+.twofa-otp-input:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* ===== ERROR & WARNING ===== */
+.twofa-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  font-size: 0.875rem;
+}
+
+.twofa-error-icon {
+  color: var(--danger);
+  margin-bottom: 12px;
+}
+
+.twofa-backup-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: var(--warning);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.825rem;
+}
+
+/* ===== BACKUP CODES ===== */
+.twofa-backup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+.twofa-backup-code {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+}
+
+.twofa-code-num {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  min-width: 16px;
+}
+
+.twofa-backup-code code {
+  font-size: 0.82rem;
+  font-family: 'Courier New', monospace;
+  color: var(--text-primary);
+  letter-spacing: 1px;
+}
+
+/* ===== BUTTONS ===== */
+.twofa-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
+}
+
+.twofa-btn-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.twofa-btn-sm {
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ===== SPINNER ===== */
+.twofa-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

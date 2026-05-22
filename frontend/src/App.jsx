@@ -10,6 +10,9 @@ import Dashboard from './pages/Dashboard';
 import Enquiries from './pages/Enquiries';
 import Bids from './pages/Bids';
 import Reports from './pages/Reports';
+import AuditLogs from './pages/AuditLogs';
+import Profile from './pages/Profile';
+import TwoFASetup from './pages/TwoFASetup';
 
 const AppLayout = ({ children }) => {
   return (
@@ -26,38 +29,56 @@ const AppLayout = ({ children }) => {
 };
 
 const AppRoutes = () => {
-  const { user } = useContext(AuthContext);
+  const { user, twoFASetup, dismissTwoFASetup } = useContext(AuthContext);
 
   return (
-    <Routes>
-      <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-      
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <AppLayout><Dashboard /></AppLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/enquiries" element={
-        <ProtectedRoute>
-          <AppLayout><Enquiries /></AppLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/bids" element={
-        <ProtectedRoute>
-          <AppLayout><Bids /></AppLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/reports" element={
-        <ProtectedRoute>
-          <AppLayout><Reports /></AppLayout>
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/" element={<Navigate to="/dashboard" />} />
-    </Routes>
+    <>
+      {/* 2FA Setup modal for Admin users on first login */}
+      {user && twoFASetup && (
+        <TwoFASetup onClose={dismissTwoFASetup} />
+      )}
+      <Routes>
+        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
+        
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <AppLayout><Dashboard /></AppLayout>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/enquiries" element={
+          <ProtectedRoute>
+            <AppLayout><Enquiries /></AppLayout>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/bids" element={
+          <ProtectedRoute>
+            <AppLayout><Bids /></AppLayout>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/profile" element={
+          <ProtectedRoute>
+            <AppLayout><Profile /></AppLayout>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/reports" element={
+          <ProtectedRoute>
+            <AppLayout><Reports /></AppLayout>
+          </ProtectedRoute>
+        } />
+
+        <Route path="/audit-logs" element={
+          <ProtectedRoute>
+            <AppLayout><AuditLogs /></AppLayout>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/" element={<Navigate to="/dashboard" />} />
+      </Routes>
+    </>
   );
 };
 

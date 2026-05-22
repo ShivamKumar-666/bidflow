@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
@@ -7,25 +7,60 @@ from routes.enquiries import enquiries_bp
 from routes.bids import bids_bp
 from routes.documents import documents_bp
 from routes.analytics import analytics_bp
+from routes.audit import audit_bp
+from routes.twofa import twofa_bp
+from routes.admin import admin_bp
+from extensions import socketio, limiter
+from database import db
+import datetime
 import os
+
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Initialize extensions
+    # ── Core extensions ───────────────────────────────────────────────────────
     CORS(app)
     jwt = JWTManager(app)
+    limiter.init_app(app)
 
     # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-    # Register blueprints
-    app.register_blueprint(auth_bp, url_prefix='/api/auth')
-    app.register_blueprint(enquiries_bp, url_prefix='/api/enquiries')
-    app.register_blueprint(bids_bp, url_prefix='/api/bids')
-    app.register_blueprint(documents_bp, url_prefix='/api/documents')
-    app.register_blueprint(analytics_bp, url_prefix='/api/analytics')
+    # ── Socket.IO ─────────────────────────────────────────────────────────────
+    socketio.init_app(app)
+
+    # ── JWT Blocklist (revocation) ────────────────────────────────────────────
+    @jwt.token_in_blocklist_loader
+    def check_if_token_revoked(jwt_header, jwt_payload):
+        jti = jwt_payload.get("jti")
+        if not jti:
+            return False
+        token = db.RevokedTokens.find_one({"jti": jti})
+        return token is not None
+
+    @jwt.revoked_token_loader
+    def revoked_token_callback(jwt_header, jwt_payload):
+        return jsonify({"msg": "Token has been revoked. Please log in again."}), 401
+
+    # ── Rate-limit error handler ──────────────────────────────────────────────
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        return jsonify({
+            "msg": "Too many requests. Please slow down and try again.",
+            "retry_after": str(e.description)
+        }), 429
+
+    # ── Blueprints ────────────────────────────────────────────────────────────
+    app.register_blueprint(auth_bp,       url_prefix='/api/auth')
+    app.register_blueprint(enquiries_bp,  url_prefix='/api/enquiries')
+    app.register_blueprint(bids_bp,       url_prefix='/api/bids')
+    app.register_blueprint(documents_bp,  url_prefix='/api/documents')
+    app.register_blueprint(analytics_bp,  url_prefix='/api/analytics')
+    app.register_blueprint(audit_bp,      url_prefix='/api/audit')
+    app.register_blueprint(twofa_bp,      url_prefix='/api/2fa')
+    app.register_blueprint(admin_bp,      url_prefix='/api/admin')
 
     @app.route('/')
     def index():
@@ -33,6 +68,14 @@ def create_app():
 
     return app
 
+
 if __name__ == '__main__':
     app = create_app()
-    app.run(debug=True, port=5000)
+    is_dev = app.config.get('FLASK_ENV', 'development') == 'development'
+    socketio.run(
+        app,
+        host='0.0.0.0',
+        debug=is_dev,
+        port=5000,
+        allow_unsafe_werkzeug=True
+    )

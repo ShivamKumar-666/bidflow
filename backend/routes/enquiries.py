@@ -3,13 +3,22 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from database import db
 from bson.objectid import ObjectId
 import datetime
+import secrets
 from utils import log_audit
 
 enquiries_bp = Blueprint('enquiries', __name__)
 
 def generate_enquiry_id():
-    count = db.Enquiries.count_documents({})
-    return f"ENQ{str(count + 1).zfill(3)}"
+    """
+    Non-sequential, collision-resistant enquiry ID.
+    Format: ENQ-<8 hex chars>  e.g. ENQ-a4c82d1f
+    """
+    for _ in range(3):
+        token     = secrets.token_hex(4)
+        enq_id    = f"ENQ-{token}"
+        if not db.Enquiries.find_one({"enquiryId": enq_id}):
+            return enq_id
+    return f"ENQ-{secrets.token_hex(6)}"
 
 @enquiries_bp.route('/', methods=['GET'])
 @jwt_required()
