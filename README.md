@@ -47,6 +47,23 @@ BidFlow is a state-of-the-art, secure, and intelligent bid management platform d
 ### 9. 🔌 Network Resilience
 * Axios auto-retry interceptor for transient server errors (3 retries, 500ms delay).
 
+### 10. 🔔 In-App Real-Time Notification Centre
+* **Real-time Push**: Integrated via Flask-SocketIO. Users receive instant notifications on bid status updates and new comments.
+* **Smart Filtering**: Built-in rules prevent self-spam notifications.
+* **History Feed**: Preserved in MongoDB with an unread indicator badge in the Navbar and dropdown feed.
+
+### 11. 📅 Interactive Bid Calendar View
+* **Dynamic Deadlines**: Displays upcoming bid submission deadlines in a grid calendar view with month filtering.
+* **Contextual Data**: Automatically resolves and presents priority, customer name, and products required.
+
+### 12. 🔗 Public Customer Portal Sharing
+* **Token-Based Sharing**: Secure sharing of specific enquiry details and associated public bid statuses.
+* **Security Hardening**: Hides ML predictions and automatically expires public tokens after 90 days.
+
+### 13. 💬 Real-Time Bid & Comment Deletion
+* **Bid Deletion**: Complete deletion API allowing authorized users to delete bids, with automatic notification cleanup and audit logs.
+* **Comment Deletion**: Authors and Admins can delete comments in real time, synchronizing updates instantly across clients.
+
 ---
 
 ## 🛡️ Security Hardening
@@ -61,6 +78,10 @@ BidFlow is a state-of-the-art, secure, and intelligent bid management platform d
 | **User-controlled win rate** | `get_computed_win_rate()` reads real bid history from `db.Bids`; profile `winRate` is display-only |
 | **Sequential IDOR-prone IDs** | `secrets.token_hex(4)` → `BID-3a7f9c2b` / `ENQ-a4c82d1f` format (2³² combinations) |
 | **Flask dev server** | `wsgi.py` + `gunicorn.conf.py` for Linux/Docker; `debug` conditional on `FLASK_ENV` |
+| **Duplicate Bid Creation** | State-based `isSubmitting` flag disables double-clicking during bid creation |
+| **Model Target Leak** | Overfit amount columns corrected in training dataset to enable real variable predictions |
+| **Customer Portal Leak** | Share portal hides internal ML prediction stats and automatically expires tokens after 90 days |
+| **Unauthorized Comment Deletion** | Backend verification ensures only comment author or Admin can delete comments |
 
 ---
 
