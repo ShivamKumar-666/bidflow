@@ -2,6 +2,7 @@ import React, { useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider, AuthContext } from './contexts/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import Navbar from './components/Navbar';
@@ -13,6 +14,8 @@ import Reports from './pages/Reports';
 import AuditLogs from './pages/AuditLogs';
 import Profile from './pages/Profile';
 import TwoFASetup from './pages/TwoFASetup';
+import CalendarView from './pages/CalendarView';
+import CustomerPortal from './pages/CustomerPortal';
 
 const AppLayout = ({ children }) => {
   return (
@@ -40,6 +43,8 @@ const AppRoutes = () => {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
         
+        <Route path="/share/:token" element={<CustomerPortal />} />
+
         <Route path="/dashboard" element={
           <ProtectedRoute>
             <AppLayout><Dashboard /></AppLayout>
@@ -55,6 +60,12 @@ const AppRoutes = () => {
         <Route path="/bids" element={
           <ProtectedRoute>
             <AppLayout><Bids /></AppLayout>
+          </ProtectedRoute>
+        } />
+        
+        <Route path="/calendar" element={
+          <ProtectedRoute>
+            <AppLayout><CalendarView /></AppLayout>
           </ProtectedRoute>
         } />
         
@@ -82,27 +93,30 @@ const AppRoutes = () => {
   );
 };
 
+
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <Toaster 
-          position="top-right"
-          toastOptions={{
-            style: {
-              background: '#1e293b',
-              color: '#fff',
-              border: '1px solid rgba(255,255,255,0.1)'
-            },
-            success: {
-              iconTheme: {
-                primary: '#10b981',
-                secondary: '#fff',
+        <NotificationProvider>
+          <Toaster 
+            position="top-right"
+            toastOptions={{
+              style: {
+                background: '#1e293b',
+                color: '#fff',
+                border: '1px solid rgba(255,255,255,0.1)'
               },
-            },
-          }}
-        />
-        <AppRoutes />
+              success: {
+                iconTheme: {
+                  primary: '#10b981',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
+          <AppRoutes />
+        </NotificationProvider>
       </Router>
     </AuthProvider>
   );

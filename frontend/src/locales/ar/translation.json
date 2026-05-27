@@ -8,12 +8,25 @@
     "delete": "حذف",
     "edit": "تعديل",
     "loading": "جاري التحميل...",
-    "error": "خطأ"
+    "error": "خطأ",
+    "tags": "الوسوم",
+    "filterByTags": "تصفية حسب الوسوم",
+    "noTags": "لا توجد وسوم",
+    "addTag": "إضافة وسم",
+    "manageTags": "إدارة الوسوم",
+    "editTagsTitle": "تعديل الوسوم لـ {{id}}",
+    "tagPlaceholder": "اكتب الوسم واضغط Enter...",
+    "portalTitle": "بوابة العملاء",
+    "portalSubtitle": "تتبع حالة العرض الخاص بك والوصول إلى المستندات",
+    "linkExpired": "هذا الرابط منتهي الصلاحية أو غير صالح.",
+    "timeline": "الخط الزمني للحالة",
+    "documents": "المستندات"
   },
   "sidebar": {
     "dashboard": "لوحة القيادة",
     "enquiries": "الاستفسارات",
     "bids": "العروض",
+    "calendar": "التقويم",
     "profile": "الملف الشخصي",
     "reports": "التقارير",
     "auditLogs": "سجلات التدقيق",
@@ -68,7 +81,10 @@
     "createFailed": "فشل إنشاء الاستفسار",
     "low": "منخفضة",
     "medium": "متوسطة",
-    "high": "عالية"
+    "high": "عالية",
+    "share": "مشاركة",
+    "shareSuccess": "تم نسخ الرابط العام إلى الحافظة!",
+    "shareFailed": "فشل إنشاء رابط المشاركة"
   },
   "bids": {
     "title": "إدارة العروض",
@@ -120,7 +136,13 @@
       "order_received": "تم استلام الطلب",
       "completed": "مكتمل",
       "rejected": "مرفوض"
-    }
+    },
+    "exportQuote": "تصدير العرض",
+    "quoteExportSuccess": "تم تصدير عرض السعر PDF بنجاح!",
+    "quoteExportFailed": "فشل تصدير عرض السعر PDF",
+    "slaBreach": "خرق SLA",
+    "slaDaysOverdue": "{{days}} يوم متأخر",
+    "slaStatus": "حالة SLA"
   },
   "profile": {
     "title": "ملف المستخدم",
@@ -157,7 +179,18 @@
     "csvSuccess": "تم تصدير CSV بنجاح!",
     "csvFailed": "فشل تصدير CSV",
     "pdfSuccess": "تم تصدير PDF بنجاح!",
-    "pdfFailed": "فشل تصدير PDF"
+    "pdfFailed": "فشل تصدير PDF",
+    "slaReport": "تحليل خرق اتفاقية مستوى الخدمة",
+    "slaBreachFrequencyByStage": "تكرار الخرق حسب مرحلة الحالة",
+    "slaBreachFrequencyByEmployee": "تكرار الخرق حسب الموظف",
+    "slaActiveBreaches": "خروقات SLA النشطة",
+    "slaDays": "الأيام المتأخرة",
+    "slaLimit": "حد SLA",
+    "slaElapsed": "الوقت المنقضي",
+    "slaScan": "تشغيل مسح SLA",
+    "slaScanning": "جاري المسح...",
+    "slaScanSuccess": "تم مسح SLA بنجاح!",
+    "slaScanFailed": "فشل تشغيل مسح SLA"
   },
   "audit": {
     "title": "سجلات التدقيق",

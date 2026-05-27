@@ -8,12 +8,25 @@
     "delete": "हटाएं",
     "edit": "संपादित करें",
     "loading": "लोड हो रहा है...",
-    "error": "त्रुटि"
+    "error": "त्रुटि",
+    "tags": "टैग",
+    "filterByTags": "टैग द्वारा फ़िल्टर करें",
+    "noTags": "कोई टैग नहीं",
+    "addTag": "टैग जोड़ें",
+    "manageTags": "टैग प्रबंधित करें",
+    "editTagsTitle": "{{id}} के लिए टैग संपादित करें",
+    "tagPlaceholder": "टैग टाइप करें और एंटर दबाएं...",
+    "portalTitle": "ग्राहक पोर्टल",
+    "portalSubtitle": "अपनी बोली की प्रगति ट्रैक करें और दस्तावेज़ देखें",
+    "linkExpired": "यह लिंक समाप्त या अमान्य हो गया है।",
+    "timeline": "स्थिति समयरेखा",
+    "documents": "दस्तावेज़"
   },
   "sidebar": {
     "dashboard": "डैशबोर्ड",
     "enquiries": "पूछताछ",
     "bids": "बोलियां",
+    "calendar": "कैलेंडर",
     "profile": "प्रोफ़ाइल",
     "reports": "रिपोर्ट",
     "auditLogs": "ऑडिट लॉग्स",
@@ -68,7 +81,10 @@
     "createFailed": "पूछताछ बनाने में विफल",
     "low": "निम्न",
     "medium": "मध्यम",
-    "high": "उच्च"
+    "high": "उच्च",
+    "share": "साझा करें",
+    "shareSuccess": "सार्वजनिक लिंक क्लिपबोर्ड पर कॉपी किया गया!",
+    "shareFailed": "साझा लिंक उत्पन्न करने में विफल"
   },
   "bids": {
     "title": "बोली प्रबंधन",
@@ -120,7 +136,13 @@
       "order_received": "ऑर्डर प्राप्त",
       "completed": "पूरा हुआ",
       "rejected": "अस्वीकृत"
-    }
+    },
+    "exportQuote": "कोटेशन निर्यात करें",
+    "quoteExportSuccess": "कोटेशन पीडीएफ सफलतापूर्वक निर्यात किया गया!",
+    "quoteExportFailed": "कोटेशन पीडीएफ निर्यात करने में विफल",
+    "slaBreach": "SLA उल्लंघन",
+    "slaDaysOverdue": "{{days}} दिन की देरी",
+    "slaStatus": "SLA स्थिति"
   },
   "profile": {
     "title": "उपयोगकर्ता प्रोफ़ाइल",
@@ -157,7 +179,18 @@
     "csvSuccess": "सीएसवी निर्यात सफल!",
     "csvFailed": "सीएसवी निर्यात विफल",
     "pdfSuccess": "पीडीएफ निर्यात सफल!",
-    "pdfFailed": "पीडीएफ निर्यात करने में विफल"
+    "pdfFailed": "पीडीएफ निर्यात करने में विफल",
+    "slaReport": "SLA उल्लंघन विश्लेषण",
+    "slaBreachFrequencyByStage": "स्थिति चरण द्वारा उल्लंघन आवृत्ति",
+    "slaBreachFrequencyByEmployee": "कर्मचारी द्वारा उल्लंघन आवृत्ति",
+    "slaActiveBreaches": "सक्रिय SLA उल्लंघन",
+    "slaDays": "देरी के दिन",
+    "slaLimit": "SLA सीमा",
+    "slaElapsed": "बीता हुआ समय",
+    "slaScan": "SLA स्कैन शुरू करें",
+    "slaScanning": "स्कैन किया जा रहा है...",
+    "slaScanSuccess": "SLA स्कैन पूरा हुआ!",
+    "slaScanFailed": "SLA स्कैन चलाने में विफल"
   },
   "audit": {
     "title": "ऑडिट लॉग्स",

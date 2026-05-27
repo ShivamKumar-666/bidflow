@@ -8,12 +8,25 @@
     "delete": "Supprimer",
     "edit": "Modifier",
     "loading": "Chargement...",
-    "error": "Erreur"
+    "error": "Erreur",
+    "tags": "Étiquettes",
+    "filterByTags": "Filtrer par étiquettes",
+    "noTags": "Aucune étiquette",
+    "addTag": "Ajouter une étiquette",
+    "manageTags": "Gérer les étiquettes",
+    "editTagsTitle": "Modifier les étiquettes de {{id}}",
+    "tagPlaceholder": "Tapez l'étiquette et appuyez sur Entrée...",
+    "portalTitle": "Portail Client",
+    "portalSubtitle": "Suivez l'avancement de votre offre et accédez aux documents",
+    "linkExpired": "Ce lien a expiré ou est invalide.",
+    "timeline": "Historique des statuts",
+    "documents": "Documents"
   },
   "sidebar": {
     "dashboard": "Tableau de Bord",
     "enquiries": "Demandes",
     "bids": "Offres",
+    "calendar": "Calendrier",
     "profile": "Profil",
     "reports": "Rapports",
     "auditLogs": "Journaux d'Audit",
@@ -68,7 +81,10 @@
     "createFailed": "Échec de la création de la demande",
     "low": "Faible",
     "medium": "Moyenne",
-    "high": "Élevée"
+    "high": "Élevée",
+    "share": "Partager",
+    "shareSuccess": "Lien public copié dans le presse-papiers !",
+    "shareFailed": "Échec de la génération du lien de partage"
   },
   "bids": {
     "title": "Gestion des Offres",
@@ -120,7 +136,13 @@
       "order_received": "Commande Reçue",
       "completed": "Terminé",
       "rejected": "Rejeté"
-    }
+    },
+    "exportQuote": "Exporter le devis",
+    "quoteExportSuccess": "Devis PDF exporté avec succès !",
+    "quoteExportFailed": "Échec de l'exportation du devis PDF",
+    "slaBreach": "Violation du SLA",
+    "slaDaysOverdue": "{{days}}j de retard",
+    "slaStatus": "Statut du SLA"
   },
   "profile": {
     "title": "Profil Utilisateur",
@@ -157,7 +179,18 @@
     "csvSuccess": "Exportation CSV réussie !",
     "csvFailed": "Échec de l'exportation CSV",
     "pdfSuccess": "Exportation PDF réussie !",
-    "pdfFailed": "Échec de l'exportation PDF"
+    "pdfFailed": "Échec de l'exportation PDF",
+    "slaReport": "Analyse des infractions au SLA",
+    "slaBreachFrequencyByStage": "Fréquence des violations par étape de statut",
+    "slaBreachFrequencyByEmployee": "Fréquence des violations par employé",
+    "slaActiveBreaches": "Violations de SLA actives",
+    "slaDays": "Jours de retard",
+    "slaLimit": "Limite de SLA",
+    "slaElapsed": "Temps écoulé",
+    "slaScan": "Déclencher l'analyse SLA",
+    "slaScanning": "Analyse en cours...",
+    "slaScanSuccess": "Analyse SLA terminée !",
+    "slaScanFailed": "Échec de l'analyse SLA"
   },
   "audit": {
     "title": "Journaux d'Audit",

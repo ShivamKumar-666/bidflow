@@ -10,6 +10,9 @@ from routes.analytics import analytics_bp
 from routes.audit import audit_bp
 from routes.twofa import twofa_bp
 from routes.admin import admin_bp
+from routes.search import search_bp
+from routes.tags import tags_bp
+from routes.notifications import notifications_bp
 from extensions import socketio, limiter
 from database import db
 import datetime
@@ -30,6 +33,15 @@ def create_app():
     
     # Initialize SocketIO
     socketio.init_app(app)
+
+    # ── Socket.IO room management ─────────────────────────────────────────────
+    @socketio.on('join')
+    def on_join(data):
+        """Client emits {room: 'user_<id>'} immediately after connecting."""
+        from flask_socketio import join_room
+        room = data.get('room')
+        if room:
+            join_room(room)
 
     # ── JWT Blocklist (revocation) ────────────────────────────────────────────
     @jwt.token_in_blocklist_loader
@@ -53,14 +65,17 @@ def create_app():
         }), 429
 
     # ── Blueprints ────────────────────────────────────────────────────────────
-    app.register_blueprint(auth_bp,       url_prefix='/api/auth')
-    app.register_blueprint(enquiries_bp,  url_prefix='/api/enquiries')
-    app.register_blueprint(bids_bp,       url_prefix='/api/bids')
-    app.register_blueprint(documents_bp,  url_prefix='/api/documents')
-    app.register_blueprint(analytics_bp,  url_prefix='/api/analytics')
-    app.register_blueprint(audit_bp,      url_prefix='/api/audit')
-    app.register_blueprint(twofa_bp,      url_prefix='/api/2fa')
-    app.register_blueprint(admin_bp,      url_prefix='/api/admin')
+    app.register_blueprint(auth_bp,          url_prefix='/api/auth')
+    app.register_blueprint(enquiries_bp,     url_prefix='/api/enquiries')
+    app.register_blueprint(bids_bp,          url_prefix='/api/bids')
+    app.register_blueprint(documents_bp,     url_prefix='/api/documents')
+    app.register_blueprint(analytics_bp,     url_prefix='/api/analytics')
+    app.register_blueprint(audit_bp,         url_prefix='/api/audit')
+    app.register_blueprint(twofa_bp,         url_prefix='/api/2fa')
+    app.register_blueprint(admin_bp,         url_prefix='/api/admin')
+    app.register_blueprint(search_bp,        url_prefix='/api/search')
+    app.register_blueprint(tags_bp,          url_prefix='/api/tags')
+    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
 
     @app.route('/')
     def index():

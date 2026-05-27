@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Quotation - {{ bid.bidId }}</title>
+    <style>
+        @page {
+            size: a4;
+            margin: 2cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            color: #333333;
+            font-size: 10pt;
+            line-height: 1.5;
+        }
+        .header-table {
+            width: 100%;
+            border-bottom: 2px solid #3b82f6;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo-title {
+            font-size: 24pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin: 0;
+        }
+        .logo-subtitle {
+            font-size: 9pt;
+            color: #6b7280;
+            margin: 0;
+        }
+        .quote-info-title {
+            font-size: 16pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            text-align: right;
+            margin: 0 0 5px 0;
+        }
+        .quote-info-text {
+            font-size: 9pt;
+            text-align: right;
+            color: #4b5563;
+            margin: 0;
+        }
+        .details-table {
+            width: 100%;
+            margin-bottom: 30px;
+        }
+        .details-column {
+            width: 50%;
+            vertical-align: top;
+        }
+        .section-title {
+            font-size: 11pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+        }
+        .details-text {
+            font-size: 9.5pt;
+            color: #374151;
+            margin: 2px 0;
+        }
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+        }
+        .items-table th {
+            background-color: #1e3a8a;
+            color: #ffffff;
+            font-weight: bold;
+            text-align: left;
+            padding: 10px;
+            font-size: 9.5pt;
+            border: 1px solid #1e3a8a;
+        }
+        .items-table td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 9.5pt;
+        }
+        .items-table tr.total-row td {
+            font-weight: bold;
+            border-bottom: 2px solid #1e3a8a;
+            background-color: #f8fafc;
+        }
+        .terms-section {
+            background-color: #f9fafb;
+            border-left: 3px solid #3b82f6;
+            padding: 15px;
+            margin-top: 40px;
+        }
+        .terms-title {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #1e3a8a;
+            margin: 0 0 8px 0;
+        }
+        .terms-text {
+            font-size: 8.5pt;
+            color: #4b5563;
+            margin: 3px 0;
+        }
+        .validity-alert {
+            margin-top: 20px;
+            font-size: 9.5pt;
+            font-weight: bold;
+            color: #b45309;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Branded Letterhead -->
+    <table class="header-table">
+        <tr>
+            <td>
+                <div class="logo-title">BidFlow</div>
+                <div class="logo-subtitle">Smart Bid Management & Quotations</div>
+            </td>
+            <td>
+                <div class="quote-info-title">QUOTATION</div>
+                <div class="quote-info-text"><strong>Quote Number:</strong> {{ bid.bidId }}</div>
+                <div class="quote-info-text"><strong>Date:</strong> {{ date_str }}</div>
+                <div class="quote-info-text"><strong>Enquiry Ref:</strong> {{ enquiry.enquiryId }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Customer & Vendor Details -->
+    <table class="details-table">
+        <tr>
+            <td class="details-column" style="padding-right: 20px;">
+                <div class="section-title">Prepared For</div>
+                <div class="details-text"><strong>Client Name:</strong> {{ enquiry.customerName }}</div>
+                <div class="details-text"><strong>Contact:</strong> {{ enquiry.contactInformation }}</div>
+                {% if enquiry.notes %}
+                <div class="details-text" style="margin-top: 8px; font-style: italic;">
+                    <strong>Requirement details:</strong> {{ enquiry.notes[:120] }}{% if enquiry.notes|length > 120 %}...{% endif %}
+                </div>
+                {% endif %}
+            </td>
+            <td class="details-column" style="padding-left: 20px;">
+                <div class="section-title">Prepared By</div>
+                <div class="details-text"><strong>Company:</strong> BidFlow Corp</div>
+                <div class="details-text"><strong>Representative:</strong> {{ bid.assignedEmployee }}</div>
+                <div class="details-text"><strong>Industry Sector:</strong> {{ bid.industry }}</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Itemised Costs -->
+    <div class="section-title">Cost Estimate & Breakdown</div>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 55%;">Description</th>
+                <th style="width: 15%; text-align: center;">Qty</th>
+                <th style="width: 15%; text-align: right;">Unit Price</th>
+                <th style="width: 15%; text-align: right;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>
+                    <strong>{{ item.name }}</strong>
+                    {% if item.description %}
+                    <br/><span style="font-size: 8pt; color: #6b7280;">{{ item.description }}</span>
+                    {% endif %}
+                </td>
+                <td style="text-align: center;">{{ item.qty }}</td>
+                <td style="text-align: right;">${{ "{:,.2f}".format(item.price) }}</td>
+                <td style="text-align: right;">${{ "{:,.2f}".format(item.total) }}</td>
+            </tr>
+            {% endfor %}
+            
+            <!-- Summary Rows -->
+            <tr class="total-row">
+                <td colspan="2"></td>
+                <td style="text-align: right;">Total Amount:</td>
+                <td style="text-align: right;">${{ "{:,.2f}".format(bid.amount) }}</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <!-- Bid Validity -->
+    {% if bid.submissionDate %}
+    <div class="validity-alert">
+        ⚠️ Offer Validity: This quotation and pricing schedule is valid until {{ bid.submissionDate }}.
+    </div>
+    {% endif %}
+
+    <!-- Terms and Conditions -->
+    <div class="terms-section">
+        <div class="terms-title">Terms & Conditions</div>
+        <div class="terms-text">1. <strong>Payment Schedule:</strong> Net 30 days from the date of invoicing.</div>
+        <div class="terms-text">2. <strong>Project Execution:</strong> Work will commence within 7 business days of signing the formal agreement.</div>
+        <div class="terms-text">3. <strong>SLA Coverage:</strong> The support SLA includes 24/7 critical issue resolution and regular system maintenance.</div>
+        <div class="terms-text">4. <strong>Confidentiality:</strong> This quote and its contents are proprietary and confidential to the client and BidFlow.</div>
+    </div>
+
+</body>
+</html>

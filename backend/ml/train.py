@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from sklearn.linear_model import LogisticRegression
+import xgboost as xgb
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 import joblib
@@ -16,6 +16,15 @@ def main():
         
     df = pd.read_csv(csv_path)
     
+    # Fix target leak: Lost deals have close_value (amount) as 0, but during bidding they had a non-zero bid amount.
+    # We sample from the Won deals' amount distribution to give Lost deals a realistic non-zero bid amount.
+    import numpy as np
+    np.random.seed(42)
+    won_amounts = df[df['won'] == 1]['amount'].values
+    if len(won_amounts) > 0:
+        lost_mask = (df['won'] == 0)
+        df.loc[lost_mask, 'amount'] = np.random.choice(won_amounts, size=lost_mask.sum())
+    
     # Recreate industry encoder to save it alongside the model
     le_industry = LabelEncoder()
     df['industry_encoded'] = le_industry.fit_transform(df['industry'])
@@ -26,7 +35,7 @@ def main():
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
     
-    model = LogisticRegression(max_iter=2000)
+    model = xgb.XGBClassifier(eval_metric='logloss', random_state=42)
     model.fit(X_train, y_train)
     
     acc = model.score(X_test, y_test)

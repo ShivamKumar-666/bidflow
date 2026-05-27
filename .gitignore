@@ -6,3 +6,5 @@ venv/
 env/
 uploads/
 .DS_Store
+mongodb_data/
+mongodb_log/

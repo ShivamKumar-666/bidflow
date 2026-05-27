@@ -1,17 +1,56 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { useTranslation } from 'react-i18next';
-import { Brain, Cpu, Play, Calendar, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Brain, Cpu, Play, Calendar, AlertTriangle, RefreshCw, History, Undo2, CheckCircle } from 'lucide-react';
+import { AuthContext } from '../contexts/AuthContext';
 
 const Reports = () => {
   const { t } = useTranslation();
+  const { user } = useContext(AuthContext);
   const [metrics, setMetrics] = useState(null);
   const [modelStatus, setModelStatus] = useState(null);
   const [retraining, setRetraining] = useState(false);
   const [loadingModel, setLoadingModel] = useState(true);
+
+  // Model versioning
+  const [modelVersions, setModelVersions] = useState([]);
+  const [loadingVersions, setLoadingVersions] = useState(false);
+  const [rollingBack, setRollingBack] = useState(null); // version number being rolled back
+
+  const [slaReport, setSlaReport] = useState(null);
+  const [loadingSla, setLoadingSla] = useState(true);
+  const [scanningSla, setScanningSla] = useState(false);
+
+  const fetchSlaReport = async () => {
+    if (user?.role !== 'Admin') return;
+    setLoadingSla(true);
+    try {
+      const res = await api.get('/admin/sla/report');
+      setSlaReport(res.data);
+    } catch (err) {
+      console.error('Failed to load SLA report', err);
+    } finally {
+      setLoadingSla(false);
+    }
+  };
+
+  const handleScanSla = async () => {
+    setScanningSla(true);
+    try {
+      await api.post('/admin/sla/check');
+      toast.success(t('reports.slaScanSuccess', 'SLA scan completed!'));
+      await fetchSlaReport();
+      const metricsRes = await api.get('/analytics/dashboard');
+      setMetrics(metricsRes.data);
+    } catch (err) {
+      toast.error(err.response?.data?.msg || t('reports.slaScanFailed', 'Failed to run SLA scan'));
+    } finally {
+      setScanningSla(false);
+    }
+  };
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -24,7 +63,38 @@ const Reports = () => {
     };
     fetchMetrics();
     fetchModelStatus();
-  }, [t]);
+    fetchModelVersions();
+    if (user?.role === 'Admin') {
+      fetchSlaReport();
+    }
+  }, [t, user]);
+
+  const fetchModelVersions = async () => {
+    if (!user || user.role !== 'Admin') return;
+    setLoadingVersions(true);
+    try {
+      const res = await api.get('/admin/models');
+      setModelVersions(res.data);
+    } catch (err) {
+      console.error('Failed to load model versions', err);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  const handleRollback = async (version) => {
+    setRollingBack(version);
+    try {
+      const res = await api.post('/admin/models/rollback', { version });
+      toast.success(res.data.msg || `Rolled back to version ${version}`);
+      await fetchModelVersions();
+      await fetchModelStatus();
+    } catch (err) {
+      toast.error(err.response?.data?.msg || 'Rollback failed');
+    } finally {
+      setRollingBack(null);
+    }
+  };
 
   const fetchModelStatus = async () => {
     setLoadingModel(true);
@@ -151,6 +221,159 @@ const Reports = () => {
         </div>
       )}
 
+      {user?.role === 'Admin' && (
+        <>
+          <div className="reports-section-divider" style={{ margin: '32px 0 24px 0', borderTop: '1px solid var(--border-color)' }} />
+          
+          <div className="glass-card sla-report-card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+              <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+                <AlertTriangle size={24} style={{ color: 'var(--danger)' }} />
+                {t('reports.slaReport', 'SLA Breach Analysis')}
+              </h2>
+              <button
+                className="btn-primary"
+                onClick={handleScanSla}
+                disabled={scanningSla}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  gap: '8px',
+                  width: 'auto',
+                  padding: '8px 16px',
+                  background: scanningSla ? 'rgba(255,255,255,0.05)' : 'var(--danger)',
+                  borderColor: 'transparent'
+                }}
+              >
+                <RefreshCw className={scanningSla ? "animate-spin" : ""} size={16} />
+                {scanningSla ? t('reports.slaScanning', 'Scanning...') : t('reports.slaScan', 'Trigger SLA Scan')}
+              </button>
+            </div>
+            
+            {loadingSla ? (
+              <p style={{ color: 'var(--text-secondary)' }}>{t('common.loading', 'Loading...')}</p>
+            ) : slaReport ? (
+              <>
+                {/* SLA Summary Cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                  <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{t('reports.slaActiveBreaches', 'Active SLA Breaches')}</span>
+                    <div className="sla-stat-number" style={{ color: 'var(--danger)' }}>{slaReport.details?.length || 0}</div>
+                  </div>
+                  <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{t('reports.slaBreachFrequencyByStage', 'Breach Frequency by Status Stage')}</span>
+                    <div style={{ fontWeight: 600, fontSize: '1.25rem', marginTop: '12px', color: 'var(--text-primary)' }}>
+                      {slaReport.by_stage && slaReport.by_stage.length > 0 ? 
+                        `${slaReport.by_stage.reduce((max, cur) => cur.count > max.count ? cur : max, slaReport.by_stage[0]).stage} (${slaReport.by_stage.reduce((max, cur) => cur.count > max.count ? cur : max, slaReport.by_stage[0]).count})` 
+                        : 'N/A'
+                      }
+                    </div>
+                  </div>
+                  <div className="glass-panel" style={{ padding: '16px', borderRadius: '12px' }}>
+                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>{t('reports.slaBreachFrequencyByEmployee', 'Breach Frequency by Employee')}</span>
+                    <div style={{ fontWeight: 600, fontSize: '1.25rem', marginTop: '12px', color: 'var(--text-primary)' }}>
+                      {slaReport.by_employee && slaReport.by_employee.length > 0 ? 
+                        `${slaReport.by_employee.reduce((max, cur) => cur.count > max.count ? cur : max, slaReport.by_employee[0]).employee} (${slaReport.by_employee.reduce((max, cur) => cur.count > max.count ? cur : max, slaReport.by_employee[0]).count})` 
+                        : 'N/A'
+                      }
+                    </div>
+                  </div>
+                </div>
+
+                {/* Stage and Employee Frequencies Charts Grid */}
+                <div className="sla-report-grid">
+                  <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px' }}>
+                    <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>{t('reports.slaBreachFrequencyByStage', 'Breach Frequency by Status Stage')}</h3>
+                    {slaReport.by_stage && slaReport.by_stage.length > 0 ? (
+                      slaReport.by_stage.map(item => {
+                        const maxVal = Math.max(1, ...slaReport.by_stage.map(x => x.count));
+                        return (
+                          <div key={item.stage} className="sla-list-item">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{item.stage}</span>
+                              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{item.count}</span>
+                            </div>
+                            <div className="sla-chart-bar-container">
+                              <div className="sla-chart-bar" style={{ width: `${(item.count / maxVal) * 100}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No breach data by stage.</p>
+                    )}
+                  </div>
+
+                  <div className="glass-panel" style={{ padding: '20px', borderRadius: '12px' }}>
+                    <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>{t('reports.slaBreachFrequencyByEmployee', 'Breach Frequency by Employee')}</h3>
+                    {slaReport.by_employee && slaReport.by_employee.length > 0 ? (
+                      slaReport.by_employee.map(item => {
+                        const maxVal = Math.max(1, ...slaReport.by_employee.map(x => x.count));
+                        return (
+                          <div key={item.employee} className="sla-list-item">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem' }}>
+                              <span style={{ color: 'var(--text-primary)', fontWeight: 500 }}>{item.employee}</span>
+                              <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{item.count}</span>
+                            </div>
+                            <div className="sla-chart-bar-container">
+                              <div className="sla-chart-bar" style={{ width: `${(item.count / maxVal) * 100}%` }} />
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>No breach data by employee.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Overdue Bids Details Table */}
+                <div style={{ marginTop: '24px', overflowX: 'auto' }}>
+                  <h3 style={{ marginBottom: '16px', fontSize: '1.1rem' }}>{t('reports.slaActiveBreaches', 'Active SLA Breaches')} Details</h3>
+                  {slaReport.details && slaReport.details.length > 0 ? (
+                    <table className="data-table" style={{ width: '100%' }}>
+                      <thead>
+                        <tr>
+                          <th>{t('bids.bidId', 'Bid ID')}</th>
+                          <th>{t('bids.assignedTo', 'Assigned Representative')}</th>
+                          <th>{t('bids.status', 'Status Stage')}</th>
+                          <th>{t('reports.slaLimit', 'SLA Limit')}</th>
+                          <th>{t('reports.slaElapsed', 'Time Elapsed')}</th>
+                          <th>{t('reports.slaDays', 'Days Overdue')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {slaReport.details.map(bid => (
+                          <tr key={bid._id}>
+                            <td style={{ fontWeight: 600 }}>{bid.bidId}</td>
+                            <td>{bid.assignedEmployee || 'Unassigned'}</td>
+                            <td>
+                              <span className="status-badge review" style={{ fontSize: '0.75rem', padding: '4px 8px' }}>
+                                {bid.status}
+                              </span>
+                            </td>
+                            <td>{bid.slaThresholdDays} {t('common.days', 'days')}</td>
+                            <td>{bid.slaElapsedDays} {t('common.days', 'days')}</td>
+                            <td style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                              +{bid.slaElapsedDays - bid.slaThresholdDays} {t('common.days', 'days')}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '16px 0' }}>No active SLA breaches detected.</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <p style={{ color: 'var(--text-secondary)' }}>{t('reports.slaScanFailed', 'Failed to load SLA report')}</p>
+            )}
+          </div>
+        </>
+      )}
+
       <div className="reports-section-divider" style={{ margin: '32px 0 24px 0', borderTop: '1px solid var(--border-color)' }} />
 
       <div className="glass-card ml-model-card" style={{ padding: '24px', marginTop: '24px' }}>
@@ -260,6 +483,124 @@ const Reports = () => {
           <p style={{ color: 'var(--text-secondary)' }}>{t('mlModel.failedLoadStatus')}</p>
         )}
       </div>
+
+      {/* Model Version Control Section — Admin only */}
+      {user?.role === 'Admin' && (
+        <div className="glass-card" style={{ padding: '24px', marginTop: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+            <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: 0 }}>
+              <History size={22} style={{ color: 'var(--accent-primary)' }} />
+              Model Version History
+            </h2>
+            <button
+              className="btn-outline"
+              style={{ width: 'auto', padding: '7px 14px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+              onClick={fetchModelVersions}
+              disabled={loadingVersions}
+            >
+              <RefreshCw size={14} className={loadingVersions ? 'animate-spin' : ''} />
+              Refresh
+            </button>
+          </div>
+
+          {loadingVersions ? (
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Loading versions…</p>
+          ) : modelVersions.length === 0 ? (
+            <div style={{
+              padding: '32px',
+              textAlign: 'center',
+              color: 'var(--text-secondary)',
+              background: 'rgba(255,255,255,0.02)',
+              borderRadius: '12px',
+              border: '1px dashed var(--border-color)'
+            }}>
+              <History size={32} style={{ opacity: 0.3, marginBottom: '10px' }} />
+              <p style={{ fontSize: '0.9rem' }}>No versioned models found. Retrain to create the first version.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="data-table" style={{ width: '100%' }}>
+                <thead>
+                  <tr>
+                    <th>Version</th>
+                    <th>Status</th>
+                    <th>Accuracy</th>
+                    <th>Records Used</th>
+                    <th>Trained At</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {modelVersions.map(v => (
+                    <tr key={v._id} style={{
+                      background: v.isActive ? 'rgba(59,130,246,0.04)' : 'transparent',
+                      borderLeft: v.isActive ? '3px solid var(--accent-primary)' : '3px solid transparent'
+                    }}>
+                      <td style={{ fontWeight: 700, fontSize: '0.95rem' }}>
+                        v{v.version}
+                      </td>
+                      <td>
+                        {v.isActive ? (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            padding: '4px 10px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: 700,
+                            background: 'rgba(16,185,129,0.12)', color: 'var(--success)',
+                            border: '1px solid rgba(16,185,129,0.3)'
+                          }}>
+                            <CheckCircle size={12} /> Active
+                          </span>
+                        ) : (
+                          <span style={{
+                            display: 'inline-flex', alignItems: 'center', gap: '5px',
+                            padding: '4px 10px', borderRadius: '12px', fontSize: '0.78rem', fontWeight: 600,
+                            background: 'rgba(255,255,255,0.04)', color: 'var(--text-secondary)',
+                            border: '1px solid var(--border-color)'
+                          }}>
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td style={{
+                        fontWeight: 700,
+                        color: v.accuracy >= 0.7 ? 'var(--success)' : (v.accuracy >= 0.5 ? 'var(--warning)' : 'var(--danger)')
+                      }}>
+                        {v.accuracy != null ? `${(v.accuracy * 100).toFixed(1)}%` : 'N/A'}
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)' }}>
+                        {v.records ?? 'N/A'}
+                      </td>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                        {v.trainedAt ? new Date(v.trainedAt).toLocaleString() : 'N/A'}
+                      </td>
+                      <td>
+                        {!v.isActive ? (
+                          <button
+                            className="btn-outline"
+                            style={{
+                              padding: '5px 12px', fontSize: '0.8rem', width: 'auto',
+                              display: 'inline-flex', alignItems: 'center', gap: '5px',
+                              color: 'var(--warning)', borderColor: 'rgba(245,158,11,0.4)'
+                            }}
+                            onClick={() => handleRollback(v.version)}
+                            disabled={rollingBack === v.version}
+                          >
+                            {rollingBack === v.version
+                              ? <RefreshCw size={12} className="animate-spin" />
+                              : <Undo2 size={12} />}
+                            {rollingBack === v.version ? 'Rolling back…' : 'Rollback'}
+                          </button>
+                        ) : (
+                          <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', fontStyle: 'italic' }}>—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -8,12 +8,25 @@
     "delete": "Delete",
     "edit": "Edit",
     "loading": "Loading...",
-    "error": "Error"
+    "error": "Error",
+    "tags": "Tags",
+    "filterByTags": "Filter by Tags",
+    "noTags": "No tags",
+    "addTag": "Add Tag",
+    "manageTags": "Manage Tags",
+    "editTagsTitle": "Edit Tags for {{id}}",
+    "tagPlaceholder": "Type tag and press Enter...",
+    "portalTitle": "Customer Portal",
+    "portalSubtitle": "Track your bid progress and view documents",
+    "linkExpired": "This link is expired or invalid.",
+    "timeline": "Status Timeline",
+    "documents": "Documents"
   },
   "sidebar": {
     "dashboard": "Dashboard",
     "enquiries": "Enquiries",
     "bids": "Bids",
+    "calendar": "Calendar",
     "profile": "Profile",
     "reports": "Reports",
     "auditLogs": "Audit Logs",
@@ -21,7 +34,8 @@
   },
   "navbar": {
     "searchPlaceholder": "Search or browse...",
-    "logoutTooltip": "Logout"
+    "logoutTooltip": "Logout",
+    "searchTooltip": "Search or browse (Ctrl+K)"
   },
   "login": {
     "title": "BidFlow",
@@ -68,7 +82,10 @@
     "createFailed": "Failed to create enquiry",
     "low": "Low",
     "medium": "Medium",
-    "high": "High"
+    "high": "High",
+    "share": "Share",
+    "shareSuccess": "Public link copied to clipboard!",
+    "shareFailed": "Failed to generate share link"
   },
   "bids": {
     "title": "Bid Management",
@@ -120,7 +137,13 @@
       "order_received": "Order Received",
       "completed": "Completed",
       "rejected": "Rejected"
-    }
+    },
+    "exportQuote": "Export Quote",
+    "quoteExportSuccess": "Quotation PDF exported successfully!",
+    "quoteExportFailed": "Failed to export quotation PDF",
+    "slaBreach": "SLA Breach",
+    "slaDaysOverdue": "{{days}}d overdue",
+    "slaStatus": "SLA Status"
   },
   "profile": {
     "title": "User Profile",
@@ -157,7 +180,18 @@
     "csvSuccess": "CSV Export successful!",
     "csvFailed": "CSV Export failed",
     "pdfSuccess": "PDF Export successful!",
-    "pdfFailed": "Failed to export PDF"
+    "pdfFailed": "Failed to export PDF",
+    "slaReport": "SLA Breach Analysis",
+    "slaBreachFrequencyByStage": "Breach Frequency by Status Stage",
+    "slaBreachFrequencyByEmployee": "Breach Frequency by Employee",
+    "slaActiveBreaches": "Active SLA Breaches",
+    "slaDays": "Days Overdue",
+    "slaLimit": "SLA Limit",
+    "slaElapsed": "Time Elapsed",
+    "slaScan": "Trigger SLA Scan",
+    "slaScanning": "Scanning...",
+    "slaScanSuccess": "SLA scan completed!",
+    "slaScanFailed": "Failed to run SLA scan"
   },
   "audit": {
     "title": "Audit Logs",
@@ -242,5 +276,51 @@
   "errors": {
     "tooManyAttempts": "Too many attempts. Please wait a moment before trying again.",
     "cannotReachServer": "Cannot reach the server. Make sure the backend is running (python app.py) and try again."
+  },
+  "calendar": {
+    "title": "Calendar & Deadlines",
+    "upcomingDeadlines": "Upcoming Deadlines",
+    "noDeadlines": "No upcoming deadlines",
+    "todayBtn": "Today",
+    "dueDate": "Due Date",
+    "serviceRequired": "Service/Product Required",
+    "remarks": "Remarks",
+    "days": {
+      "sun": "Sun",
+      "mon": "Mon",
+      "tue": "Tue",
+      "wed": "Wed",
+      "thu": "Thu",
+      "fri": "Fri",
+      "sat": "Sat"
+    },
+    "months": {
+      "january": "January",
+      "february": "February",
+      "march": "March",
+      "april": "April",
+      "may": "May",
+      "june": "June",
+      "july": "July",
+      "august": "August",
+      "september": "September",
+      "october": "October",
+      "november": "November",
+      "december": "December"
+    },
+    "priority": "Priority",
+    "amount": "Amount",
+    "status": "Status",
+    "prediction": "AI Prediction",
+    "assignedTo": "Assigned To",
+    "viewDetails": "Manage Bid & Discussion",
+    "close": "Close"
+  },
+  "search": {
+    "noResults": "No results found for",
+    "initialHelp": "Type to search enquiries, bids, or document attachments",
+    "documents": "Documents",
+    "navigate": "Navigate",
+    "select": "Select"
   }
 }

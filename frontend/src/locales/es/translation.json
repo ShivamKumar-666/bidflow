@@ -8,12 +8,25 @@
     "delete": "Eliminar",
     "edit": "Editar",
     "loading": "Cargando...",
-    "error": "Error"
+    "error": "Error",
+    "tags": "Etiquetas",
+    "filterByTags": "Filtrar por etiquetas",
+    "noTags": "Sin etiquetas",
+    "addTag": "Añadir etiqueta",
+    "manageTags": "Gestionar etiquetas",
+    "editTagsTitle": "Editar etiquetas para {{id}}",
+    "tagPlaceholder": "Escribe la etiqueta y pulsa Enter...",
+    "portalTitle": "Portal del Cliente",
+    "portalSubtitle": "Realice el seguimiento de su propuesta y acceda a documentos",
+    "linkExpired": "Este enlace ha caducado o no es válido.",
+    "timeline": "Línea de tiempo de estado",
+    "documents": "Documentos"
   },
   "sidebar": {
     "dashboard": "Tablero",
     "enquiries": "Consultas",
     "bids": "Licitaciones",
+    "calendar": "Calendario",
     "profile": "Perfil",
     "reports": "Informes",
     "auditLogs": "Registros de Auditoría",
@@ -68,7 +81,10 @@
     "createFailed": "Error al crear la consulta",
     "low": "Baja",
     "medium": "Media",
-    "high": "Alta"
+    "high": "Alta",
+    "share": "Compartir",
+    "shareSuccess": "¡Enlace público copiado al portapapeles!",
+    "shareFailed": "Error al generar el enlace de compartir"
   },
   "bids": {
     "title": "Gestión de Licitaciones",
@@ -120,7 +136,13 @@
       "order_received": "Pedido Recibido",
       "completed": "Completado",
       "rejected": "Rechazado"
-    }
+    },
+    "exportQuote": "Exportar cotización",
+    "quoteExportSuccess": "¡Cotización PDF exportada con éxito!",
+    "quoteExportFailed": "Error al exportar el PDF de cotización",
+    "slaBreach": "Infracción de SLA",
+    "slaDaysOverdue": "{{days}}d de retraso",
+    "slaStatus": "Estado de SLA"
   },
   "profile": {
     "title": "Perfil de Usuario",
@@ -157,7 +179,18 @@
     "csvSuccess": "¡Exportación CSV exitosa!",
     "csvFailed": "Exportación CSV fallida",
     "pdfSuccess": "¡Exportación PDF exitosa!",
-    "pdfFailed": "Error al exportar PDF"
+    "pdfFailed": "Error al exportar PDF",
+    "slaReport": "Análisis de infracciones de SLA",
+    "slaBreachFrequencyByStage": "Frecuencia de infracción por etapa de estado",
+    "slaBreachFrequencyByEmployee": "Frecuencia de infracción por empleado",
+    "slaActiveBreaches": "Infracciones de SLA activas",
+    "slaDays": "Días de retraso",
+    "slaLimit": "Límite de SLA",
+    "slaElapsed": "Tiempo transcurrido",
+    "slaScan": "Iniciar escaneo de SLA",
+    "slaScanning": "Escaneando...",
+    "slaScanSuccess": "¡Escaneo de SLA completado!",
+    "slaScanFailed": "Error al ejecutar el escaneo de SLA"
   },
   "audit": {
     "title": "Registros de Auditoría",

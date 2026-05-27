@@ -8,12 +8,25 @@
     "delete": "કાઢી નાખો",
     "edit": "સંપાદિત કરો",
     "loading": "લોડ થઈ રહ્યું છે...",
-    "error": "ભૂલ"
+    "error": "ભૂલ",
+    "tags": "ટેગ",
+    "filterByTags": "ટેગ દ્વારા ફિલ્ટર કરો",
+    "noTags": "કોઈ ટેગ નથી",
+    "addTag": "ટેગ ઉમેરો",
+    "manageTags": "ટેગ સંચાલિત કરો",
+    "editTagsTitle": "{{id}} માટે ટેગ સંપાદિત કરો",
+    "tagPlaceholder": "ટેગ લખો અને એન્ટર દબાવો...",
+    "portalTitle": "ગ્રાહક પોર્ટલ",
+    "portalSubtitle": "તમારી બોલીની પ્રગતિ ટ્રૅક કરો અને દસ્તાવેજો જુઓ",
+    "linkExpired": "આ લિંક સમાપ્ત અથવા અમાન્ય છે.",
+    "timeline": "સ્થિતિ સમયરેખા",
+    "documents": "દસ્તાવેજો"
   },
   "sidebar": {
     "dashboard": "ડેશબોર્ડ",
     "enquiries": "પૂછપરછ",
     "bids": "બોલીઓ",
+    "calendar": "કેલેન્ડર",
     "profile": "પ્રોફાઇલ",
     "reports": "અહેવાલો",
     "auditLogs": "ઓડિટ લોગ્સ",
@@ -68,7 +81,10 @@
     "createFailed": "પૂછપરછ બનાવવામાં નિષ્ફળ",
     "low": "નિમ્ન",
     "medium": "મધ્યમ",
-    "high": "ઉચ્ચ"
+    "high": "ઉચ્ચ",
+    "share": "શેર કરો",
+    "shareSuccess": "પબ્લિક લિંક ક્લિપબોર્ડ પર કોપી થઈ!",
+    "shareFailed": "શેર લિંક બનાવવામાં નિષ્ફળ"
   },
   "bids": {
     "title": "બોલી સંચાલન",
@@ -120,7 +136,13 @@
       "order_received": "ઓર્ડર મળ્યો",
       "completed": "પૂર્ણ",
       "rejected": "નામંજૂર"
-    }
+    },
+    "exportQuote": "કોટેશન નિકાસ કરો",
+    "quoteExportSuccess": "કોટેશન પીડીએફ સફળતાપૂર્વક નિકાસ કરવામાં આવી!",
+    "quoteExportFailed": "કોટેશન પીડીએફ નિકાસ કરવામાં નિષ્ફળ",
+    "slaBreach": "SLA ઉલ્લંઘન",
+    "slaDaysOverdue": "{{days}} દિવસ વિલંબ",
+    "slaStatus": "SLA સ્થિતિ"
   },
   "profile": {
     "title": "વપરાશકર્તા પ્રોફાઇલ",
@@ -157,7 +179,18 @@
     "csvSuccess": "સીએસવી નિકાસ સફળ!",
     "csvFailed": "સીએસવી નિકાસ નિષ્ફળ",
     "pdfSuccess": "પીડીએફ નિકાસ સફળ!",
-    "pdfFailed": "પીડીએફ નિકાસ કરવામાં નિષ્ફળ"
+    "pdfFailed": "પીડીએફ નિકાસ કરવામાં નિષ્ફળ",
+    "slaReport": "SLA ઉલ્લંઘન વિશ્લેષણ",
+    "slaBreachFrequencyByStage": "સ્થિતિ તબક્કા દ્વારા ઉલ્લંઘન આવર્તન",
+    "slaBreachFrequencyByEmployee": "કર્મચારી દ્વારા ઉલ્લંઘન આવર્તન",
+    "slaActiveBreaches": "સક્રિય SLA ઉલ્લંઘન",
+    "slaDays": "વિલંબના દિવસો",
+    "slaLimit": "SLA મર્યાદા",
+    "slaElapsed": "વીતેલો સમય",
+    "slaScan": "SLA સ્કેન શરૂ કરો",
+    "slaScanning": "સ્કેન થઈ રહ્યું છે...",
+    "slaScanSuccess": "SLA સ્કેન પૂર્ણ થયું!",
+    "slaScanFailed": "SLA સ્કેન ચલાવવામાં નિષ્ફળ"
   },
   "audit": {
     "title": "ઓડિટ લોગ્સ",

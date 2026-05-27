@@ -8,12 +8,25 @@
     "delete": "Löschen",
     "edit": "Bearbeiten",
     "loading": "Laden...",
-    "error": "Fehler"
+    "error": "Fehler",
+    "tags": "Tags",
+    "filterByTags": "Nach Tags filtern",
+    "noTags": "Keine Tags",
+    "addTag": "Tag hinzufügen",
+    "manageTags": "Tags verwalten",
+    "editTagsTitle": "Tags für {{id}} bearbeiten",
+    "tagPlaceholder": "Tag eingeben und Eingabetaste drücken...",
+    "portalTitle": "Kundenportal",
+    "portalSubtitle": "Verfolgen Sie Ihren Angebotsstatus und greifen Sie auf Dokumente zu",
+    "linkExpired": "Dieser Link ist abgelaufen oder ungültig.",
+    "timeline": "Status-Verlauf",
+    "documents": "Dokumente"
   },
   "sidebar": {
     "dashboard": "Dashboard",
     "enquiries": "Anfragen",
     "bids": "Angebote",
+    "calendar": "Kalender",
     "profile": "Profil",
     "reports": "Berichte",
     "auditLogs": "Audit-Protokolle",
@@ -68,7 +81,10 @@
     "createFailed": "Fehler beim Erstellen der Anfrage",
     "low": "Niedrig",
     "medium": "Mittel",
-    "high": "Hoch"
+    "high": "Hoch",
+    "share": "Teilen",
+    "shareSuccess": "Öffentlicher Link in die Zwischenablage kopiert!",
+    "shareFailed": "Teilungslink konnte nicht generiert werden"
   },
   "bids": {
     "title": "Angebotsverwaltung",
@@ -120,7 +136,13 @@
       "order_received": "Auftrag erhalten",
       "completed": "Abgeschlossen",
       "rejected": "Abgelehnt"
-    }
+    },
+    "exportQuote": "Angebot exportieren",
+    "quoteExportSuccess": "Angebots-PDF erfolgreich exportiert!",
+    "quoteExportFailed": "Angebots-PDF konnte nicht exportiert werden",
+    "slaBreach": "SLA-Verstoß",
+    "slaDaysOverdue": "{{days}}T überfällig",
+    "slaStatus": "SLA-Status"
   },
   "profile": {
     "title": "Benutzerprofil",
@@ -157,7 +179,18 @@
     "csvSuccess": "CSV-Export erfolgreich!",
     "csvFailed": "CSV-Export fehlgeschlagen",
     "pdfSuccess": "PDF-Export erfolgreich!",
-    "pdfFailed": "PDF-Export fehlgeschlagen"
+    "pdfFailed": "PDF-Export fehlgeschlagen",
+    "slaReport": "SLA-Verstoß-Analyse",
+    "slaBreachFrequencyByStage": "Verstoßhäufigkeit nach Statusstufe",
+    "slaBreachFrequencyByEmployee": "Verstoßhäufigkeit nach Mitarbeiter",
+    "slaActiveBreaches": "Aktive SLA-Verstöße",
+    "slaDays": "Tage überfällig",
+    "slaLimit": "SLA-Limit",
+    "slaElapsed": "Vergangene Zeit",
+    "slaScan": "SLA-Scan auslösen",
+    "slaScanning": "Scannen...",
+    "slaScanSuccess": "SLA-Scan abgeschlossen!",
+    "slaScanFailed": "SLA-Scan fehlgeschlagen"
   },
   "audit": {
     "title": "Audit-Protokolle",

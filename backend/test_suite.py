@@ -493,6 +493,349 @@ class BidFlowTestSuite(unittest.TestCase):
         self.assertIn("ready_to_retrain", data)
         self.assertIsInstance(data["ready_to_retrain"], bool)
 
+    # ==========================================
+    # 11. CALENDAR VIEW TESTS
+    # ==========================================
+    def test_calendar_view(self):
+        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+
+        # 1. Create Enquiry with High Priority
+        enq_payload = {
+            "customerName": "Calendar Client",
+            "contactInformation": "calendar@example.com",
+            "productServiceRequired": "Calendar Integration",
+            "priority": "High",
+            "notes": "Urgent feature setup"
+        }
+        enq_res = self.client.post('/api/enquiries/', json=enq_payload, headers=headers)
+        self.assertEqual(enq_res.status_code, 201)
+        enquiry_id = enq_res.get_json()["enquiryId"]
+
+        # 2. Create Bid with a specific submissionDate (e.g. 2026-05-30)
+        bid_payload = {
+            "enquiryId": enquiry_id,
+            "amount": 12000,
+            "submissionDate": "2026-05-30",
+            "assignedEmployee": "Exec User",
+            "industry": "Technology",
+            "remarks": "Cal Bid"
+        }
+        bid_res = self.client.post('/api/bids/', json=bid_payload, headers=headers)
+        self.assertEqual(bid_res.status_code, 201)
+
+        # 3. Request calendar view
+        cal_res = self.client.get('/api/bids/calendar', headers=headers)
+        self.assertEqual(cal_res.status_code, 200)
+        events = cal_res.get_json()
+        self.assertTrue(len(events) >= 1)
+
+        # Verify that priority and parent enquiry details are resolved
+        matching_event = [e for e in events if e["enquiryId"] == enquiry_id]
+        self.assertEqual(len(matching_event), 1)
+        event = matching_event[0]
+        self.assertEqual(event["submissionDate"], "2026-05-30")
+        self.assertEqual(event["customerName"], "Calendar Client")
+        self.assertEqual(event["priority"], "High")
+        self.assertEqual(event["productServiceRequired"], "Calendar Integration")
+
+        # 4. Test filtering by month YYYY-MM
+        filtered_res = self.client.get('/api/bids/calendar?month=2026-05', headers=headers)
+        self.assertEqual(filtered_res.status_code, 200)
+        filtered_events = filtered_res.get_json()
+        self.assertTrue(len(filtered_events) >= 1)
+        self.assertTrue(any(e["enquiryId"] == enquiry_id for e in filtered_events))
+
+        # Test non-matching month filter
+        non_matching_res = self.client.get('/api/bids/calendar?month=2026-06', headers=headers)
+        self.assertEqual(non_matching_res.status_code, 200)
+        non_matching_events = non_matching_res.get_json()
+        self.assertFalse(any(e["enquiryId"] == enquiry_id for e in non_matching_events))
+
+    # ==========================================
+    # 12. GLOBAL SEARCH TESTS
+    # ==========================================
+    def test_global_search(self):
+        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+
+        # 1. Create Enquiry
+        enq_payload = {
+            "customerName": "Acme Search Corp",
+            "contactInformation": "acme@example.com",
+            "productServiceRequired": "Global Search Feature",
+            "priority": "Medium",
+            "notes": "Acme details notes"
+        }
+        enq_res = self.client.post('/api/enquiries/', json=enq_payload, headers=headers)
+        self.assertEqual(enq_res.status_code, 201)
+        enquiry_id = enq_res.get_json()["enquiryId"]
+
+        # 2. Create Bid
+        bid_payload = {
+            "enquiryId": enquiry_id,
+            "amount": 95000,
+            "submissionDate": "2026-10-15",
+            "assignedEmployee": "Exec User",
+            "remarks": "Acme Search Bid"
+        }
+        bid_res = self.client.post('/api/bids/', json=bid_payload, headers=headers)
+        self.assertEqual(bid_res.status_code, 201)
+        bid_id = bid_res.get_json()["bidId"]
+
+        # 3. Create Document
+        import io
+        upload_res = self.client.post('/api/documents/upload',
+                                      data={"bidId": bid_res.get_json()["_id"],
+                                            "file": (io.BytesIO(b"Acme Docs"), "acme_spec.pdf")},
+                                      headers=headers)
+        self.assertEqual(upload_res.status_code, 201)
+
+        # 4. Search for "Acme"
+        search_res = self.client.get('/api/search?q=acme', headers=headers)
+        self.assertEqual(search_res.status_code, 200)
+        data = search_res.get_json()
+        self.assertIn("enquiries", data)
+        self.assertIn("bids", data)
+        self.assertIn("documents", data)
+
+        # Check matched enquiry
+        self.assertTrue(any(e["customerName"] == "Acme Search Corp" for e in data["enquiries"]))
+        # Check matched bid
+        self.assertTrue(any(b["bidId"] == bid_id for b in data["bids"]))
+        # Check matched document
+        self.assertTrue(any(d["filename"] == "acme_spec.pdf" for d in data["documents"]))
+
+        # 5. Search for non-existent keyword
+        empty_search_res = self.client.get('/api/search?q=nonexistentxyz123', headers=headers)
+        self.assertEqual(empty_search_res.status_code, 200)
+        empty_data = empty_search_res.get_json()
+        self.assertEqual(len(empty_data["enquiries"]), 0)
+        self.assertEqual(len(empty_data["bids"]), 0)
+        self.assertEqual(len(empty_data["documents"]), 0)
+
+    # ==========================================
+    # 13. CUSTOM TAGS & FILTERS TESTS
+    # ==========================================
+    def test_custom_tags_and_filters(self):
+        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+
+        # 1. Create Enquiry with Tags
+        enq_payload = {
+            "customerName": "Tagged Corp",
+            "contactInformation": "tagged@example.com",
+            "productServiceRequired": "Tag Consulting",
+            "priority": "Medium",
+            "tags": ["repeat-client", "construction"]
+        }
+        enq_res = self.client.post('/api/enquiries/', json=enq_payload, headers=headers)
+        self.assertEqual(enq_res.status_code, 201)
+        enq_data = enq_res.get_json()
+        self.assertIn("tags", enq_data)
+        self.assertEqual(enq_data["tags"], ["repeat-client", "construction"])
+
+        # 2. Create Bid with Tags
+        bid_payload = {
+            "enquiryId": enq_data["enquiryId"],
+            "amount": 15000,
+            "submissionDate": "2026-11-20",
+            "assignedEmployee": "Exec User",
+            "tags": ["construction", "high-risk"]
+        }
+        bid_res = self.client.post('/api/bids/', json=bid_payload, headers=headers)
+        self.assertEqual(bid_res.status_code, 201)
+        bid_data = bid_res.get_json()
+        self.assertIn("tags", bid_data)
+        self.assertEqual(bid_data["tags"], ["construction", "high-risk"])
+
+        # 3. Test generic PUT Route for Bids (update tags)
+        update_bid_res = self.client.put(f'/api/bids/{bid_data["_id"]}', json={
+            "tags": ["construction", "high-risk", "updated-tag"]
+        }, headers=headers)
+        self.assertEqual(update_bid_res.status_code, 200)
+
+        # Retrieve bid to confirm tags updated
+        get_bids_res = self.client.get('/api/bids/', headers=headers)
+        self.assertEqual(get_bids_res.status_code, 200)
+        matching_bid = [b for b in get_bids_res.get_json() if b["_id"] == bid_data["_id"]][0]
+        self.assertEqual(matching_bid["tags"], ["construction", "high-risk", "updated-tag"])
+
+        # 4. Fetch unique tags endpoint
+        tags_res = self.client.get('/api/tags/', headers=headers)
+        self.assertEqual(tags_res.status_code, 200)
+        unique_tags = tags_res.get_json()
+        # Should contain sorted: "construction", "high-risk", "repeat-client", "updated-tag"
+        self.assertIn("construction", unique_tags)
+        self.assertIn("high-risk", unique_tags)
+        self.assertIn("repeat-client", unique_tags)
+        self.assertIn("updated-tag", unique_tags)
+
+    # ==========================================
+    # 14. PDF QUOTATION GENERATOR TESTS
+    # ==========================================
+    def test_quotation_pdf_generation(self):
+        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+
+        # 1. Create Enquiry
+        enq_payload = {
+            "customerName": "Quote Corp",
+            "contactInformation": "quote@example.com",
+            "productServiceRequired": "PDF Construction",
+            "priority": "Medium"
+        }
+        enq_res = self.client.post('/api/enquiries/', json=enq_payload, headers=headers)
+        self.assertEqual(enq_res.status_code, 201)
+        enq_data = enq_res.get_json()
+
+        # 2. Create Bid
+        bid_payload = {
+            "enquiryId": enq_data["enquiryId"],
+            "amount": 25000,
+            "submissionDate": "2026-12-01",
+            "assignedEmployee": "Exec User"
+        }
+        bid_res = self.client.post('/api/bids/', json=bid_payload, headers=headers)
+        self.assertEqual(bid_res.status_code, 201)
+        bid_data = bid_res.get_json()
+
+        # 3. Export PDF
+        pdf_res = self.client.get(f'/api/bids/{bid_data["_id"]}/quotation', headers=headers)
+        self.assertEqual(pdf_res.status_code, 200)
+        self.assertEqual(pdf_res.headers.get('Content-Type'), 'application/pdf')
+        self.assertTrue(len(pdf_res.data) > 0)
+        self.assertTrue(pdf_res.data.startswith(b'%PDF'))
+
+    # ==========================================
+    # 15. CUSTOMER PORTAL SHARING TESTS
+    # ==========================================
+    def test_customer_portal_sharing(self):
+        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+
+        # 1. Create Enquiry
+        enq_payload = {
+            "customerName": "Shared Customer Corp",
+            "contactInformation": "shared@example.com",
+            "productServiceRequired": "Public Tracking App",
+            "priority": "High"
+        }
+        enq_res = self.client.post('/api/enquiries/', json=enq_payload, headers=headers)
+        self.assertEqual(enq_res.status_code, 201)
+        enq_data = enq_res.get_json()
+
+        # 2. Generate Share Link
+        share_res = self.client.post(f'/api/enquiries/{enq_data["_id"]}/share', headers=headers)
+        self.assertEqual(share_res.status_code, 200)
+        share_data = share_res.get_json()
+        self.assertIn("shareToken", share_data)
+        self.assertIn("shareUrl", share_data)
+        token = share_data["shareToken"]
+
+        # 3. Access Public Share Route
+        public_res = self.client.get(f'/api/enquiries/public/share/{token}')
+        self.assertEqual(public_res.status_code, 200)
+        public_data = public_res.get_json()
+        self.assertEqual(public_data["enquiry"]["customerName"], "Shared Customer Corp")
+        self.assertEqual(public_data["enquiry"]["productServiceRequired"], "Public Tracking App")
+        self.assertNotIn("aiPrediction", public_data) # Excludes AI predictive info for privacy
+
+        # 4. Mock Document creation in DB to verify document download checks
+        # Create a bid first
+        bid_payload = {
+            "enquiryId": enq_data["enquiryId"],
+            "amount": 50000,
+            "submissionDate": "2026-12-15",
+            "assignedEmployee": "Exec User"
+        }
+        bid_res = self.client.post('/api/bids/', json=bid_payload, headers=headers)
+        self.assertEqual(bid_res.status_code, 201)
+        bid_data = bid_res.get_json()
+
+        # Insert doc directly to MongoDB to test public access
+        doc_id = db.Documents.insert_one({
+            "bidId": bid_data["bidId"],
+            "filename": "proposal.pdf",
+            "path": "mock_file.pdf",
+            "uploadDate": datetime.datetime.utcnow()
+        }).inserted_id
+
+        # Verify public details fetch returns document reference
+        public_res_updated = self.client.get(f'/api/enquiries/public/share/{token}')
+        self.assertEqual(public_res_updated.status_code, 200)
+        self.assertEqual(len(public_res_updated.get_json()["documents"]), 1)
+        self.assertEqual(public_res_updated.get_json()["documents"][0]["filename"], "proposal.pdf")
+
+        # Clean up db record
+        db.Documents.delete_one({"_id": doc_id})
+
+        # 5. Verify Expiry (token generated 91 days ago)
+        db.Enquiries.update_one(
+            {"enquiryId": enq_data["enquiryId"]},
+            {"$set": {"shareTokenCreatedAt": datetime.datetime.utcnow() - datetime.timedelta(days=91)}}
+        )
+        expired_res = self.client.get(f'/api/enquiries/public/share/{token}')
+        self.assertEqual(expired_res.status_code, 403)
+        self.assertIn("expired", expired_res.get_json()["msg"].lower())
+
+    # ==========================================
+    # 16. SLA & DEADLINE TRACKING TESTS
+    # ==========================================
+    def test_sla_tracking_and_reporting(self):
+        self._register_user("Admin User", "admin@bidflow.com", "admin123", "Admin")
+        headers = self._get_auth_headers("admin@bidflow.com", "admin123")
+
+        # 1. Create Enquiry & Bid
+        enq_payload = {
+            "customerName": "SLA Corp",
+            "contactInformation": "sla@example.com",
+            "productServiceRequired": "Consultancy SLA",
+            "priority": "Medium"
+        }
+        enq_res = self.client.post('/api/enquiries/', json=enq_payload, headers=headers)
+        enq_data = enq_res.get_json()
+
+        bid_payload = {
+            "enquiryId": enq_data["enquiryId"],
+            "amount": 30000,
+            "submissionDate": "2026-12-05",
+            "assignedEmployee": "Exec User"
+        }
+        bid_res = self.client.post('/api/bids/', json=bid_payload, headers=headers)
+        bid_data = bid_res.get_json()
+        
+        # Set history status transition date to 6 days ago (SLA threshold is 5 days)
+        six_days_ago = datetime.datetime.utcnow() - datetime.timedelta(days=6)
+        db.Bids.update_one(
+            {"_id": ObjectId(bid_data["_id"])},
+            {"$set": {"history.0.date": six_days_ago}}
+        )
+
+        # 2. Trigger SLA Check on-demand
+        check_res = self.client.post('/api/admin/sla/check', headers=headers)
+        self.assertEqual(check_res.status_code, 200)
+        check_data = check_res.get_json()
+        self.assertTrue(check_data["breaches"] >= 1)
+
+        # 3. Retrieve SLA Report
+        report_res = self.client.get('/api/admin/sla/report', headers=headers)
+        self.assertEqual(report_res.status_code, 200)
+        report_data = report_res.get_json()
+        
+        # Verify report aggregates
+        stages = [item["stage"] for item in report_data["by_stage"]]
+        employees = [item["employee"] for item in report_data["by_employee"]]
+        self.assertIn("Quotation Prepared", stages)
+        self.assertIn("Exec User", employees)
+        
+        # Verify details list contains our bid ID
+        breached_bid_ids = [b["bidId"] for b in report_data["details"]]
+        self.assertIn(bid_data["bidId"], breached_bid_ids)
+
 
 if __name__ == '__main__':
     unittest.main()
+
+
+

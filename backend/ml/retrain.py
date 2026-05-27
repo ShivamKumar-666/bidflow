@@ -45,7 +45,7 @@ def retrain_from_db(db) -> dict:
     dict with keys: status, records, accuracy, timestamp
                     (or status='insufficient_data', min_required)
     """
-    from sklearn.linear_model import LogisticRegression
+    import xgboost as xgb
     from sklearn.model_selection import train_test_split
     from sklearn.preprocessing import LabelEncoder
 
@@ -123,7 +123,7 @@ def retrain_from_db(db) -> dict:
         X, y, test_size=test_size, random_state=42, stratify=y if y.sum() > 1 else None
     )
 
-    clf = LogisticRegression(max_iter=2000, class_weight="balanced")
+    clf = xgb.XGBClassifier(eval_metric='logloss', random_state=42)
     clf.fit(X_train, y_train)
     accuracy = round(float(clf.score(X_test, y_test)), 4)
 
@@ -136,6 +136,34 @@ def retrain_from_db(db) -> dict:
 
     os.replace(tmp_model,   MODEL_PATH)
     os.replace(tmp_encoder, ENCODER_PATH)
+
+    # ── 6b. Save version in MongoDB ────────────────────────────────────────────
+    try:
+        import io
+        
+        model_buf = io.BytesIO()
+        joblib.dump(clf, model_buf)
+        model_bin = model_buf.getvalue()
+        
+        encoder_buf = io.BytesIO()
+        joblib.dump(le, encoder_buf)
+        encoder_bin = encoder_buf.getvalue()
+        
+        latest = db.ModelVersions.find_one(sort=[("version", -1)])
+        next_ver = (latest["version"] + 1) if latest else 1
+        
+        db.ModelVersions.update_many({}, {"$set": {"isActive": False}})
+        db.ModelVersions.insert_one({
+            "version": next_ver,
+            "isActive": True,
+            "accuracy": accuracy,
+            "records": len(terminal_bids),
+            "trainedAt": datetime.datetime.utcnow(),
+            "modelBinary": model_bin,
+            "encoderBinary": encoder_bin
+        })
+    except Exception as e:
+        print(f"Error saving version to MongoDB: {e}")
 
     # ── 7. Return summary ──────────────────────────────────────────────────────
     return {

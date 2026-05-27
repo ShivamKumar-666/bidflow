@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, FileText, BarChart2, Shield, Activity, User } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, FileText, Calendar, BarChart2, Shield, Activity, User } from 'lucide-react';
 import { AuthContext } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import './Sidebar.css';
@@ -35,11 +35,18 @@ const Sidebar = () => {
             </NavLink>
           </li>
           <li>
+            <NavLink to="/calendar" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
+              <Calendar size={20} />
+              <span>{t('sidebar.calendar', 'Calendar')}</span>
+            </NavLink>
+          </li>
+          <li>
             <NavLink to="/profile" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
               <User size={20} />
               <span>{t('sidebar.profile')}</span>
             </NavLink>
           </li>
+
           {user && user.role === 'Admin' && (
             <>
               <li>
