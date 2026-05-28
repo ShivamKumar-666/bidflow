@@ -52,7 +52,10 @@ class BidFlowTestSuite(unittest.TestCase):
             "password": password,
             "role": role
         }
-        return self.client.post('/api/auth/register', json=payload)
+        res = self.client.post('/api/auth/register', json=payload)
+        if res.status_code == 201 and role != "Sales Executive":
+            db.Users.update_one({"email": email.strip().lower()}, {"$set": {"role": role}})
+        return res
 
     def _login_user(self, email, password):
         payload = {"email": email, "password": password}
@@ -125,10 +128,10 @@ class BidFlowTestSuite(unittest.TestCase):
     # 2. ROLE-BASED DASHBOARDS & API RESTRICTIONS
     # ==========================================
     def test_role_based_authorizations(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
         self._register_user("Admin User", "admin@bidflow.com", "admin123", "Admin")
 
-        exec_headers  = self._get_auth_headers("exec@bidflow.com", "exec123")
+        exec_headers  = self._get_auth_headers("exec@bidflow.com", "exec1234")
         admin_headers = self._get_auth_headers("admin@bidflow.com", "admin123")
 
         payload = {
@@ -169,8 +172,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # ==========================================
     def test_non_sequential_ids(self):
         """Verify bid and enquiry IDs are unpredictable token-based strings."""
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         # Create two enquiries — IDs must be non-sequential
         enq1 = self.client.post('/api/enquiries/', json={"customerName": "Alpha Corp"}, headers=headers)
@@ -200,8 +203,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 4. AI-BASED BID SUCCESS PREDICTION TESTS
     # ==========================================
     def test_ai_predictions(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         enq_payload = {
             "customerName": "Predict Corp",
@@ -255,8 +258,8 @@ class BidFlowTestSuite(unittest.TestCase):
         Verify the ML pipeline uses real bid outcomes (not profile winRate).
         A user with winRate=100 but zero won bids should get neutral (0.5) computed win rate.
         """
-        self._register_user("Inflated User", "inflated@bidflow.com", "pass123", "Sales Executive")
-        headers = self._get_auth_headers("inflated@bidflow.com", "pass123")
+        self._register_user("Inflated User", "inflated@bidflow.com", "pass1234", "Sales Executive")
+        headers = self._get_auth_headers("inflated@bidflow.com", "pass1234")
 
         # Set profile winRate to 100 — the old loophole
         profile_res = self.client.put('/api/auth/profile',
@@ -281,8 +284,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # ==========================================
     @patch('routes.bids.socketio.emit')
     def test_comments_and_socketio_emissions(self, mock_emit):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         enq_res    = self.client.post('/api/enquiries/',
                                       json={"customerName": "Client Comment",
@@ -320,15 +323,16 @@ class BidFlowTestSuite(unittest.TestCase):
     # 7. EXCEL/PDF EXPORT & KPI ANALYTICS
     # ==========================================
     def test_kpi_analytics_and_exports(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         self.client.post('/api/enquiries/', json={"customerName": "Client 1"}, headers=headers)
         self.client.post('/api/enquiries/', json={"customerName": "Client 2"}, headers=headers)
 
         bid1_res = self.client.post('/api/bids/', json={
             "enquiryId": "ENQ-test01", "amount": 10000,
-            "submissionDate": "2026-07-01", "industry": "Technology"
+            "submissionDate": "2026-07-01", "industry": "Technology",
+            "assignedEmployee": "Exec User"
         }, headers=headers)
         bid1_id = bid1_res.get_json()["_id"]
         self.client.put(f'/api/bids/{bid1_id}/status',
@@ -336,7 +340,8 @@ class BidFlowTestSuite(unittest.TestCase):
 
         bid2_res = self.client.post('/api/bids/', json={
             "enquiryId": "ENQ-test02", "amount": 20000,
-            "submissionDate": "2026-07-01", "industry": "Technology"
+            "submissionDate": "2026-07-01", "industry": "Technology",
+            "assignedEmployee": "Exec User"
         }, headers=headers)
         bid2_id = bid2_res.get_json()["_id"]
         self.client.put(f'/api/bids/{bid2_id}/status',
@@ -344,7 +349,8 @@ class BidFlowTestSuite(unittest.TestCase):
 
         self.client.post('/api/bids/', json={
             "enquiryId": "ENQ-test01", "amount": 30000,
-            "submissionDate": "2026-07-01", "industry": "Technology"
+            "submissionDate": "2026-07-01", "industry": "Technology",
+            "assignedEmployee": "Exec User"
         }, headers=headers)
 
         dash_res = self.client.get('/api/analytics/dashboard', headers=headers)
@@ -371,8 +377,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 8. DOCUMENT UPLOAD TESTS
     # ==========================================
     def test_document_uploads(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         enq_res    = self.client.post('/api/enquiries/',
                                       json={"customerName": "Doc Corp",
@@ -497,8 +503,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 11. CALENDAR VIEW TESTS
     # ==========================================
     def test_calendar_view(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         # 1. Create Enquiry with High Priority
         enq_payload = {
@@ -556,8 +562,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 12. GLOBAL SEARCH TESTS
     # ==========================================
     def test_global_search(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         # 1. Create Enquiry
         enq_payload = {
@@ -618,8 +624,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 13. CUSTOM TAGS & FILTERS TESTS
     # ==========================================
     def test_custom_tags_and_filters(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         # 1. Create Enquiry with Tags
         enq_payload = {
@@ -675,8 +681,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 14. PDF QUOTATION GENERATOR TESTS
     # ==========================================
     def test_quotation_pdf_generation(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         # 1. Create Enquiry
         enq_payload = {
@@ -711,8 +717,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 15. CUSTOMER PORTAL SHARING TESTS
     # ==========================================
     def test_customer_portal_sharing(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec123", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec123")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
 
         # 1. Create Enquiry
         enq_payload = {

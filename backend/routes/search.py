@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from database import db
+import re
 
 search_bp = Blueprint('search', __name__)
 
@@ -16,7 +17,7 @@ def global_search():
             return jsonify({"enquiries": [], "bids": [], "documents": []}), 200
 
         # Construct a case-insensitive regex search dictionary
-        regex_query = {"$regex": query, "$options": "i"}
+        regex_query = {"$regex": re.escape(query), "$options": "i"}  # Escape to prevent ReDoS
 
         # 1. Search Enquiries
         enquiries_cursor = db.Enquiries.find({

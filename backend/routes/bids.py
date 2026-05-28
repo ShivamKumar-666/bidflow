@@ -309,9 +309,23 @@ def update_bid_status(id):
     new_status = data.get("status")
     note       = data.get("note", "Status updated")
 
+    # Status value validation
+    VALID_STATUSES = {"Quotation Prepared", "Under Review", "Negotiation", "Order Received", "Rejected"}
+    if new_status not in VALID_STATUSES:
+        return jsonify({"msg": f"Invalid status. Must be one of: {', '.join(sorted(VALID_STATUSES))}"}), 400
+
     bid = db.Bids.find_one({"_id": ObjectId(id)})
     if not bid:
         return jsonify({"msg": "Bid not found"}), 404
+
+    # RBAC: only Admin or the assigned employee can update status
+    claims = get_jwt()
+    user_id = get_jwt_identity()
+    user = db.Users.find_one({"_id": ObjectId(user_id)})
+    is_admin = claims.get('role') == 'Admin'
+    is_owner = user and user.get('name') == bid.get('assignedEmployee')
+    if not is_admin and not is_owner:
+        return jsonify({"msg": "Unauthorized: only Admin or assigned employee can update status"}), 403
 
     history_entry = {
         "status": new_status,
@@ -511,15 +525,20 @@ def get_calendar_bids():
 @bids_bp.route('/<id>', methods=['PUT'])
 @jwt_required()
 def update_bid(id):
-    """Generic endpoint to update any bid fields, including tags."""
+    """Update allowed bid fields only (field allowlist to prevent mass assignment)."""
     try:
         data = request.get_json()
-        
+        ALLOWED_FIELDS = {"tags", "remarks", "amount", "submissionDate", "assignedEmployee", "industry"}
+        update_data = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
+
+        if not update_data:
+            return jsonify({"msg": "No valid fields to update"}), 400
+
         # Process and sanitize tags if updating them
-        if "tags" in data:
-            data["tags"] = [t.strip().lower() for t in data["tags"] if isinstance(t, str) and t.strip()]
-            
-        result = db.Bids.update_one({"_id": ObjectId(id)}, {"$set": data})
+        if "tags" in update_data:
+            update_data["tags"] = [t.strip().lower() for t in update_data["tags"] if isinstance(t, str) and t.strip()]
+
+        result = db.Bids.update_one({"_id": ObjectId(id)}, {"$set": update_data})
         if result.matched_count:
             bid = db.Bids.find_one({"_id": ObjectId(id)})
             if bid:
@@ -527,7 +546,7 @@ def update_bid(id):
             return jsonify({"msg": "Bid updated"}), 200
         return jsonify({"msg": "Bid not found"}), 404
     except Exception as e:
-        return jsonify({"msg": f"Error updating bid: {str(e)}"}), 500
+        return jsonify({"msg": "Error updating bid"}), 500
 
 
 @bids_bp.route('/<id>/quotation', methods=['GET'])
@@ -607,24 +626,31 @@ def get_quotation_pdf(id):
 @bids_bp.route('/<id>', methods=['DELETE'])
 @jwt_required()
 def delete_bid(id):
-    """Delete a bid, log audit trail, and remove associated notifications."""
+    """Delete a bid (Admin or assigned employee only)."""
     try:
+        claims = get_jwt()
+        user_id = get_jwt_identity()
+        user = db.Users.find_one({"_id": ObjectId(user_id)})
+
         bid = db.Bids.find_one({"_id": ObjectId(id)})
         if not bid:
             return jsonify({"msg": "Bid not found"}), 404
 
+        # RBAC: only Admin or the assigned employee can delete
+        is_admin = claims.get('role') == 'Admin'
+        is_owner = user and user.get('name') == bid.get('assignedEmployee')
+        if not is_admin and not is_owner:
+            return jsonify({"msg": "Unauthorized: only Admin or assigned employee can delete this bid"}), 403
+
         bid_id_str = bid.get("bidId", id)
-        
-        # Delete bid
+
         db.Bids.delete_one({"_id": ObjectId(id)})
-        
-        # Clean up notifications referencing this bid
         db.Notifications.delete_many({"refId": id})
 
         log_audit("DELETE_BID", f"Deleted bid {bid_id_str}")
         return jsonify({"msg": "Bid deleted successfully"}), 200
     except Exception as e:
-        return jsonify({"msg": f"Error deleting bid: {str(e)}"}), 500
+        return jsonify({"msg": "Error deleting bid"}), 500
 
 
 @bids_bp.route('/<id>/comments/<date_str>', methods=['DELETE'])

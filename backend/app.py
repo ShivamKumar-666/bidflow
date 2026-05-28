@@ -24,7 +24,7 @@ def create_app():
     app.config.from_object(Config)
 
     # ── Core extensions ───────────────────────────────────────────────────────
-    CORS(app)
+    CORS(app, origins=["http://localhost:5173", "http://127.0.0.1:5173"])  # Restrict CORS origins
     jwt = JWTManager(app)
     limiter.init_app(app)
 
@@ -37,11 +37,21 @@ def create_app():
     # ── Socket.IO room management ─────────────────────────────────────────────
     @socketio.on('join')
     def on_join(data):
-        """Client emits {room: 'user_<id>'} immediately after connecting."""
+        """Client emits {room: 'user_<id>', token: '<jwt>'} after connecting."""
         from flask_socketio import join_room
+        from flask_jwt_extended import decode_token
         room = data.get('room')
-        if room:
-            join_room(room)
+        token = data.get('token')
+        if not room or not token:
+            return
+        try:
+            decoded = decode_token(token)
+            user_id = decoded.get('sub')
+            # Only allow joining your own user room
+            if room == f"user_{user_id}":
+                join_room(room)
+        except Exception:
+            pass  # Invalid token — silently reject
 
     # ── JWT Blocklist (revocation) ────────────────────────────────────────────
     @jwt.token_in_blocklist_loader
@@ -86,11 +96,11 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    is_dev = app.config.get('FLASK_ENV', 'development') == 'development'
+    is_dev = app.config.get('FLASK_ENV') == 'development'
     socketio.run(
         app,
         host='0.0.0.0',
         debug=is_dev,
         port=5000,
-        allow_unsafe_werkzeug=True
+        allow_unsafe_werkzeug=is_dev
     )

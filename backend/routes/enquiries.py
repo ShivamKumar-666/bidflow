@@ -57,12 +57,20 @@ def create_enquiry():
 @jwt_required()
 def update_enquiry(id):
     data = request.get_json()
-    
+
+    # Field allowlist to prevent mass assignment
+    ALLOWED_FIELDS = {"customerName", "contactInformation", "productServiceRequired",
+                      "priority", "notes", "tags", "status"}
+    update_data = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
+
+    if not update_data:
+        return jsonify({"msg": "No valid fields to update"}), 400
+
     # Process and sanitize tags if updating them
-    if "tags" in data:
-        data["tags"] = [t.strip().lower() for t in data["tags"] if isinstance(t, str) and t.strip()]
-        
-    result = db.Enquiries.update_one({"_id": ObjectId(id)}, {"$set": data})
+    if "tags" in update_data:
+        update_data["tags"] = [t.strip().lower() for t in update_data["tags"] if isinstance(t, str) and t.strip()]
+
+    result = db.Enquiries.update_one({"_id": ObjectId(id)}, {"$set": update_data})
     if result.matched_count:
         enq = db.Enquiries.find_one({"_id": ObjectId(id)})
         if enq:

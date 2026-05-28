@@ -18,12 +18,21 @@ def register():
     name     = data.get('name')
     email    = data.get('email')
     password = data.get('password')
-    role     = data.get('role', 'Sales Executive')
+    role     = 'Sales Executive'  # Never accept role from client — prevents privilege escalation
 
     if not email or not password or not name:
         return jsonify({"msg": "Missing required fields"}), 400
 
+    # Password strength validation
+    if len(password) < 8:
+        return jsonify({"msg": "Password must be at least 8 characters long"}), 400
+
     email = email.strip().lower()
+
+    # Basic email format validation
+    import re
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return jsonify({"msg": "Invalid email format"}), 400
 
     if db.Users.find_one({"email": email}):
         return jsonify({"msg": "Email already exists"}), 400
@@ -124,7 +133,11 @@ def logout():
 def me():
     current_user_id = get_jwt_identity()
     from bson.objectid import ObjectId
-    user = db.Users.find_one({"_id": ObjectId(current_user_id)}, {"password": 0})
+    user = db.Users.find_one({"_id": ObjectId(current_user_id)}, {
+            "name": 1, "email": 1, "role": 1, "industry": 1,
+            "winRate": 1, "targetBidValue": 1, "bio": 1,
+            "totp_enabled": 1
+        })
     if user:
         user['_id'] = str(user['_id'])
         return jsonify(user), 200
@@ -182,7 +195,11 @@ def update_profile():
 
     db.Users.update_one({"_id": ObjectId(current_user_id)}, {"$set": update_data})
 
-    user = db.Users.find_one({"_id": ObjectId(current_user_id)}, {"password": 0})
+    user = db.Users.find_one({"_id": ObjectId(current_user_id)}, {
+            "name": 1, "email": 1, "role": 1, "industry": 1,
+            "winRate": 1, "targetBidValue": 1, "bio": 1,
+            "totp_enabled": 1
+        })
     if user:
         user['_id'] = str(user['_id'])
         return jsonify(user), 200

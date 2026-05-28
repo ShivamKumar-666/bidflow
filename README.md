@@ -82,6 +82,18 @@ BidFlow is a state-of-the-art, secure, and intelligent bid management platform d
 | **Model Target Leak** | Overfit amount columns corrected in training dataset to enable real variable predictions |
 | **Customer Portal Leak** | Share portal hides internal ML prediction stats and automatically expires tokens after 90 days |
 | **Unauthorized Comment Deletion** | Backend verification ensures only comment author or Admin can delete comments |
+| **Privilege Escalation at Signup (C-1)** | Registration role is hardcoded to `'Sales Executive'`. Custom roles must be updated directly in database or by an Admin |
+| **Hardcoded Default Secret Keys (C-2)** | Changed to strict env-based configuration (`os.environ.get(...) or 'dev-only-...'`) and reduced token expiry to 1 hour |
+| **TOTP Secret / Backup Code Leak (C-3)** | Added MongoDB field projection exclusion on `/me` and profile update routes |
+| **Mass Assignment in Bid & Enquiry (C-4, C-5)** | Implemented field allowlists for both PUT endpoints to block unauthorized property modifications |
+| **Path Traversal on Document Download (C-6)** | Switched filename-based download to secure database ID lookup and path restrictions via configuration uploads directory |
+| **Unauthenticated Socket.IO Join (C-8)** | Modified `join` socket handler to verify JWT and restrict users to joining their own room (`user_{user_id}`) |
+| **Wildcard CORS Policy (H-1)** | Restricted allowed CORS origins to specific local development ports (`http://localhost:5173`) |
+| **Missing RBAC on Bid Operations (H-3, H-4)** | Added ownership checks so only the assigned employee or an Admin can delete bids or update status |
+| **Missing Status Value Validation (H-5)** | Validates that status updates match a whitelist of valid statuses ("Quotation Prepared", "Under Review", "Negotiation", "Order Received", "Rejected") |
+| **Regex Injection / ReDoS (H-8)** | Escapes search query patterns with `re.escape()` to prevent denial-of-service backtracking |
+| **Weak Password & Email Formats (H-9, H-10)** | Implemented 8-character minimum password validation and email format verification regex |
+| **Debug Mode Defaults (M-5)** | Configured `allow_unsafe_werkzeug` to run ONLY in development and locked debug mode strictly to `FLASK_ENV == 'development'` |
 
 ---
 

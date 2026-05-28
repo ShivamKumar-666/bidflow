@@ -21,12 +21,12 @@ def _build_mongo_uri():
 
 
 class Config:
-    SECRET_KEY     = os.environ.get('SECRET_KEY', 'super-secret-key-change-in-prod')
+    SECRET_KEY     = os.environ.get('SECRET_KEY') or 'dev-only-secret-key-not-for-production'
     MONGO_URI      = _build_mongo_uri()
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key-change-in-prod')
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-only-jwt-key-not-for-production'
 
     # Token lifetime
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=24)
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)  # Reduced from 24h for security
 
     # ── JWT blocklist ──────────────────────────────────────────────────────────
     # Flask-JWT-Extended checks the token_in_blocklist_loader on every protected

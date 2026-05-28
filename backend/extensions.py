@@ -2,7 +2,7 @@ from flask_socketio import SocketIO
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
-socketio = SocketIO(cors_allowed_origins="*")
+socketio = SocketIO(cors_allowed_origins=["http://localhost:5173", "http://127.0.0.1:5173"])
 
 # Rate limiter — uses in-memory storage (swap to Redis URI via LIMITER_STORAGE_URI env var for prod)
 limiter = Limiter(

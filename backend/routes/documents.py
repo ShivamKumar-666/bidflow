@@ -45,10 +45,15 @@ def upload_file():
         
     return jsonify({"msg": "File type not allowed"}), 400
 
-@documents_bp.route('/download/<filename>', methods=['GET'])
+@documents_bp.route('/download/<doc_id>', methods=['GET'])
 @jwt_required()
-def download_file(filename):
-    return send_from_directory(current_app.config['UPLOAD_FOLDER'], filename)
+def download_file(doc_id):
+    """Download a document by its database ID (not filename) to prevent path traversal."""
+    doc = db.Documents.find_one({"_id": ObjectId(doc_id)})
+    if not doc:
+        return jsonify({"msg": "Document not found"}), 404
+    return send_from_directory(current_app.config['UPLOAD_FOLDER'], doc["path"],
+                               as_attachment=True, download_name=doc["filename"])
 
 @documents_bp.route('/bid/<bid_id>', methods=['GET'])
 @jwt_required()
