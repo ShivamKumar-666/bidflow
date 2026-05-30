@@ -55,6 +55,13 @@ const Login = () => {
 
   const { login, register, verify2FA, cancelTwoFA, twoFAPending, loginWithGoogle } = useContext(AuthContext);
 
+  const allChecksPassed = !isRegistering || (
+    password.length >= 8 &&
+    /[A-Z]/.test(password) &&
+    /[0-9]/.test(password) &&
+    /[^a-zA-Z0-9]/.test(password)
+  );
+
   const handleGoogleCredentialResponse = async (response) => {
     setError('');
     setLoading(true);
@@ -361,13 +368,18 @@ const Login = () => {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
+            {isRegistering && <PasswordStrength password={password} />}
           </div>
 
           <button
             type="submit"
             className="btn-primary"
-            style={{ marginTop: '16px' }}
-            disabled={loading}
+            style={{ 
+              marginTop: '16px',
+              opacity: allChecksPassed ? 1 : 0.5,
+              cursor: allChecksPassed ? 'pointer' : 'not-allowed'
+            }}
+            disabled={loading || !allChecksPassed}
           >
             {loading
               ? (isRegistering ? 'Creating Account…' : 'Signing In…')
@@ -424,7 +436,60 @@ const Login = () => {
         </div>
       </div>
     </div>
-  );
 };
+
+function PasswordStrength({ password }) {
+  const checks = [
+    { label: "8+ characters",          pass: password.length >= 8 },
+    { label: "One uppercase letter",   pass: /[A-Z]/.test(password) },
+    { label: "One number",             pass: /[0-9]/.test(password) },
+    { label: "One special character",  pass: /[^a-zA-Z0-9]/.test(password) },
+  ];
+
+  const passed = checks.filter(c => c.pass).length;
+  const strengthLabel = ["", "Weak", "Fair", "Good", "Strong"][passed];
+  const strengthColor = ["", "#ef4444", "#f59e0b", "#06b6d4", "#10b981"][passed];
+
+  if (!password) return null;
+
+  return (
+    <div style={{ marginTop: 12 }}>
+      {/* Strength bar */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+        {[1, 2, 3, 4].map(i => (
+          <div key={i} style={{
+            flex: 1, height: 4, borderRadius: 2,
+            background: i <= passed ? strengthColor : "var(--border-color)",
+            transition: "background .3s ease"
+          }} />
+        ))}
+      </div>
+
+      {/* Label */}
+      <div style={{ display: "flex", justifyContent: "space-between",
+                    alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: '0.8rem', color: "var(--text-secondary)" }}>Password strength</span>
+        <span style={{ fontSize: '0.8rem', fontWeight: 700, color: strengthColor }}>
+          {strengthLabel}
+        </span>
+      </div>
+
+      {/* Individual checks */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {checks.map(({ label, pass }) => (
+          <div key={label} style={{ display: "flex", alignItems: "center",
+                                    gap: 8, fontSize: '0.8rem' }}>
+            <span style={{ color: pass ? "var(--success)" : "var(--text-secondary)", fontSize: 14 }}>
+              {pass ? "✓" : "○"}
+            </span>
+            <span style={{ color: pass ? "var(--text-primary)" : "var(--text-secondary)", transition: "color 0.2s" }}>
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export default Login;

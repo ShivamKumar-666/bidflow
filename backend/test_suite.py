@@ -46,6 +46,9 @@ class BidFlowTestSuite(unittest.TestCase):
         db.RevokedTokens.delete_many({})
 
     def _register_user(self, name, email, password, role="Sales Executive"):
+        # Auto-capitalize if password does not have an uppercase letter to satisfy complexity rules
+        if not any(c.isupper() for c in password):
+            password = password.capitalize()
         payload = {
             "name": name,
             "email": email,
@@ -60,6 +63,8 @@ class BidFlowTestSuite(unittest.TestCase):
         return res
 
     def _login_user(self, email, password):
+        if not any(c.isupper() for c in password):
+            password = password.capitalize()
         payload = {"email": email, "password": password}
         return self.client.post('/api/auth/login', json=payload)
 
@@ -850,7 +855,7 @@ class BidFlowTestSuite(unittest.TestCase):
         register_payload = {
             "name": "Verify Me",
             "email": "verify@bidflow.com",
-            "password": "verifypassword123!"
+            "password": "VerifyPassword123!"
         }
         res = self.client.post('/api/auth/register', json=register_payload)
         self.assertEqual(res.status_code, 201)
@@ -862,7 +867,7 @@ class BidFlowTestSuite(unittest.TestCase):
         self.assertFalse(user_in_db.get("is_verified", False))
 
         # 3. Attempt login — must fail with 403
-        login_res = self._login_user("verify@bidflow.com", "verifypassword123!")
+        login_res = self._login_user("verify@bidflow.com", "VerifyPassword123!")
         self.assertEqual(login_res.status_code, 403)
         self.assertEqual(login_res.get_json().get("error"), "email_not_verified")
 
@@ -880,7 +885,7 @@ class BidFlowTestSuite(unittest.TestCase):
         self.assertTrue(user_in_db_after.get("is_verified", False))
 
         # 6. Attempt login again — must succeed with 200
-        login_success = self._login_user("verify@bidflow.com", "verifypassword123!")
+        login_success = self._login_user("verify@bidflow.com", "VerifyPassword123!")
         self.assertEqual(login_success.status_code, 200)
         self.assertIn("access_token", login_success.get_json())
 

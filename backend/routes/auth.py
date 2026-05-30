@@ -1,3 +1,4 @@
+import re
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
     create_access_token, jwt_required,
@@ -30,12 +31,12 @@ def register():
     if len(password) < 8:
         return jsonify({"msg": "Password must be at least 8 characters long"}), 400
 
-    # ── Complexity check (new) ─────────────────────────────────────────────────
-    import re
+    if not re.search(r'[A-Z]', password):
+        return jsonify({"msg": "Password must contain at least one uppercase letter"}), 400
     if not re.search(r'[0-9]', password):
         return jsonify({"msg": "Password must contain at least one number"}), 400
     if not re.search(r'[^a-zA-Z0-9]', password):
-        return jsonify({"msg": "Password must contain at least one special character"}), 400
+        return jsonify({"msg": "Password must contain at least one special character (!@#$% etc.)"}), 400
 
     email = email.strip().lower()
 
