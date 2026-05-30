@@ -100,7 +100,7 @@ if __name__ == '__main__':
     is_dev = app.config.get('FLASK_ENV') == 'development'
     socketio.run(
         app,
-        host='0.0.0.0',
+        host='127.0.0.1',
         debug=is_dev,
         port=5000,
         allow_unsafe_werkzeug=is_dev
