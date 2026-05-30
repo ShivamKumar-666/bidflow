@@ -436,6 +436,7 @@ const Login = () => {
         </div>
       </div>
     </div>
+  );
 };
 
 function PasswordStrength({ password }) {
