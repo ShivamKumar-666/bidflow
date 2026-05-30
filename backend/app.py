@@ -13,7 +13,7 @@ from routes.admin import admin_bp
 from routes.search import search_bp
 from routes.tags import tags_bp
 from routes.notifications import notifications_bp
-from extensions import socketio, limiter
+from extensions import socketio, limiter, mail
 from database import db
 import datetime
 import os
@@ -31,8 +31,9 @@ def create_app():
     # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
-    # Initialize SocketIO
+    # Initialize SocketIO and Mail
     socketio.init_app(app)
+    mail.init_app(app)
 
     # ── Socket.IO room management ─────────────────────────────────────────────
     @socketio.on('join')

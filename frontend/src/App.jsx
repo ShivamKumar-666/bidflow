@@ -16,6 +16,7 @@ import Profile from './pages/Profile';
 import TwoFASetup from './pages/TwoFASetup';
 import CalendarView from './pages/CalendarView';
 import CustomerPortal from './pages/CustomerPortal';
+import VerifyEmail from './pages/VerifyEmail';
 
 const AppLayout = ({ children }) => {
   return (
@@ -44,6 +45,8 @@ const AppRoutes = () => {
         <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
         
         <Route path="/share/:token" element={<CustomerPortal />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
+
 
         <Route path="/dashboard" element={
           <ProtectedRoute>

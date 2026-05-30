@@ -4,6 +4,41 @@ BidFlow is a state-of-the-art, secure, and intelligent bid management platform d
 
 ---
 
+## ⚡ Quick Setup
+
+### 1. Clone the repo
+```bash
+git clone https://github.com/ShivamKumar-666/bidflow.git
+cd bidflow
+```
+
+### 2. Set up environment variables
+Copy the template variables file to `.env` inside the `backend` directory:
+```bash
+cp backend/.env.example backend/.env
+```
+Open `backend/.env` and update the values. Specifically, set up the SMTP configurations (such as a Mailtrap box or Gmail App Password) to allow user account verification emails to be sent successfully.
+
+### 3. Backend Setup
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate        # On Windows (PowerShell: .\venv\Scripts\Activate.ps1)
+# source venv/bin/activate   # On macOS/Linux
+pip install -r requirements.txt
+python wsgi.py               # Starts the Flask dev server
+```
+
+### 4. Frontend Setup
+```bash
+cd ../frontend
+npm install
+npm run dev                  # Starts Vite client
+```
+Access the client at `http://localhost:5173`.
+
+---
+
 ## 🌟 Key Features
 
 ### 1. 🔐 Two-Factor Authentication (2FA) for Admins

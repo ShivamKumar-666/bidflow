@@ -53,8 +53,10 @@ class BidFlowTestSuite(unittest.TestCase):
             "role": role
         }
         res = self.client.post('/api/auth/register', json=payload)
-        if res.status_code == 201 and role != "Sales Executive":
-            db.Users.update_one({"email": email.strip().lower()}, {"$set": {"role": role}})
+        if res.status_code == 201:
+            db.Users.update_one({"email": email.strip().lower()}, {"$set": {"is_verified": True}})
+            if role != "Sales Executive":
+                db.Users.update_one({"email": email.strip().lower()}, {"$set": {"role": role}})
         return res
 
     def _login_user(self, email, password):
@@ -71,12 +73,13 @@ class BidFlowTestSuite(unittest.TestCase):
     # ==========================================
     def test_auth_flows(self):
         # Valid registration
-        res = self._register_user("Sales User", "sales@bidflow.com", "salespass123")
+        res = self._register_user("Sales User", "sales@bidflow.com", "salespass123!")
         self.assertEqual(res.status_code, 201)
-        self.assertIn("User created successfully", res.get_json().get('msg'))
+        self.assertIn("Account created", res.get_json().get('msg'))
+
 
         # Duplicate registration
-        res = self._register_user("Sales User Duplicate", "sales@bidflow.com", "salespass123")
+        res = self._register_user("Sales User Duplicate", "sales@bidflow.com", "salespass123!")
         self.assertEqual(res.status_code, 400)
         self.assertIn("already exists", res.get_json().get('msg'))
 
@@ -86,7 +89,7 @@ class BidFlowTestSuite(unittest.TestCase):
         self.assertIn("Missing required fields", res.get_json().get('msg'))
 
         # Valid login
-        res = self._login_user("sales@bidflow.com", "salespass123")
+        res = self._login_user("sales@bidflow.com", "salespass123!")
         self.assertEqual(res.status_code, 200)
         data = res.get_json()
         self.assertIn("access_token", data)
@@ -99,7 +102,7 @@ class BidFlowTestSuite(unittest.TestCase):
         self.assertIn("Bad email or password", res.get_json().get('msg'))
 
         # /me retrieval
-        headers = self._get_auth_headers("sales@bidflow.com", "salespass123")
+        headers = self._get_auth_headers("sales@bidflow.com", "salespass123!")
         res = self.client.get('/api/auth/me', headers=headers)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(res.get_json()["email"], "sales@bidflow.com")
@@ -108,8 +111,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 1b. JWT LOGOUT / TOKEN REVOCATION TESTS
     # ==========================================
     def test_jwt_logout_and_revocation(self):
-        self._register_user("Logout User", "logout@bidflow.com", "logoutpass")
-        headers = self._get_auth_headers("logout@bidflow.com", "logoutpass")
+        self._register_user("Logout User", "logout@bidflow.com", "logoutpass123!")
+        headers = self._get_auth_headers("logout@bidflow.com", "logoutpass123!")
 
         # Token works before logout
         res = self.client.get('/api/auth/me', headers=headers)
@@ -128,11 +131,11 @@ class BidFlowTestSuite(unittest.TestCase):
     # 2. ROLE-BASED DASHBOARDS & API RESTRICTIONS
     # ==========================================
     def test_role_based_authorizations(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        self._register_user("Admin User", "admin@bidflow.com", "admin123", "Admin")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        self._register_user("Admin User", "admin@bidflow.com", "admin123!", "Admin")
 
-        exec_headers  = self._get_auth_headers("exec@bidflow.com", "exec1234")
-        admin_headers = self._get_auth_headers("admin@bidflow.com", "admin123")
+        exec_headers  = self._get_auth_headers("exec@bidflow.com", "exec1234!")
+        admin_headers = self._get_auth_headers("admin@bidflow.com", "admin123!")
 
         payload = {
             "customerName": "Test Client",
@@ -172,8 +175,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # ==========================================
     def test_non_sequential_ids(self):
         """Verify bid and enquiry IDs are unpredictable token-based strings."""
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         # Create two enquiries — IDs must be non-sequential
         enq1 = self.client.post('/api/enquiries/', json={"customerName": "Alpha Corp"}, headers=headers)
@@ -203,8 +206,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 4. AI-BASED BID SUCCESS PREDICTION TESTS
     # ==========================================
     def test_ai_predictions(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         enq_payload = {
             "customerName": "Predict Corp",
@@ -258,8 +261,8 @@ class BidFlowTestSuite(unittest.TestCase):
         Verify the ML pipeline uses real bid outcomes (not profile winRate).
         A user with winRate=100 but zero won bids should get neutral (0.5) computed win rate.
         """
-        self._register_user("Inflated User", "inflated@bidflow.com", "pass1234", "Sales Executive")
-        headers = self._get_auth_headers("inflated@bidflow.com", "pass1234")
+        self._register_user("Inflated User", "inflated@bidflow.com", "pass1234!", "Sales Executive")
+        headers = self._get_auth_headers("inflated@bidflow.com", "pass1234!")
 
         # Set profile winRate to 100 — the old loophole
         profile_res = self.client.put('/api/auth/profile',
@@ -284,8 +287,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # ==========================================
     @patch('routes.bids.socketio.emit')
     def test_comments_and_socketio_emissions(self, mock_emit):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         enq_res    = self.client.post('/api/enquiries/',
                                       json={"customerName": "Client Comment",
@@ -323,8 +326,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 7. EXCEL/PDF EXPORT & KPI ANALYTICS
     # ==========================================
     def test_kpi_analytics_and_exports(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         self.client.post('/api/enquiries/', json={"customerName": "Client 1"}, headers=headers)
         self.client.post('/api/enquiries/', json={"customerName": "Client 2"}, headers=headers)
@@ -377,8 +380,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 8. DOCUMENT UPLOAD TESTS
     # ==========================================
     def test_document_uploads(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         enq_res    = self.client.post('/api/enquiries/',
                                       json={"customerName": "Doc Corp",
@@ -438,8 +441,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 9. USER PROFILE & PREDICTION INTEGRATION
     # ==========================================
     def test_user_profile_and_prediction_integration(self):
-        self._register_user("Expert Estimator", "estimator@bidflow.com", "estimator123", "Sales Executive")
-        headers = self._get_auth_headers("estimator@bidflow.com", "estimator123")
+        self._register_user("Expert Estimator", "estimator@bidflow.com", "estimator123!", "Sales Executive")
+        headers = self._get_auth_headers("estimator@bidflow.com", "estimator123!")
 
         profile_payload = {
             "name": "Expert Estimator",
@@ -485,9 +488,9 @@ class BidFlowTestSuite(unittest.TestCase):
     # 10. ADMIN MODEL STATUS ENDPOINT
     # ==========================================
     def test_admin_model_status(self):
-        self._register_user("Admin", "admin@bidflow.com", "admin123", "Admin")
+        self._register_user("Admin", "admin@bidflow.com", "admin123!", "Admin")
         # Admin login: no 2FA set up, so gets full token directly
-        admin_res = self._login_user("admin@bidflow.com", "admin123")
+        admin_res = self._login_user("admin@bidflow.com", "admin123!")
         token = admin_res.get_json().get('access_token')
         admin_headers = {"Authorization": f"Bearer {token}"}
 
@@ -503,8 +506,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 11. CALENDAR VIEW TESTS
     # ==========================================
     def test_calendar_view(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         # 1. Create Enquiry with High Priority
         enq_payload = {
@@ -562,8 +565,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 12. GLOBAL SEARCH TESTS
     # ==========================================
     def test_global_search(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         # 1. Create Enquiry
         enq_payload = {
@@ -624,8 +627,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 13. CUSTOM TAGS & FILTERS TESTS
     # ==========================================
     def test_custom_tags_and_filters(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         # 1. Create Enquiry with Tags
         enq_payload = {
@@ -681,8 +684,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 14. PDF QUOTATION GENERATOR TESTS
     # ==========================================
     def test_quotation_pdf_generation(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         # 1. Create Enquiry
         enq_payload = {
@@ -717,8 +720,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 15. CUSTOMER PORTAL SHARING TESTS
     # ==========================================
     def test_customer_portal_sharing(self):
-        self._register_user("Exec User", "exec@bidflow.com", "exec1234", "Sales Executive")
-        headers = self._get_auth_headers("exec@bidflow.com", "exec1234")
+        self._register_user("Exec User", "exec@bidflow.com", "exec1234!", "Sales Executive")
+        headers = self._get_auth_headers("exec@bidflow.com", "exec1234!")
 
         # 1. Create Enquiry
         enq_payload = {
@@ -789,8 +792,8 @@ class BidFlowTestSuite(unittest.TestCase):
     # 16. SLA & DEADLINE TRACKING TESTS
     # ==========================================
     def test_sla_tracking_and_reporting(self):
-        self._register_user("Admin User", "admin@bidflow.com", "admin123", "Admin")
-        headers = self._get_auth_headers("admin@bidflow.com", "admin123")
+        self._register_user("Admin User", "admin@bidflow.com", "admin123!", "Admin")
+        headers = self._get_auth_headers("admin@bidflow.com", "admin123!")
 
         # 1. Create Enquiry & Bid
         enq_payload = {
@@ -838,6 +841,57 @@ class BidFlowTestSuite(unittest.TestCase):
         # Verify details list contains our bid ID
         breached_bid_ids = [b["bidId"] for b in report_data["details"]]
         self.assertIn(bid_data["bidId"], breached_bid_ids)
+
+    # ==========================================
+    # 17. EMAIL VERIFICATION FLOW TESTS
+    # ==========================================
+    def test_email_verification_flow(self):
+        # 1. Register a user (directly via API, not _register_user so is_verified is False)
+        register_payload = {
+            "name": "Verify Me",
+            "email": "verify@bidflow.com",
+            "password": "verifypassword123!"
+        }
+        res = self.client.post('/api/auth/register', json=register_payload)
+        self.assertEqual(res.status_code, 201)
+        self.assertIn("Please check your email to verify your account", res.get_json()["msg"])
+
+        # 2. Verify account is not active
+        user_in_db = db.Users.find_one({"email": "verify@bidflow.com"})
+        self.assertIsNotNone(user_in_db)
+        self.assertFalse(user_in_db.get("is_verified", False))
+
+        # 3. Attempt login — must fail with 403
+        login_res = self._login_user("verify@bidflow.com", "verifypassword123!")
+        self.assertEqual(login_res.status_code, 403)
+        self.assertEqual(login_res.get_json().get("error"), "email_not_verified")
+
+        # 4. Generate verification token and verify it via verification endpoint
+        from utils.email_tokens import generate_verification_token
+        token = generate_verification_token("verify@bidflow.com")
+        
+        # Call verification route with token
+        verify_res = self.client.get(f'/api/auth/verify-email?token={token}')
+        self.assertEqual(verify_res.status_code, 200)
+        self.assertIn("verified successfully", verify_res.get_json()["msg"])
+
+        # 5. Verify user document is_verified state updated to True
+        user_in_db_after = db.Users.find_one({"email": "verify@bidflow.com"})
+        self.assertTrue(user_in_db_after.get("is_verified", False))
+
+        # 6. Attempt login again — must succeed with 200
+        login_success = self._login_user("verify@bidflow.com", "verifypassword123!")
+        self.assertEqual(login_success.status_code, 200)
+        self.assertIn("access_token", login_success.get_json())
+
+        # 7. Test resend verification for unverified/missing emails
+        # Unverified but verified now -> should return 200 (prevent enumeration)
+        resend_res1 = self.client.post('/api/auth/resend-verification', json={"email": "verify@bidflow.com"})
+        self.assertEqual(resend_res1.status_code, 200)
+
+        # Missing email -> should return 200 (prevent enumeration)
+        resend_res2 = self.client.post('/api/auth/resend-verification', json={"email": "nonexistent@bidflow.com"})
+        self.assertEqual(resend_res2.status_code, 200)
 
 
 if __name__ == '__main__':

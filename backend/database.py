@@ -28,6 +28,20 @@ def get_db():
             background=True
         )
 
+        # Unique index on user email
+        db.Users.create_index(
+            [("email", ASCENDING)],
+            unique=True,
+            background=True
+        )
+
+        # Index on user verification status
+        db.Users.create_index(
+            [("is_verified", ASCENDING)],
+            background=True
+        )
+
+
         return db
 
     except Exception as e:

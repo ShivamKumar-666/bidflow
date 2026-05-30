@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
     create_access_token, jwt_required,
     get_jwt_identity, get_jwt
@@ -7,6 +7,10 @@ import bcrypt
 from database import db
 from extensions import limiter
 from datetime import timedelta, timezone, datetime as dt
+from utils.email_tokens import generate_verification_token, confirm_verification_token
+from utils.email_sender import send_verification_email
+from itsdangerous import SignatureExpired, BadSignature
+
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -14,7 +18,7 @@ auth_bp = Blueprint('auth', __name__)
 @auth_bp.route('/register', methods=['POST'])
 @limiter.limit("5 per minute")
 def register():
-    data = request.get_json()
+    data     = request.get_json()
     name     = data.get('name')
     email    = data.get('email')
     password = data.get('password')
@@ -23,14 +27,18 @@ def register():
     if not email or not password or not name:
         return jsonify({"msg": "Missing required fields"}), 400
 
-    # Password strength validation
     if len(password) < 8:
         return jsonify({"msg": "Password must be at least 8 characters long"}), 400
 
+    # ── Complexity check (new) ─────────────────────────────────────────────────
+    import re
+    if not re.search(r'[0-9]', password):
+        return jsonify({"msg": "Password must contain at least one number"}), 400
+    if not re.search(r'[^a-zA-Z0-9]', password):
+        return jsonify({"msg": "Password must contain at least one special character"}), 400
+
     email = email.strip().lower()
 
-    # Basic email format validation
-    import re
     if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
         return jsonify({"msg": "Invalid email format"}), 400
 
@@ -40,14 +48,26 @@ def register():
     hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
 
     user = {
-        "name": name,
-        "email": email,
-        "password": hashed_password.decode('utf-8'),
-        "role": role
+        "name":          name,
+        "email":         email,
+        "password":      hashed_password.decode('utf-8'),
+        "role":          role,
+        "is_verified":   False,    # ← account inactive until email confirmed
+        "created_at":    dt.utcnow()
     }
     db.Users.insert_one(user)
 
-    return jsonify({"msg": "User created successfully"}), 201
+    # Generate signed token and send verification email
+    try:
+        token = generate_verification_token(email)
+        send_verification_email(name, email, token)
+    except Exception as e:
+        # Don't block registration if email fails — log it and continue
+        current_app.logger.error(f"Failed to send verification email to {email}: {e}")
+
+    return jsonify({
+        "msg": "Account created. Please check your email to verify your account before logging in."
+    }), 201
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -65,6 +85,14 @@ def login():
     user = db.Users.find_one({"email": email})
     if not user or not bcrypt.checkpw(password.encode('utf-8'), user['password'].encode('utf-8')):
         return jsonify({"msg": "Bad email or password"}), 401
+
+    # ── Block unverified users from logging in ─────────────────────────────────
+    if not user.get('is_verified', False):
+        return jsonify({
+            "msg": "Please verify your email address before logging in.",
+            "error": "email_not_verified"
+        }), 403
+
 
     access_token = create_access_token(
         identity=str(user['_id']),
@@ -205,3 +233,69 @@ def update_profile():
         return jsonify(user), 200
 
     return jsonify({"msg": "User not found"}), 404
+
+
+@auth_bp.route('/verify-email', methods=['GET'])
+@limiter.limit("10 per minute")
+def verify_email():
+    """
+    Called when the user clicks the verification link.
+    The React frontend hits this endpoint with the token from the URL query param.
+    """
+    token = request.args.get('token')
+    if not token:
+        return jsonify({"msg": "Missing verification token"}), 400
+
+    try:
+        email = confirm_verification_token(token)
+    except SignatureExpired:
+        return jsonify({
+            "msg": "Verification link has expired. Please request a new one.",
+            "error": "token_expired"
+        }), 400
+    except BadSignature:
+        return jsonify({
+            "msg": "Invalid or tampered verification link.",
+            "error": "token_invalid"
+        }), 400
+
+    user = db.Users.find_one({"email": email})
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    if user.get('is_verified'):
+        return jsonify({"msg": "Email already verified. You can log in."}), 200
+
+    db.Users.update_one(
+        {"email": email},
+        {"$set": {"is_verified": True, "verified_at": dt.utcnow()}}
+    )
+
+    return jsonify({"msg": "Email verified successfully. You can now log in."}), 200
+
+
+@auth_bp.route('/resend-verification', methods=['POST'])
+@limiter.limit("3 per hour")      # strict — prevents email bombing
+def resend_verification():
+    """Allow users to request a new verification email."""
+    data  = request.get_json()
+    email = data.get('email', '').strip().lower()
+
+    if not email:
+        return jsonify({"msg": "Email is required"}), 400
+
+    user = db.Users.find_one({"email": email})
+
+    # Always return 200 — never reveal whether an email exists (prevents enumeration)
+    if not user or user.get('is_verified'):
+        return jsonify({"msg": "If that email exists and is unverified, a new link has been sent."}), 200
+
+    try:
+        token = generate_verification_token(email)
+        send_verification_email(user['name'], email, token)
+    except Exception as e:
+        current_app.logger.error(f"Failed to resend verification to {email}: {e}")
+        return jsonify({"msg": "Failed to send email. Please try again later."}), 500
+
+    return jsonify({"msg": "If that email exists and is unverified, a new link has been sent."}), 200
+

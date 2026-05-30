@@ -42,3 +42,16 @@ class Config:
     # Flask env
     FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
     RATELIMIT_ENABLED = (os.environ.get('FLASK_ENV') != 'testing')
+
+    # Email (use SendGrid SMTP, Gmail, or Mailtrap for dev)
+    MAIL_SERVER   = os.environ.get('MAIL_SERVER', 'smtp.mailtrap.io')
+    MAIL_PORT     = int(os.environ.get('MAIL_PORT', 587))
+    MAIL_USE_TLS  = os.environ.get('MAIL_USE_TLS', 'true').lower() == 'true'
+    MAIL_USERNAME = os.environ.get('MAIL_USERNAME')
+    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@bidflow.com')
+
+    # Token signing secret — must be long and random, never commit it
+    EMAIL_TOKEN_SECRET = os.environ.get('EMAIL_TOKEN_SECRET', 'change-this-in-production')
+    FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+

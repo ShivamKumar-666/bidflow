@@ -1,10 +1,28 @@
-node_modules/
+# Secrets
 .env
+*.env
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
 venv/
 env/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+.next/
+
+# ML artifacts
+*.pkl
+*.joblib
+
+# Uploads
 uploads/
-.DS_Store
-mongodb_data/
-mongodb_log/
+*.pdf
+
+# IDE
+.vscode/
+.idea/
