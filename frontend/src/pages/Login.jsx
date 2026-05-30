@@ -3,6 +3,7 @@ import { AuthContext } from '../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { Shield, ArrowLeft, WifiOff, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 import './Login.css';
 
 /**
@@ -46,12 +47,31 @@ const Login = () => {
   const [error,        setError]       = useState('');
   const [loading,      setLoading]     = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [googleInitialized, setGoogleInitialized] = useState(false);
 
   // 2FA state
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const otpRefs = [useRef(), useRef(), useRef(), useRef(), useRef(), useRef()];
 
-  const { login, register, verify2FA, cancelTwoFA, twoFAPending } = useContext(AuthContext);
+  const { login, register, verify2FA, cancelTwoFA, twoFAPending, loginWithGoogle } = useContext(AuthContext);
+
+  const handleGoogleCredentialResponse = async (response) => {
+    setError('');
+    setLoading(true);
+    try {
+      const result = await loginWithGoogle(response.credential);
+      if (result?.step === 'setup') {
+        toast('Please set up Two-Factor Authentication to secure your Admin account.',
+              { icon: '🔐', duration: 5000 });
+      } else if (result?.step === 'done') {
+        toast.success("Signed in successfully!");
+      }
+    } catch (err) {
+      setError(parseError(err, false, t));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Focus first OTP box when 2FA step appears
   useEffect(() => {
@@ -59,6 +79,50 @@ const Login = () => {
       otpRefs[0].current.focus();
     }
   }, [twoFAPending]);  // eslint-disable-line
+
+  // Initialize Google Sign-In SDK button
+  useEffect(() => {
+    const initGoogle = async () => {
+      try {
+        const res = await api.get('/auth/google-client-id');
+        const clientId = res.data.client_id;
+        
+        if (clientId && window.google) {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: handleGoogleCredentialResponse
+          });
+          
+          setGoogleInitialized(true);
+          
+          // Wait a tick for the React render cycle to output the container element
+          setTimeout(() => {
+            const btnEl = document.getElementById("google-signin-btn");
+            if (btnEl && window.google) {
+              window.google.accounts.id.renderButton(
+                btnEl,
+                { 
+                  theme: document.documentElement.getAttribute('data-theme') === 'dark' ? "filled_black" : "outline",
+                  size: "large",
+                  width: 320,
+                  shape: "pill"
+                }
+              );
+            }
+          }, 50);
+        } else {
+          setGoogleInitialized(false);
+        }
+      } catch (err) {
+        console.error("Failed to load Google Client ID", err);
+        setGoogleInitialized(false);
+      }
+    };
+    
+    // Give it a tiny delay to ensure the Google GSI script is loaded
+    const timer = setTimeout(initGoogle, 500);
+    return () => clearTimeout(timer);
+  }, [isRegistering, twoFAPending]); // Reinitialize on switch or 2FA cancel
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -311,6 +375,42 @@ const Login = () => {
             }
           </button>
         </form>
+
+        <div className="oauth-divider">
+          <span>{t('login.oauthDivider', 'or')}</span>
+        </div>
+
+        <div className="google-btn-wrapper">
+          {!googleInitialized ? (
+            <button 
+              type="button" 
+              className="mock-google-btn"
+              onClick={() => toast.error("Google Client ID is not configured on the server. Please set the GOOGLE_CLIENT_ID environment variable.")}
+            >
+              <svg className="google-icon-svg" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v3.92h6.69a5.74 5.74 0 0 1-2.48 3.77v3.13h3.97c2.33-2.14 3.67-5.3 3.67-8.75z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 24c3.24 0 5.97-1.08 7.96-2.91l-3.97-3.13c-1.1.74-2.5 1.18-3.99 1.18-3.07 0-5.67-2.08-6.6-4.88H1.31v3.23A12 12 0 0 0 12 24z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.4 14.26a7.14 7.14 0 0 1 0-4.52V6.51H1.31a12 12 0 0 0 0 10.98l4.09-3.23z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.92 11.92 0 0 0 12 0 12 12 0 0 0 1.31 6.51l4.09 3.23c.93-2.8 3.53-4.99 6.6-4.99z"
+                />
+              </svg>
+              <span>{isRegistering ? "Sign up with Google" : "Sign in with Google"}</span>
+            </button>
+          ) : (
+            <div id="google-signin-btn"></div>
+          )}
+        </div>
 
         <div style={{ marginTop: '24px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
           {isRegistering ? t('login.alreadyHaveAccount') : t('login.dontHaveAccount')}

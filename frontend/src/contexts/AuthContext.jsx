@@ -51,7 +51,29 @@ export const AuthProvider = ({ children }) => {
     return { step: 'done' };
   };
 
+  const loginWithGoogle = async (credential) => {
+    const res = await api.post('/auth/google-login', { credential });
+    const data = res.data;
+
+    if (data.requires_2fa) {
+      setTempToken(data.temp_token);
+      setTwoFAPending(true);
+      return { step: '2fa' };
+    }
+
+    localStorage.setItem('token', data.access_token);
+    setUser(data.user);
+
+    if (data.requires_2fa_setup) {
+      setTwoFASetup(true);
+      return { step: 'setup' };
+    }
+
+    return { step: 'done' };
+  };
+
   const verify2FA = async (code) => {
+
     const res = await api.post('/2fa/verify', { temp_token: tempToken, code });
     const data = res.data;
     localStorage.setItem('token', data.access_token);
@@ -119,6 +141,7 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{
       user,
       login,
+      loginWithGoogle,
       register,
       logout,
       updateProfile,

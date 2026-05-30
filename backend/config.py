@@ -54,4 +54,6 @@ class Config:
     # Token signing secret — must be long and random, never commit it
     EMAIL_TOKEN_SECRET = os.environ.get('EMAIL_TOKEN_SECRET', 'change-this-in-production')
     FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+
 

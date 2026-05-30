@@ -287,7 +287,15 @@ def resend_verification():
     user = db.Users.find_one({"email": email})
 
     # Always return 200 — never reveal whether an email exists (prevents enumeration)
-    if not user or user.get('is_verified'):
+    if not user:
+        return jsonify({"msg": "If that email exists and is unverified, a new link has been sent."}), 200
+
+    if user.get('is_verified'):
+        try:
+            from utils.email_sender import send_already_verified_email
+            send_already_verified_email(email)
+        except Exception as e:
+            current_app.logger.error(f"Failed to send already-verified email to {email}: {e}")
         return jsonify({"msg": "If that email exists and is unverified, a new link has been sent."}), 200
 
     try:
@@ -295,7 +303,109 @@ def resend_verification():
         send_verification_email(user['name'], email, token)
     except Exception as e:
         current_app.logger.error(f"Failed to resend verification to {email}: {e}")
-        return jsonify({"msg": "Failed to send email. Please try again later."}), 500
-
     return jsonify({"msg": "If that email exists and is unverified, a new link has been sent."}), 200
+
+
+@auth_bp.route('/google-client-id', methods=['GET'])
+def get_google_client_id():
+    from config import Config
+    return jsonify({"client_id": Config.GOOGLE_CLIENT_ID}), 200
+
+
+@auth_bp.route('/google-login', methods=['POST'])
+@limiter.limit("15 per minute")
+def google_login():
+    """
+    Authenticate a user via Google OAuth 2.0.
+    Verifies the Google ID Token (credential JWT) and logs in or auto-registers the user.
+    """
+    data = request.get_json()
+    token = data.get('credential')
+    if not token:
+        return jsonify({"msg": "Missing Google credential"}), 400
+
+    from google.oauth2 import id_token
+    from google.auth.transport import requests
+    from config import Config
+
+    client_id = Config.GOOGLE_CLIENT_ID
+    if not client_id:
+        return jsonify({"msg": "Google Authentication is not configured on the server."}), 500
+
+    try:
+        # Verify the Google ID Token JWT
+        idinfo = id_token.verify_oauth2_token(token, requests.Request(), client_id)
+
+        email = idinfo.get('email').strip().lower()
+        name = idinfo.get('name')
+
+        if not idinfo.get('email_verified'):
+            return jsonify({"msg": "Google email is not verified."}), 400
+
+        # Find user or auto-register if new
+        user = db.Users.find_one({"email": email})
+        if not user:
+            # Generate a strong secure random password since they log in via Google
+            import secrets
+            random_pw = secrets.token_urlsafe(16)
+            hashed_password = bcrypt.hashpw(random_pw.encode('utf-8'), bcrypt.gensalt())
+            
+            user = {
+                "name":          name,
+                "email":         email,
+                "password":      hashed_password.decode('utf-8'),
+                "role":          'Sales Executive',
+                "is_verified":   True,   # Already verified by Google
+                "google_oauth":  True,   # Google-authenticated flag
+                "created_at":    dt.utcnow()
+            }
+            db.Users.insert_one(user)
+            user = db.Users.find_one({"email": email})
+
+        # Generate standard JWT access token for current app session
+        access_token = create_access_token(
+            identity=str(user['_id']),
+            additional_claims={'role': user['role']}
+        )
+
+        # Handle 2FA for Admin accounts if configured
+        if user['role'] == 'Admin':
+            if user.get('totp_enabled'):
+                temp_token = create_access_token(
+                    identity=str(user['_id']),
+                    additional_claims={
+                        'role': user['role'],
+                        'sub_type': '2fa_pending'
+                    },
+                    expires_delta=timedelta(minutes=5)
+                )
+                return jsonify({
+                    'requires_2fa': True,
+                    'temp_token': temp_token
+                }), 200
+            else:
+                return jsonify(
+                    access_token=access_token,
+                    user={
+                        'name': user['name'],
+                        'email': user['email'],
+                        'role': user['role'],
+                        'totp_enabled': False
+                    },
+                    requires_2fa_setup=True
+                ), 200
+
+        return jsonify(
+            access_token=access_token,
+            user={'name': user['name'], 'email': user['email'], 'role': user['role']}
+        ), 200
+
+    except ValueError:
+        # Invalid signature or expired token
+        return jsonify({"msg": "Invalid or expired Google credential"}), 401
+    except Exception as e:
+        current_app.logger.error(f"Google login failed: {e}")
+        return jsonify({"msg": "Google Authentication failed. Please try again."}), 500
+
+
 

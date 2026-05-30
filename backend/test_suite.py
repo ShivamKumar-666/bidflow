@@ -893,6 +893,57 @@ class BidFlowTestSuite(unittest.TestCase):
         resend_res2 = self.client.post('/api/auth/resend-verification', json={"email": "nonexistent@bidflow.com"})
         self.assertEqual(resend_res2.status_code, 200)
 
+    # ==========================================
+    # 18. GOOGLE OAUTH & ALREADY VERIFIED RESEND TESTS
+    # ==========================================
+    @patch('utils.email_sender.send_already_verified_email')
+    @patch('google.oauth2.id_token.verify_oauth2_token')
+    def test_google_oauth_and_already_verified_resend(self, mock_verify, mock_send_already_verified):
+        # --- Part A: Google Login/Registration ---
+        # Mock Google token verification output
+        mock_verify.return_value = {
+            "email": "google_user@bidflow.com",
+            "name": "Google User",
+            "email_verified": True
+        }
+
+        # 1. First time login - auto-registers user
+        from config import Config
+        old_client_id = Config.GOOGLE_CLIENT_ID
+        Config.GOOGLE_CLIENT_ID = "mock-client-id"
+
+        payload = {"credential": "mock-jwt-token"}
+        res = self.client.post('/api/auth/google-login', json=payload)
+        self.assertEqual(res.status_code, 200)
+        data = res.get_json()
+        self.assertIn("access_token", data)
+        self.assertEqual(data["user"]["email"], "google_user@bidflow.com")
+        self.assertEqual(data["user"]["role"], "Sales Executive")
+
+        # Verify user is created in database and is_verified is True
+        user = db.Users.find_one({"email": "google_user@bidflow.com"})
+        self.assertIsNotNone(user)
+        self.assertTrue(user.get("is_verified"))
+        self.assertTrue(user.get("google_oauth"))
+
+        # 2. Second time login - authenticates existing user
+        res2 = self.client.post('/api/auth/google-login', json=payload)
+        self.assertEqual(res2.status_code, 200)
+        self.assertIn("access_token", res2.get_json())
+
+        # Reset Client ID config
+        Config.GOOGLE_CLIENT_ID = old_client_id
+
+        # --- Part B: Already Verified Email Resend Warning ---
+        # User "google_user@bidflow.com" is already verified. Let's request resend verification.
+        resend_payload = {"email": "google_user@bidflow.com"}
+        resend_res = self.client.post('/api/auth/resend-verification', json=resend_payload)
+        self.assertEqual(resend_res.status_code, 200)
+        self.assertIn("If that email exists and is unverified", resend_res.get_json().get("msg"))
+
+        # Assert that mock_send_already_verified was called with the email
+        mock_send_already_verified.assert_called_once_with("google_user@bidflow.com")
+
 
 if __name__ == '__main__':
     unittest.main()

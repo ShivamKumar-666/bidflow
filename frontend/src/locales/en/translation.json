@@ -51,7 +51,8 @@
     "registerHere": "Register Here",
     "signInHere": "Sign In Here",
     "loginFailed": "Invalid email or password",
-    "registerFailed": "Registration failed. Email may already exist."
+    "registerFailed": "Registration failed. Email may already exist.",
+    "oauthDivider": "or"
   },
   "dashboard": {
     "title": "Dashboard Overview",
