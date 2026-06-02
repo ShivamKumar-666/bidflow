@@ -1,14 +1,56 @@
 import React, { useEffect, useState } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
-import { Mail, CheckCircle, AlertTriangle, XCircle, ArrowRight, Loader } from 'lucide-react';
-import api from "../services/api";
-import toast from "react-hot-toast";
-import './Login.css'; // Inherit premium glassmorphism layouts
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
+import {
+  Mail, CheckCircle, AlertTriangle, XCircle, ArrowRight, Loader2,
+  Inbox, Send, ShieldCheck,
+} from "lucide-react";
+import api from "@/services/api";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+
+const STYLES = {
+  verifying: {
+    title: "Verifying your email…",
+    sub: "Please wait while we confirm your credentials.",
+    icon: Loader2,
+    color: "text-primary",
+    bg: "bg-primary/10",
+    spin: true,
+  },
+  success: {
+    title: "Email verified successfully!",
+    sub: "Your account is now active. Redirecting you to login…",
+    icon: CheckCircle,
+    color: "text-emerald-600 dark:text-emerald-400",
+    bg: "bg-emerald-500/10",
+  },
+  expired: {
+    title: "Verification link expired",
+    sub: "Your verification link has expired. Enter your email below to request a new link.",
+    icon: AlertTriangle,
+    color: "text-amber-600 dark:text-amber-400",
+    bg: "bg-amber-500/10",
+  },
+  invalid: {
+    title: "Invalid verification link",
+    sub: "This verification link is invalid or has already been used.",
+    icon: XCircle,
+    color: "text-destructive",
+    bg: "bg-destructive/10",
+  },
+};
 
 export default function VerifyEmail() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState("verifying"); // verifying | success | expired | invalid
+  const [status, setStatus] = useState("verifying");
   const [email, setEmail] = useState("");
   const [resendSent, setResendSent] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
@@ -19,12 +61,9 @@ export default function VerifyEmail() {
       setStatus("invalid");
       return;
     }
-
     api.get(`/auth/verify-email?token=${token}`)
-      .then(() => {
-        setStatus("success");
-      })
-      .catch(err => {
+      .then(() => setStatus("success"))
+      .catch((err) => {
         const error = err.response?.data?.error;
         if (error === "token_expired") {
           setStatus("expired");
@@ -59,107 +98,101 @@ export default function VerifyEmail() {
     }
   };
 
-  const MESSAGES = {
-    verifying: {
-      title: "Verifying your email…",
-      sub: "Please wait while we confirm your credentials.",
-      icon: <Loader className="animate-spin" size={48} style={{ color: "var(--accent-primary)" }} />
-    },
-    success: {
-      title: "Email verified successfully!",
-      sub: "Your account is now active. Redirecting you to login…",
-      icon: <CheckCircle size={48} style={{ color: "#10b981" }} />
-    },
-    expired: {
-      title: "Verification link expired",
-      sub: "Your verification link has expired. Enter your email below to request a new link.",
-      icon: <AlertTriangle size={48} style={{ color: "#f59e0b" }} />
-    },
-    invalid: {
-      title: "Invalid verification link",
-      sub: "This verification link is invalid or has already been used.",
-      icon: <XCircle size={48} style={{ color: "#ef4444" }} />
-    },
-  };
-
-  const current = MESSAGES[status];
+  const current = STYLES[status];
+  const Icon = current.icon;
 
   return (
-    <div className="login-container">
-      <style dangerouslySetInnerHTML={{__html: `
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        .animate-spin {
-          animation: spin 1s linear infinite;
-        }
-      `}} />
-      <div className="login-card glass-panel" style={{ padding: "3rem 2.5rem", display: "flex", flexDirection: "column", alignItems: "center" }}>
-        
-        <div style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
-          {current.icon}
+    <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
+      <div className="w-full max-w-md">
+        <div className="flex justify-center mb-6">
+          <div className="h-14 w-14 rounded-2xl bg-gradient-to-br from-primary to-chart-2 text-primary-foreground grid place-items-center shadow-lg">
+            <ShieldCheck className="h-7 w-7" />
+          </div>
         </div>
 
-        <h1 style={{ fontSize: "1.4rem", fontWeight: 700, color: "var(--text-primary)", marginBottom: 12, textAlign: "center" }}>
-          {current.title}
-        </h1>
-        
-        <p style={{ fontSize: "0.95rem", color: "var(--text-secondary)", marginBottom: 28, textAlign: "center", lineHeight: "1.5" }}>
-          {current.sub}
-        </p>
+        <Card className="shadow-xl">
+          <CardHeader className="text-center pb-3">
+            <div className={cn("h-16 w-16 rounded-full mx-auto grid place-items-center mb-3", current.bg)}>
+              <Icon className={cn("h-8 w-8", current.color, current.spin && "animate-spin")} />
+            </div>
+            <CardTitle className="text-xl">{current.title}</CardTitle>
+            <CardDescription className="text-sm">{current.sub}</CardDescription>
+          </CardHeader>
 
-        {status === "expired" && (
-          <div style={{ width: "100%" }}>
-            {resendSent ? (
-              <div className="glass-panel" style={{ padding: "12px", borderLeft: "4px solid #10b981", background: "rgba(16, 185, 129, 0.05)", borderRadius: "8px" }}>
-                <p style={{ fontSize: "0.85rem", color: "#10b981", margin: 0, fontWeight: 500, textAlign: "center" }}>
-                  📧 A new verification link has been sent to your inbox if an unverified account with that email exists.
-                </p>
-              </div>
-            ) : (
-              <form onSubmit={handleResend} style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%" }}>
-                <div className="input-group" style={{ textAlign: "left" }}>
-                  <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-secondary)" }}>Email Address</label>
-                  <input
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    placeholder="Enter your registered email"
-                    type="email"
-                    required
-                    className="input-field"
-                    style={{ width: "100%" }}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  disabled={resendLoading}
-                  className="btn-primary"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}
-                >
-                  {resendLoading ? (
-                    <>
-                      <Loader className="animate-spin" size={16} /> Resending...
-                    </>
-                  ) : (
-                    <>
-                      Resend Verification Link <ArrowRight size={16} />
-                    </>
-                  )}
-                </button>
-              </form>
+          <CardContent className="space-y-4">
+            {status === "expired" && (
+              <>
+                {resendSent ? (
+                  <div className="flex items-start gap-3 p-4 rounded-lg border bg-emerald-500/5 border-emerald-500/20">
+                    <div className="h-9 w-9 rounded-lg bg-emerald-500/10 text-emerald-600 grid place-items-center flex-shrink-0">
+                      <Inbox className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Check your inbox</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        A new verification link has been sent to your email if an unverified account with that email exists.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <form onSubmit={handleResend} className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="resend-email" className="text-xs">Email Address</Label>
+                      <Input
+                        id="resend-email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your registered email"
+                        type="email"
+                        required
+                      />
+                    </div>
+                    <Button type="submit" disabled={resendLoading} className="w-full">
+                      {resendLoading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Resending...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Resend Verification Link
+                          <ArrowRight className="h-4 w-4" />
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                )}
+              </>
             )}
-          </div>
-        )}
 
-        {(status === "invalid" || status === "success") && (
-          <button
-            onClick={() => navigate("/login")}
-            className="btn-primary"
-            style={{ width: "100%" }}
-          >
-            Go to Sign In
-          </button>
-        )}
+            {(status === "invalid" || status === "success") && (
+              <Button onClick={() => navigate("/login")} className="w-full">
+                <Mail className="h-4 w-4" />
+                Go to Sign In
+              </Button>
+            )}
+
+            {status === "verifying" && (
+              <div className="space-y-2">
+                <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                  <div className="h-full w-1/3 bg-primary rounded-full animate-pulse" />
+                </div>
+                <p className="text-xs text-muted-foreground text-center">This will only take a moment...</p>
+              </div>
+            )}
+
+            <Separator />
+            <div className="text-center">
+              <Link
+                to="/login"
+                className="text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                ← Back to sign in
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

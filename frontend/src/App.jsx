@@ -1,124 +1,145 @@
-import React, { useContext } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
-import { AuthProvider, AuthContext } from './contexts/AuthContext';
-import { NotificationProvider } from './contexts/NotificationContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import Sidebar from './components/Sidebar';
-import Navbar from './components/Navbar';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Enquiries from './pages/Enquiries';
-import Bids from './pages/Bids';
-import Reports from './pages/Reports';
-import AuditLogs from './pages/AuditLogs';
-import Profile from './pages/Profile';
-import TwoFASetup from './pages/TwoFASetup';
-import CalendarView from './pages/CalendarView';
-import CustomerPortal from './pages/CustomerPortal';
-import VerifyEmail from './pages/VerifyEmail';
-
-const AppLayout = ({ children }) => {
-  return (
-    <div className="app-container">
-      <Sidebar />
-      <div className="main-content">
-        <Navbar />
-        <div className="page-container">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-};
+import React, { useContext } from "react";
+import {
+  BrowserRouter as Router, Routes, Route, Navigate,
+} from "react-router-dom";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider, AuthContext } from "@/contexts/AuthContext";
+import { NotificationProvider } from "@/contexts/NotificationContext";
+import ProtectedRoute from "@/components/ProtectedRoute";
+import AppLayout from "@/components/AppLayout";
+import Login from "@/pages/Login";
+import Dashboard from "@/pages/Dashboard";
+import Enquiries from "@/pages/Enquiries";
+import Bids from "@/pages/Bids";
+import Reports from "@/pages/Reports";
+import AuditLogs from "@/pages/AuditLogs";
+import Profile from "@/pages/Profile";
+import TwoFASetup from "@/pages/TwoFASetup";
+import CalendarView from "@/pages/CalendarView";
+import CustomerPortal from "@/pages/CustomerPortal";
+import VerifyEmail from "@/pages/VerifyEmail";
 
 const AppRoutes = () => {
-  const { user, twoFASetup, dismissTwoFASetup } = useContext(AuthContext);
+  const { user, loading, twoFASetup, dismissTwoFASetup } = useContext(AuthContext);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen w-full grid place-items-center bg-background">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary to-chart-2 animate-pulse" />
+          <p className="text-sm text-muted-foreground">Loading BidFlow…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      {/* 2FA Setup modal for Admin users on first login */}
       {user && twoFASetup && (
         <TwoFASetup onClose={dismissTwoFASetup} />
       )}
+
       <Routes>
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-        
+        <Route
+          path="/login"
+          element={user ? <Navigate to="/dashboard" replace /> : <Login />}
+        />
+
         <Route path="/share/:token" element={<CustomerPortal />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
 
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Dashboard />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <AppLayout><Dashboard /></AppLayout>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/enquiries" element={
-          <ProtectedRoute>
-            <AppLayout><Enquiries /></AppLayout>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/bids" element={
-          <ProtectedRoute>
-            <AppLayout><Bids /></AppLayout>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/calendar" element={
-          <ProtectedRoute>
-            <AppLayout><CalendarView /></AppLayout>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/profile" element={
-          <ProtectedRoute>
-            <AppLayout><Profile /></AppLayout>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/reports" element={
-          <ProtectedRoute>
-            <AppLayout><Reports /></AppLayout>
-          </ProtectedRoute>
-        } />
+        <Route
+          path="/enquiries"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Enquiries />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
 
-        <Route path="/audit-logs" element={
-          <ProtectedRoute>
-            <AppLayout><AuditLogs /></AppLayout>
-          </ProtectedRoute>
-        } />
-        
-        <Route path="/" element={<Navigate to="/dashboard" />} />
+        <Route
+          path="/bids"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Bids />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/calendar"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <CalendarView />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Profile />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reports"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Reports />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/audit-logs"
+          element={
+            <ProtectedRoute adminOnly>
+              <AppLayout>
+                <AuditLogs />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </>
   );
 };
-
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <NotificationProvider>
-          <Toaster 
-            position="top-right"
-            toastOptions={{
-              style: {
-                background: '#1e293b',
-                color: '#fff',
-                border: '1px solid rgba(255,255,255,0.1)'
-              },
-              success: {
-                iconTheme: {
-                  primary: '#10b981',
-                  secondary: '#fff',
-                },
-              },
-            }}
-          />
-          <AppRoutes />
+          <TooltipProvider delayDuration={200}>
+            <AppRoutes />
+          </TooltipProvider>
         </NotificationProvider>
       </Router>
     </AuthProvider>

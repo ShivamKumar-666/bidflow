@@ -1,277 +1,340 @@
-import React, { useState, useEffect } from 'react';
-import api from '../services/api';
-import toast from 'react-hot-toast';
-import { format } from 'date-fns';
-import { useTranslation } from 'react-i18next';
-import TagInput from '../components/TagInput';
+import React, { useState, useEffect } from "react";
+import api from "@/services/api";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
+import {
+  Plus, Tag as TagIcon, Share2, Search, Filter, X, MessageSquare,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle, DialogTrigger, DialogClose,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { Empty, EmptyIcon, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { Skeleton } from "@/components/ui/skeleton";
+import { TagInput } from "@/components/TagInput";
+import { cn } from "@/lib/utils";
 
-const Enquiries = () => {
+const priorityVariants = {
+  High: "destructive", Medium: "review", Low: "info",
+};
+
+const statusVariants = {
+  "Under Review": "review", "Quotation Prepared": "info",
+  "Order Received": "success", "Rejected": "destructive",
+};
+
+export default function Enquiries() {
   const { t } = useTranslation();
   const [enquiries, setEnquiries] = useState([]);
+  const [uniqueTags, setUniqueTags] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [showTagsModal, setShowTagsModal] = useState(false);
-  const [selectedEnquiry, setSelectedEnquiry] = useState(null);
-  const [uniqueTags, setUniqueTags] = useState([]);
-  const [selectedFilters, setSelectedFilters] = useState([]);
-  const [editEnquiryTags, setEditEnquiryTags] = useState([]);
-  const [formData, setFormData] = useState({
-    customerName: '',
-    contactInformation: '',
-    productServiceRequired: '',
-    priority: 'Medium',
-    notes: '',
-    tags: []
+  const [selected, setSelected] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState([]);
+  const [editTags, setEditTags] = useState([]);
+
+  const [form, setForm] = useState({
+    customerName: "", contactInformation: "",
+    productServiceRequired: "", priority: "Medium", notes: "", tags: [],
   });
 
-  const fetchEnquiries = async () => {
+  const fetch = async () => {
+    setLoading(true);
     try {
-      const res = await api.get('/enquiries/');
-      setEnquiries(res.data);
-    } catch (err) {
-      toast.error(t('enquiries.failedFetch'));
+      const [enq, tg] = await Promise.all([
+        api.get("/enquiries/"),
+        api.get("/tags/"),
+      ]);
+      setEnquiries(enq.data);
+      setUniqueTags(tg.data);
+    } catch {
+      toast.error(t("enquiries.failedFetch"));
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchUniqueTags = async () => {
-    try {
-      const res = await api.get('/tags/');
-      setUniqueTags(res.data);
-    } catch (err) {
-      console.error("Failed to fetch unique tags", err);
-    }
-  };
+  useEffect(() => { fetch(); }, []);
 
-  useEffect(() => {
-    fetchEnquiries();
-    fetchUniqueTags();
-  }, []);
-
-  const handleSubmit = async (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/enquiries/', formData);
+      await api.post("/enquiries/", form);
+      toast.success(t("enquiries.createSuccess"));
       setShowModal(false);
-      fetchEnquiries();
-      fetchUniqueTags();
-      setFormData({ customerName: '', contactInformation: '', productServiceRequired: '', priority: 'Medium', notes: '', tags: [] });
-      toast.success(t('enquiries.createSuccess'));
+      setForm({ customerName: "", contactInformation: "", productServiceRequired: "", priority: "Medium", notes: "", tags: [] });
+      fetch();
     } catch (err) {
-      toast.error(t('enquiries.createFailed'));
+      toast.error(err.response?.data?.msg || t("enquiries.createFailed"));
     }
   };
 
   const handleUpdateTags = async (e) => {
     e.preventDefault();
-    if (!selectedEnquiry) return;
+    if (!selected) return;
     try {
-      await api.put(`/enquiries/${selectedEnquiry._id}`, { tags: editEnquiryTags });
+      await api.put(`/enquiries/${selected._id}`, { tags: editTags });
+      toast.success("Tags updated");
       setShowTagsModal(false);
-      fetchEnquiries();
-      fetchUniqueTags();
-      toast.success(t('common.save') + " " + t('common.tags'));
-    } catch (err) {
+      fetch();
+    } catch {
       toast.error("Failed to update tags");
     }
   };
 
-  const shareEnquiry = async (id) => {
+  const share = async (id) => {
     try {
       const res = await api.post(`/enquiries/${id}/share`);
-      const shareUrl = `${window.location.origin}/share/${res.data.shareToken}`;
-      await navigator.clipboard.writeText(shareUrl);
-      toast.success(t('enquiries.shareSuccess', 'Public status link copied to clipboard!'));
-    } catch (err) {
-      toast.error(t('enquiries.shareFailed', 'Failed to generate share link'));
+      const url = `${window.location.origin}/share/${res.data.shareToken}`;
+      await navigator.clipboard.writeText(url);
+      toast.success(t("enquiries.shareSuccess", "Public link copied to clipboard!"));
+    } catch {
+      toast.error(t("enquiries.shareFailed", "Failed to generate share link"));
     }
   };
 
-  const filteredEnquiries = enquiries.filter(enq => {
-    if (selectedFilters.length === 0) return true;
-    return enq.tags && enq.tags.some(tag => selectedFilters.includes(tag));
+  const filtered = enquiries.filter((e) => {
+    if (filters.length > 0 && !(e.tags || []).some((t) => filters.includes(t))) return false;
+    if (search) {
+      const s = search.toLowerCase();
+      return (
+        e.customerName?.toLowerCase().includes(s) ||
+        e.productServiceRequired?.toLowerCase().includes(s) ||
+        e.enquiryId?.toLowerCase().includes(s)
+      );
+    }
+    return true;
   });
 
+  const toggleFilter = (t) => {
+    setFilters((p) => p.includes(t) ? p.filter((x) => x !== t) : [...p, t]);
+  };
+
   return (
-    <div className="enquiries-page animate-fade-in">
-      <div className="page-header">
-        <h1 className="page-title">{t('enquiries.title')}</h1>
-        <button className="btn-primary" style={{ width: 'auto' }} onClick={() => setShowModal(true)}>
-          {t('enquiries.newEnquiry')}
-        </button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{t("enquiries.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {filtered.length} of {enquiries.length} enquiries
+          </p>
+        </div>
+        <Dialog open={showModal} onOpenChange={setShowModal}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4" />
+              {t("enquiries.newEnquiry")}
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>{t("enquiries.createTitle")}</DialogTitle>
+              <DialogDescription>Capture a new customer enquiry.</DialogDescription>
+            </DialogHeader>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="cust">{t("enquiries.customerName")}</Label>
+                <Input id="cust" required value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="contact">{t("enquiries.contactInfo")}</Label>
+                <Input id="contact" required value={form.contactInformation} onChange={(e) => setForm({ ...form, contactInformation: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="prod">{t("enquiries.productServiceRequired")}</Label>
+                <Input id="prod" required value={form.productServiceRequired} onChange={(e) => setForm({ ...form, productServiceRequired: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("enquiries.priority")}</Label>
+                <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Low">{t("enquiries.low")}</SelectItem>
+                    <SelectItem value="Medium">{t("enquiries.medium")}</SelectItem>
+                    <SelectItem value="High">{t("enquiries.high")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("common.tags")}</Label>
+                <TagInput
+                  tags={form.tags}
+                  onChange={(tags) => setForm({ ...form, tags })}
+                  suggestions={uniqueTags}
+                  placeholder={t("common.tagPlaceholder")}
+                />
+              </div>
+              <DialogFooter className="gap-2">
+                <Button type="button" variant="outline" onClick={() => setShowModal(false)}>
+                  {t("common.cancel")}
+                </Button>
+                <Button type="submit">{t("common.save")}</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {uniqueTags.length > 0 && (
-        <div className="tag-filter-bar">
-          <span className="tag-filter-title">
-            🔍 {t('common.filterByTags')}:
-          </span>
-          {uniqueTags.map(tag => {
-            const isActive = selectedFilters.includes(tag);
-            return (
-              <span
-                key={tag}
-                className={`tag-filter-pill ${isActive ? 'active' : ''}`}
-                onClick={() => {
-                  if (isActive) {
-                    setSelectedFilters(selectedFilters.filter(f => f !== tag));
-                  } else {
-                    setSelectedFilters([...selectedFilters, tag]);
-                  }
-                }}
-              >
-                {tag}
-              </span>
-            );
-          })}
-          {selectedFilters.length > 0 && (
-            <button 
-              className="btn-outline" 
-              style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '12px', marginLeft: 'auto' }}
-              onClick={() => setSelectedFilters([])}
-            >
-              Clear
-            </button>
-          )}
-        </div>
-      )}
-
-      <div className="glass-card data-table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>{t('enquiries.id')}</th>
-              <th>{t('enquiries.customer')}</th>
-              <th>{t('enquiries.productService')}</th>
-              <th>{t('enquiries.priority')}</th>
-              <th>{t('enquiries.status')}</th>
-              <th>{t('enquiries.date')}</th>
-              <th>{t('bids.actions', 'Actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredEnquiries.map(enq => (
-              <tr key={enq._id}>
-                <td style={{ fontWeight: 600 }}>
-                  {enq.enquiryId}
-                  {enq.tags && enq.tags.length > 0 && (
-                    <div className="table-tags-container">
-                      {enq.tags.map(tag => (
-                        <span key={tag} className="table-tag-badge">{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td>{enq.customerName}<br/><span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{enq.contactInformation}</span></td>
-                <td>{enq.productServiceRequired}</td>
-                <td>
-                  <span className={`status-badge ${enq.priority === 'High' ? 'danger' : 'info'}`}>
-                    {t(`enquiries.${enq.priority.toLowerCase()}`, enq.priority)}
-                  </span>
-                </td>
-                <td>
-                  <span className="status-badge review">
-                    {t(`enquiries.statusValue.${enq.status.toLowerCase().replace(/\s+/g, '_')}`, enq.status)}
-                  </span>
-                </td>
-                <td>{format(new Date(enq.date), 'MMM dd, yyyy')}</td>
-                <td>
-                  <button className="btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => { setSelectedEnquiry(enq); setEditEnquiryTags(enq.tags || []); setShowTagsModal(true); }}>
-                    {t('common.tags')}
-                  </button>
-                  <button className="btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => shareEnquiry(enq._id)}>
-                    🔗 {t('enquiries.share', 'Share')}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {showModal && (
-        <div style={modalOverlayStyle}>
-          <div className="glass-card" style={modalContentStyle}>
-            <h2 style={{ marginBottom: '24px' }}>{t('enquiries.createTitle')}</h2>
-            <form onSubmit={handleSubmit}>
-              <div className="input-group">
-                <label>{t('enquiries.customerName')}</label>
-                <input className="input-field" required value={formData.customerName} onChange={e => setFormData({...formData, customerName: e.target.value})} />
-              </div>
-              <div className="input-group">
-                <label>{t('enquiries.contactInfo')}</label>
-                <input className="input-field" required value={formData.contactInformation} onChange={e => setFormData({...formData, contactInformation: e.target.value})} />
-              </div>
-              <div className="input-group">
-                <label>{t('enquiries.productServiceRequired')}</label>
-                <input className="input-field" required value={formData.productServiceRequired} onChange={e => setFormData({...formData, productServiceRequired: e.target.value})} />
-              </div>
-              <div className="input-group">
-                <label>{t('enquiries.priority')}</label>
-                <select className="input-field" value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})}>
-                  <option value="Low">{t('enquiries.low')}</option>
-                  <option value="Medium">{t('enquiries.medium')}</option>
-                  <option value="High">{t('enquiries.high')}</option>
-                </select>
-              </div>
-              <div className="input-group">
-                <label>{t('common.tags')}</label>
-                <TagInput
-                  tags={formData.tags}
-                  onChange={tags => setFormData({...formData, tags})}
-                  suggestions={uniqueTags}
-                  placeholder={t('common.tagPlaceholder')}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowModal(false)}>{t('common.cancel')}</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1 }}>{t('common.save')}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showTagsModal && selectedEnquiry && (
-        <div style={modalOverlayStyle}>
-          <div className="glass-card" style={modalContentStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-              <h2>{t('common.editTagsTitle', { id: selectedEnquiry.enquiryId })}</h2>
-              <button style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }} onClick={() => setShowTagsModal(false)}>✕</button>
+        <Card>
+          <CardContent className="p-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 mr-2">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
             </div>
-            <form onSubmit={handleUpdateTags}>
-              <div className="input-group">
-                <label>{t('common.tags')}</label>
-                <TagInput
-                  tags={editEnquiryTags}
-                  onChange={setEditEnquiryTags}
-                  suggestions={uniqueTags}
-                  placeholder={t('common.tagPlaceholder')}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowTagsModal(false)}>{t('common.cancel')}</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1 }}>{t('common.save')}</button>
-              </div>
-            </form>
-          </div>
-        </div>
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search..."
+                className="pl-8 h-8"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {uniqueTags.slice(0, 20).map((tg) => (
+                <button
+                  key={tg}
+                  type="button"
+                  onClick={() => toggleFilter(tg)}
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-full border transition-colors",
+                    filters.includes(tg)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/30 border-border hover:bg-muted"
+                  )}
+                >
+                  {tg}
+                </button>
+              ))}
+            </div>
+            {filters.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setFilters([])} className="ml-auto">
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       )}
+
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-12" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <Empty>
+              <EmptyIcon><MessageSquare className="h-5 w-5" /></EmptyIcon>
+              <EmptyTitle>No enquiries found</EmptyTitle>
+              <EmptyDescription>Create your first enquiry to get started.</EmptyDescription>
+            </Empty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>ID</TableHead>
+                  <TableHead>Customer</TableHead>
+                  <TableHead>Service</TableHead>
+                  <TableHead>Priority</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((e) => (
+                  <TableRow key={e._id}>
+                    <TableCell>
+                      <div className="font-mono text-xs font-semibold">{e.enquiryId}</div>
+                      {e.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {e.tags.slice(0, 3).map((tg) => (
+                            <Badge key={tg} variant="secondary" className="text-[10px] font-normal">{tg}</Badge>
+                          ))}
+                          {e.tags.length > 3 && <span className="text-[10px] text-muted-foreground">+{e.tags.length - 3}</span>}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="font-medium">{e.customerName}</div>
+                      <div className="text-xs text-muted-foreground">{e.contactInformation}</div>
+                    </TableCell>
+                    <TableCell className="max-w-xs">
+                      <div className="truncate">{e.productServiceRequired}</div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={priorityVariants[e.priority]}>{e.priority}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariants[e.status] || "secondary"}>{e.status}</Badge>
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {format(new Date(e.date), "MMM dd, yyyy")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => { setSelected(e); setEditTags(e.tags || []); setShowTagsModal(true); }}
+                        >
+                          <TagIcon className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => share(e._id)}
+                        >
+                          <Share2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={showTagsModal} onOpenChange={setShowTagsModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("common.editTagsTitle", { id: selected?.enquiryId })}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateTags} className="space-y-4">
+            <TagInput
+              tags={editTags}
+              onChange={setEditTags}
+              suggestions={uniqueTags}
+              placeholder={t("common.tagPlaceholder")}
+            />
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowTagsModal(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit">{t("common.save")}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-};
-
-const modalOverlayStyle = {
-  position: 'fixed',
-  top: 0, left: 0, right: 0, bottom: 0,
-  backgroundColor: 'rgba(15, 23, 42, 0.8)',
-  backdropFilter: 'blur(4px)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  zIndex: 9999
-};
-
-const modalContentStyle = {
-  width: '100%',
-  maxWidth: '500px',
-  background: 'var(--bg-secondary)',
-};
-
-export default Enquiries;
+}

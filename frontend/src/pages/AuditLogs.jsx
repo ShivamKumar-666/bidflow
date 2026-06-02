@@ -1,21 +1,43 @@
-import React, { useState, useEffect } from 'react';
-import api from '../services/api';
-import toast from 'react-hot-toast';
-import { format } from 'date-fns';
-import { useTranslation } from 'react-i18next';
+import React, { useState, useEffect } from "react";
+import api from "@/services/api";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { useTranslation } from "react-i18next";
+import { ScrollText, Search, User, Activity, FileText } from "lucide-react";
+import {
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Empty, EmptyIcon, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { cn } from "@/lib/utils";
+
+const toneForAction = (action = "") => {
+  const a = action.toLowerCase();
+  if (a.includes("delete") || a.includes("reject") || a.includes("disable")) return "destructive";
+  if (a.includes("create") || a.includes("add") || a.includes("enable") || a.includes("login")) return "success";
+  if (a.includes("update") || a.includes("edit") || a.includes("change") || a.includes("profile")) return "info";
+  if (a.includes("share") || a.includes("export")) return "review";
+  return "secondary";
+};
 
 const AuditLogs = () => {
   const { t } = useTranslation();
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     const fetchLogs = async () => {
       try {
-        const res = await api.get('/audit/');
+        const res = await api.get("/audit/");
         setLogs(res.data);
       } catch (err) {
-        toast.error(t('audit.failedFetch'));
+        toast.error(t("audit.failedFetch"));
       } finally {
         setLoading(false);
       }
@@ -23,51 +45,111 @@ const AuditLogs = () => {
     fetchLogs();
   }, [t]);
 
+  const filtered = logs.filter((log) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      (log.user || "").toLowerCase().includes(q) ||
+      (log.action || "").toLowerCase().includes(q) ||
+      (log.details || "").toLowerCase().includes(q)
+    );
+  });
+
   return (
-    <div className="audit-logs-page animate-fade-in">
-      <div className="page-header">
-        <h1 className="page-title">{t('audit.title')}</h1>
+    <div className="space-y-6 animate-in fade-in duration-300">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="h-11 w-11 rounded-xl bg-gradient-to-br from-primary to-chart-2 text-primary-foreground grid place-items-center shadow-md">
+            <ScrollText className="h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{t("audit.title")}</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">Complete history of system activity</p>
+          </div>
+        </div>
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search logs..."
+            className="pl-9"
+          />
+        </div>
       </div>
 
-      <div className="glass-card data-table-container">
-        {loading ? (
-          <p style={{ color: 'var(--text-secondary)' }}>{t('audit.loading')}</p>
-        ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{t('audit.timestamp')}</th>
-                <th>{t('audit.user')}</th>
-                <th>{t('audit.action')}</th>
-                <th>{t('audit.details')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((log) => (
-                <tr key={log._id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>
-                    {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm:ss')}
-                  </td>
-                  <td style={{ fontWeight: 600 }}>{log.user}</td>
-                  <td>
-                    <span className="status-badge info" style={{ fontSize: '0.75rem', padding: '4px 8px' }}>
-                      {log.action}
-                    </span>
-                  </td>
-                  <td>{log.details}</td>
-                </tr>
+      <Card>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Activity Log</CardTitle>
+              <CardDescription>
+                {loading ? "Loading…" : `${filtered.length} of ${logs.length} entries`}
+              </CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
               ))}
-              {logs.length === 0 && (
-                <tr>
-                  <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
-                    {t('audit.noLogs')}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="p-6">
+              <Empty>
+                <EmptyIcon>
+                  <FileText className="h-6 w-6" />
+                </EmptyIcon>
+                <EmptyTitle>No audit logs</EmptyTitle>
+                <EmptyDescription>
+                  {search ? "No entries match your search" : t("audit.noLogs", "No audit logs found.")}
+                </EmptyDescription>
+              </Empty>
+            </div>
+          ) : (
+            <div className="rounded-b-lg overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>
+                      <div className="flex items-center gap-1.5">
+                        <Activity className="h-3.5 w-3.5" />
+                        {t("audit.timestamp")}
+                      </div>
+                    </TableHead>
+                    <TableHead>
+                      <div className="flex items-center gap-1.5">
+                        <User className="h-3.5 w-3.5" />
+                        {t("audit.user")}
+                      </div>
+                    </TableHead>
+                    <TableHead>{t("audit.action")}</TableHead>
+                    <TableHead>{t("audit.details")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((log) => (
+                    <TableRow key={log._id}>
+                      <TableCell className="font-mono text-xs whitespace-nowrap text-muted-foreground">
+                        {format(new Date(log.timestamp), "MMM dd, yyyy HH:mm:ss")}
+                      </TableCell>
+                      <TableCell className="font-semibold">{log.user}</TableCell>
+                      <TableCell>
+                        <Badge variant={toneForAction(log.action)}>{log.action}</Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-md">
+                        <div className="truncate" title={log.details}>{log.details}</div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

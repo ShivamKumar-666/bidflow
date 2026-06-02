@@ -4,21 +4,19 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BidFlow – Bid Management Platform</title>
+    <title>BidFlow — Intelligent Bid Management</title>
     <meta name="description" content="BidFlow is a smart bid management platform with AI predictions, real-time collaboration, and analytics." />
-    <!-- Prevent flash of wrong theme by applying theme before React loads -->
     <script>
       (function() {
         var stored = localStorage.getItem('theme');
         var theme = stored === 'light' || stored === 'dark'
           ? stored
           : (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.classList.add(theme);
       })();
     </script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
-
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>

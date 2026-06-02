@@ -1,37 +1,31 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from "react";
 
-export const ThemeContext = createContext({
-  theme: 'dark',
-  toggleTheme: () => {}
-});
+const ThemeContext = createContext({ theme: "dark", toggleTheme: () => {} });
 
-export const ThemeProvider = ({ children }) => {
-  const getInitialTheme = () => {
-    const stored = localStorage.getItem('theme');
-    if (stored === 'light' || stored === 'dark') return stored;
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    return prefersDark ? 'dark' : 'light';
+export function ThemeProvider({ children }) {
+  const getInitial = () => {
+    if (typeof window === "undefined") return "dark";
+    const stored = localStorage.getItem("theme");
+    if (stored === "light" || stored === "dark") return stored;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   };
 
-  const [theme, setTheme] = useState(getInitialTheme);
-
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
-  };
+  const [theme, setTheme] = useState(getInitial);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
+    const root = document.documentElement;
+    root.classList.remove("dark", "light");
+    root.classList.add(theme);
+    localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // Apply on first mount immediately (before React paints)
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', getInitialTheme());
-  }, []); // eslint-disable-line
+  const toggleTheme = () => setTheme((p) => (p === "dark" ? "light" : "dark"));
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
-};
+}
+
+export const useTheme = () => useContext(ThemeContext);

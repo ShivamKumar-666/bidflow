@@ -1,20 +1,32 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { AuthContext } from '../contexts/AuthContext';
-import api from '../services/api';
-import toast from 'react-hot-toast';
-import { Shield, Copy, Download, CheckCircle, AlertTriangle, X, RefreshCw } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
-import './TwoFASetup.css';
+import React, { useState, useEffect, useContext } from "react";
+import { AuthContext } from "@/contexts/AuthContext";
+import api from "@/services/api";
+import { toast } from "sonner";
+import {
+  Shield, Copy, Download, CheckCircle, AlertTriangle, RefreshCw,
+} from "lucide-react";
+import { useTranslation } from "react-i18next";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+
+const STEPS = ["scanQr", "verify", "backupCodes"];
 
 const TwoFASetup = ({ onClose }) => {
   const { t } = useTranslation();
   const { dismissTwoFASetup, refreshUser } = useContext(AuthContext);
-  const [step, setStep] = useState('loading'); // loading | qr | verify | backup
-  const [qrCode, setQrCode] = useState('');
-  const [secret, setSecret] = useState('');
-  const [verifyCode, setVerifyCode] = useState('');
+  const [open, setOpen] = useState(true);
+  const [step, setStep] = useState("loading");
+  const [qrCode, setQrCode] = useState("");
+  const [secret, setSecret] = useState("");
+  const [verifyCode, setVerifyCode] = useState("");
   const [backupCodes, setBackupCodes] = useState([]);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [copiedAll, setCopiedAll] = useState(false);
 
@@ -22,234 +34,286 @@ const TwoFASetup = ({ onClose }) => {
     fetchSetup();
   }, []);
 
+  const handleOpenChange = (next) => {
+    setOpen(next);
+    if (!next) {
+      setTimeout(() => {
+        dismissTwoFASetup();
+        if (onClose) onClose();
+      }, 200);
+    }
+  };
+
   const fetchSetup = async () => {
-    setStep('loading');
-    setError('');
+    setStep("loading");
+    setError("");
     try {
-      const res = await api.get('/2fa/setup');
+      const res = await api.get("/2fa/setup");
       setQrCode(res.data.qr_code);
       setSecret(res.data.secret);
-      setStep('qr');
+      setStep("qr");
     } catch (err) {
-      setError('Failed to generate 2FA setup. Please try again.');
-      setStep('error');
+      setError(t("security.failedGenerate", "Failed to generate 2FA setup. Please try again."));
+      setStep("error");
     }
   };
 
   const handleVerify = async () => {
     if (verifyCode.length !== 6) {
-      setError('Please enter the full 6-digit code.');
+      setError("Please enter the full 6-digit code.");
       return;
     }
-    setError('');
+    setError("");
     setSubmitting(true);
     try {
-      const res = await api.post('/2fa/enable', { code: verifyCode });
+      const res = await api.post("/2fa/enable", { code: verifyCode });
       setBackupCodes(res.data.backup_codes);
-      setStep('backup');
-      toast.success('2FA enabled successfully!');
+      setStep("backup");
+      toast.success("2FA enabled successfully!");
       if (refreshUser) {
         await refreshUser();
       }
     } catch (err) {
-      setError(err.response?.data?.msg || 'Invalid code. Please try again.');
+      setError(err.response?.data?.msg || "Invalid code. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleCodeInput = (e) => {
-    const val = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const val = e.target.value.replace(/\D/g, "").slice(0, 6);
     setVerifyCode(val);
-    setError('');
+    setError("");
   };
 
   const copyAllBackupCodes = () => {
-    navigator.clipboard.writeText(backupCodes.join('\n'));
+    navigator.clipboard.writeText(backupCodes.join("\n"));
     setCopiedAll(true);
-    toast.success('Backup codes copied!');
+    toast.success("Backup codes copied!");
     setTimeout(() => setCopiedAll(false), 2000);
   };
 
   const downloadBackupCodes = () => {
-    const content = `BidFlow 2FA Backup Codes\nGenerated: ${new Date().toLocaleString()}\n\nStore these codes somewhere safe. Each can only be used once.\n\n${backupCodes.join('\n')}`;
-    const blob = new Blob([content], { type: 'text/plain' });
+    const content = `BidFlow 2FA Backup Codes\nGenerated: ${new Date().toLocaleString()}\n\nStore these codes somewhere safe. Each can only be used once.\n\n${backupCodes.join("\n")}`;
+    const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
+    const a = document.createElement("a");
     a.href = url;
-    a.download = 'bidflow-backup-codes.txt';
+    a.download = "bidflow-backup-codes.txt";
     a.click();
     URL.revokeObjectURL(url);
   };
 
   const handleDone = () => {
-    dismissTwoFASetup();
-    if (onClose) onClose();
+    handleOpenChange(false);
   };
 
   const copySecret = () => {
     navigator.clipboard.writeText(secret);
-    toast.success('Secret key copied!');
+    toast.success("Secret key copied!");
   };
 
-  return (
-    <div className="twofa-overlay">
-      <div className="twofa-modal glass-panel">
-        {/* Header */}
-        <div className="twofa-header">
-          <div className="twofa-header-icon">
-            <Shield size={28} />
-          </div>
-          <div>
-            <h2>{t('security.twoFactorAuth')}</h2>
-            <p>{t('security.setupInstructions')}</p>
-          </div>
-          {step === 'backup' && (
-            <button className="twofa-close-btn" onClick={handleDone} aria-label={t('common.cancel')}>
-              <X size={20} />
-            </button>
-          )}
-        </div>
+  const stepIndex = (() => {
+    if (step === "loading" || step === "error" || step === "qr") return 0;
+    if (step === "verify") return 1;
+    if (step === "backup") return 2;
+    return 0;
+  })();
 
-        {/* Step indicators */}
-        <div className="twofa-steps">
-          {[t('security.scanQr'), t('security.verify'), t('security.backupCodes')].map((label, i) => {
-            const stepMap = { 0: ['qr', 'loading', 'error'], 1: ['verify'], 2: ['backup'] };
-            const active = stepMap[i]?.includes(step) || (i === 0 && step === 'loading');
-            const done = (i === 0 && ['verify', 'backup'].includes(step)) ||
-                         (i === 1 && step === 'backup');
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-chart-2 text-primary-foreground grid place-items-center shadow-md">
+              <Shield className="h-6 w-6" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl">{t("security.twoFactorAuth")}</DialogTitle>
+              <DialogDescription>{t("security.setupInstructions")}</DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="flex items-center justify-between gap-2 py-2">
+          {STEPS.map((label, i) => {
+            const active = i === stepIndex;
+            const done = i < stepIndex;
             return (
-              <div key={label} className={`twofa-step ${active ? 'active' : ''} ${done ? 'done' : ''}`}>
-                <div className="twofa-step-dot">
-                  {done ? <CheckCircle size={14} /> : i + 1}
+              <React.Fragment key={label}>
+                <div className="flex flex-col items-center gap-1.5 flex-1">
+                  <div
+                    className={cn(
+                      "h-8 w-8 rounded-full grid place-items-center text-xs font-semibold border-2 transition-colors",
+                      done && "bg-emerald-500 border-emerald-500 text-white",
+                      active && !done && "bg-primary border-primary text-primary-foreground",
+                      !active && !done && "border-border text-muted-foreground"
+                    )}
+                  >
+                    {done ? <CheckCircle className="h-4 w-4" /> : i + 1}
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[10px] font-medium text-center",
+                      (active || done) ? "text-foreground" : "text-muted-foreground"
+                    )}
+                  >
+                    {t(`security.${label}`)}
+                  </span>
                 </div>
-                <span>{label}</span>
-              </div>
+                {i < STEPS.length - 1 && (
+                  <div
+                    className={cn(
+                      "flex-1 h-0.5 -mt-4 transition-colors",
+                      done ? "bg-emerald-500" : "bg-border"
+                    )}
+                  />
+                )}
+              </React.Fragment>
             );
           })}
         </div>
 
-        {/* LOADING */}
-        {step === 'loading' && (
-          <div className="twofa-body twofa-center">
-            <div className="twofa-spinner" />
-            <p>{t('security.generatingQr')}</p>
+        {step === "loading" && (
+          <div className="py-10 flex flex-col items-center gap-3">
+            <RefreshCw className="h-10 w-10 text-primary animate-spin" />
+            <p className="text-sm text-muted-foreground">{t("security.generatingQr")}</p>
           </div>
         )}
 
-        {/* ERROR */}
-        {step === 'error' && (
-          <div className="twofa-body twofa-center">
-            <div className="twofa-error-icon">
-              <AlertTriangle size={48} />
+        {step === "error" && (
+          <div className="py-8 flex flex-col items-center gap-4 text-center">
+            <div className="h-14 w-14 rounded-full bg-destructive/10 text-destructive grid place-items-center">
+              <AlertTriangle className="h-7 w-7" />
             </div>
-            <p>{error}</p>
-            <button className="btn-primary twofa-btn" onClick={fetchSetup}>
-              <RefreshCw size={16} /> {t('security.tryAgain')}
-            </button>
+            <p className="text-sm text-muted-foreground max-w-sm">{error}</p>
+            <Button onClick={fetchSetup}>
+              <RefreshCw className="h-4 w-4" />
+              {t("security.tryAgain")}
+            </Button>
           </div>
         )}
 
-        {/* STEP 1: QR CODE */}
-        {step === 'qr' && (
-          <div className="twofa-body">
-            <div className="twofa-instructions">
-              <div className="twofa-step-num">1</div>
-              <p>{t('security.authenticatorAppInstructions')}</p>
+        {step === "qr" && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground grid place-items-center text-xs font-bold flex-shrink-0">1</div>
+              <p className="text-sm text-foreground">{t("security.authenticatorAppInstructions")}</p>
             </div>
-            <div className="twofa-qr-container">
-              <img src={qrCode} alt="2FA QR Code" className="twofa-qr" />
+            <div className="flex justify-center p-5 rounded-xl border bg-background">
+              <img src={qrCode} alt="2FA QR Code" className="h-48 w-48" />
             </div>
-            <div className="twofa-manual">
-              <p>{t('security.manualKey')}</p>
-              <div className="twofa-secret-box">
-                <code>{secret.match(/.{1,4}/g)?.join(' ')}</code>
-                <button onClick={copySecret} className="twofa-copy-inline" aria-label={t('security.copySecret')}>
-                  <Copy size={14} />
-                </button>
+            <div className="space-y-2">
+              <Label className="text-xs">{t("security.manualKey")}</Label>
+              <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30 font-mono text-sm">
+                <code className="flex-1 break-all tracking-wider">
+                  {secret.match(/.{1,4}/g)?.join(" ")}
+                </code>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={copySecret}
+                  aria-label={t("security.copySecret")}
+                  className="h-7 w-7"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </Button>
               </div>
             </div>
-            <button className="btn-primary twofa-btn" onClick={() => setStep('verify')}>
-              {t('security.scannedQr')}
-            </button>
+            <Button onClick={() => setStep("verify")} className="w-full">
+              {t("security.scannedQr")}
+            </Button>
           </div>
         )}
 
-        {/* STEP 2: VERIFY */}
-        {step === 'verify' && (
-          <div className="twofa-body">
-            <div className="twofa-instructions">
-              <div className="twofa-step-num">2</div>
-              <p>{t('security.confirmSetupInstructions')}</p>
+        {step === "verify" && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-muted/50">
+              <div className="h-7 w-7 rounded-full bg-primary text-primary-foreground grid place-items-center text-xs font-bold flex-shrink-0">2</div>
+              <p className="text-sm text-foreground">{t("security.confirmSetupInstructions")}</p>
             </div>
-            <div className="twofa-otp-container">
-              <input
+            <div>
+              <Input
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
                 value={verifyCode}
                 onChange={handleCodeInput}
-                className="twofa-otp-input"
                 placeholder="000000"
                 autoFocus
-                onKeyDown={(e) => e.key === 'Enter' && handleVerify()}
+                onKeyDown={(e) => e.key === "Enter" && handleVerify()}
+                className="text-center text-2xl tracking-[0.5em] font-mono h-14"
               />
             </div>
             {error && (
-              <div className="twofa-error">
-                <AlertTriangle size={14} /> {error}
+              <div className="flex items-center gap-2 p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {error}
               </div>
             )}
-            <div className="twofa-btn-row">
-              <button className="btn-outline twofa-btn-sm" onClick={() => { setStep('qr'); setVerifyCode(''); setError(''); }}>
-                ← {t('common.cancel')}
-              </button>
-              <button
-                className="btn-primary twofa-btn"
+            <DialogFooter className="gap-2 sm:gap-2">
+              <Button
+                variant="outline"
+                onClick={() => { setStep("qr"); setVerifyCode(""); setError(""); }}
+              >
+                {t("common.cancel")}
+              </Button>
+              <Button
                 onClick={handleVerify}
                 disabled={submitting || verifyCode.length !== 6}
               >
-                {submitting ? t('security.verifying') : t('security.enable2faConfirm')}
-              </button>
-            </div>
+                {submitting ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    {t("security.verifying")}
+                  </>
+                ) : t("security.enable2faConfirm")}
+              </Button>
+            </DialogFooter>
           </div>
         )}
 
-        {/* STEP 3: BACKUP CODES */}
-        {step === 'backup' && (
-          <div className="twofa-body">
-            <div className="twofa-instructions">
-              <div className="twofa-step-num" style={{ background: 'var(--success)' }}>✓</div>
-              <p>{t('security.activeSuccess')}</p>
+        {step === "backup" && (
+          <div className="space-y-4">
+            <div className="flex items-start gap-3 p-3 rounded-lg bg-emerald-500/10">
+              <div className="h-7 w-7 rounded-full bg-emerald-500 text-white grid place-items-center flex-shrink-0">
+                <CheckCircle className="h-4 w-4" />
+              </div>
+              <p className="text-sm font-medium">{t("security.activeSuccess")}</p>
             </div>
-            <div className="twofa-backup-warning">
-              <AlertTriangle size={14} />
-              {t('security.backupCodesWarning')}
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-500/10 text-amber-700 dark:text-amber-400 text-xs">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 flex-shrink-0" />
+              {t("security.backupCodesWarning")}
             </div>
-            <div className="twofa-backup-grid">
+            <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
               {backupCodes.map((code, i) => (
-                <div key={i} className="twofa-backup-code">
-                  <span className="twofa-code-num">{i + 1}.</span>
-                  <code>{code}</code>
+                <div
+                  key={i}
+                  className="flex items-center gap-2 p-2 rounded-md border bg-muted/30 font-mono text-xs"
+                >
+                  <span className="text-muted-foreground">{i + 1}.</span>
+                  <code className="flex-1">{code}</code>
                 </div>
               ))}
             </div>
-            <div className="twofa-btn-row">
-              <button className="btn-outline twofa-btn-sm" onClick={downloadBackupCodes}>
-                <Download size={14} /> {t('security.download')}
-              </button>
-              <button className="btn-outline twofa-btn-sm" onClick={copyAllBackupCodes}>
-                {copiedAll ? <CheckCircle size={14} /> : <Copy size={14} />}
-                {copiedAll ? t('security.copied') : t('security.copyAll')}
-              </button>
-              <button className="btn-primary twofa-btn" onClick={handleDone}>
-                {t('security.savedBackupCodesButton')}
-              </button>
-            </div>
+            <DialogFooter className="gap-2 sm:gap-2 flex-col sm:flex-row">
+              <Button variant="outline" size="sm" onClick={downloadBackupCodes}>
+                <Download className="h-3.5 w-3.5" />
+                {t("security.download")}
+              </Button>
+              <Button variant="outline" size="sm" onClick={copyAllBackupCodes}>
+                {copiedAll ? <CheckCircle className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copiedAll ? t("security.copied") : t("security.copyAll")}
+              </Button>
+              <Button onClick={handleDone}>
+                {t("security.savedBackupCodesButton")}
+              </Button>
+            </DialogFooter>
           </div>
         )}
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 

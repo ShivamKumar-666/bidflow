@@ -1,152 +1,241 @@
-import React, { useState, useEffect, useRef, useCallback, useContext } from 'react';
-import api from '../services/api';
-import toast from 'react-hot-toast';
-import { format } from 'date-fns';
-import { io } from 'socket.io-client';
-import { useTranslation } from 'react-i18next';
-import TagInput from '../components/TagInput';
-import { TrendingUp, TrendingDown, Minus, Brain, Info } from 'lucide-react';
-import { AuthContext } from '../contexts/AuthContext';
+import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
+import api from "@/services/api";
+import { toast } from "sonner";
+import { format } from "date-fns";
+import { io } from "socket.io-client";
+import { useTranslation } from "react-i18next";
+import {
+  Plus, Tag, MessageSquare, FileDown, Trash2, Brain, TrendingUp, TrendingDown,
+  Minus, Info, Send, X, Search, Filter, Loader2, AlertTriangle, Pencil,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Empty, EmptyIcon, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import {
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { TagInput } from "@/components/TagInput";
+import { useAuth } from "@/contexts/AuthContext";
+import { cn } from "@/lib/utils";
 
 const defaultIndustryTags = {
-  Technology: ['software', 'saas', 'hardware', 'consulting', 'cloud', 'devops', 'cybersecurity'],
-  Banking: ['loan', 'credit', 'securities', 'compliance', 'fintech', 'retail-banking', 'asset-management'],
-  Manufacturing: ['machinery', 'materials', 'logistics', 'supply-chain', 'automotive', 'quality-control'],
-  Retail: ['e-commerce', 'inventory', 'merchandising', 'pos', 'supply-chain', 'customer-loyalty'],
-  Healthcare: ['medical-devices', 'pharma', 'compliance', 'telehealth', 'clinical-trials', 'patient-care'],
-  Other: ['general', 'consulting', 'services', 'miscellaneous']
+  Technology: ["software", "saas", "hardware", "consulting", "cloud", "devops", "cybersecurity"],
+  Banking: ["loan", "credit", "securities", "compliance", "fintech", "retail-banking", "asset-management"],
+  Manufacturing: ["machinery", "materials", "logistics", "supply-chain", "automotive", "quality-control"],
+  Retail: ["e-commerce", "inventory", "merchandising", "pos", "supply-chain", "customer-loyalty"],
+  Healthcare: ["medical-devices", "pharma", "compliance", "telehealth", "clinical-trials", "patient-care"],
+  Other: ["general", "consulting", "services", "miscellaneous"],
 };
 
-const Bids = () => {
+const statusVariants = {
+  "Order Received": "success",
+  "Completed": "success",
+  "Rejected": "destructive",
+  "Negotiation": "info",
+  "Submitted": "info",
+  "Quotation Prepared": "review",
+  "Under Review": "warning",
+};
+
+const STATUSES = ["Quotation Prepared", "Under Review", "Negotiation", "Order Received", "Rejected"];
+
+function PredictionPill({ value, explanations }) {
+  if (value == null) return <span className="text-muted-foreground text-xs">N/A</span>;
+  const tone = value >= 70 ? "success" : value >= 40 ? "warning" : "destructive";
+  const Icon = value >= 70 ? TrendingUp : value >= 40 ? Minus : TrendingDown;
+
+  const Pill = (
+    <Badge variant={tone} className="gap-1 font-mono cursor-help">
+      <Icon className="h-3 w-3" />
+      {value}%
+    </Badge>
+  );
+
+  if (!explanations || explanations.length === 0) {
+    return Pill;
+  }
+
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>{Pill}</TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs p-3">
+          <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-primary">
+            <Brain className="h-3 w-3" />
+            AI Explanation
+          </div>
+          <div className="space-y-1.5">
+            {explanations.slice(0, 3).map((ex, i) => (
+              <div key={i} className={cn(
+                "flex items-start gap-1.5 text-[11px] p-1.5 rounded",
+                ex.impact === "positive" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+              )}>
+                {ex.impact === "positive" ? <TrendingUp className="h-3 w-3 flex-shrink-0 mt-0.5" /> : <TrendingDown className="h-3 w-3 flex-shrink-0 mt-0.5" />}
+                <span>{ex.text}</span>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function LivePrediction({ livePredict, loading }) {
+  if (!loading && !livePredict) return null;
+  const value = livePredict?.win_probability ?? 0;
+  const tone = value >= 70 ? "emerald" : value >= 40 ? "amber" : "rose";
+  return (
+    <div className={cn(
+      "rounded-lg p-3 border",
+      loading ? "bg-muted/30 border-border" : `bg-${tone}-500/10 border-${tone}-500/20`
+    )}>
+      <div className="flex items-center gap-2 mb-2">
+        {loading ? (
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        ) : (
+          <Brain className={cn("h-4 w-4", `text-${tone}-600`)} />
+        )}
+        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          {loading ? "Calculating…" : "Live AI Estimate"}
+        </span>
+        {!loading && (
+          <span className={cn("ml-auto text-lg font-bold", `text-${tone}-600`)}>
+            {value}%
+          </span>
+        )}
+      </div>
+      {livePredict?.shap_explanations && (
+        <div className="space-y-1">
+          {livePredict.shap_explanations.slice(0, 3).map((ex, i) => (
+            <div key={i} className={cn(
+              "text-[10px] flex items-start gap-1.5 p-1 rounded",
+              ex.impact === "positive" ? "text-emerald-600" : "text-rose-600"
+            )}>
+              {ex.impact === "positive" ? <TrendingUp className="h-2.5 w-2.5 flex-shrink-0 mt-0.5" /> : <TrendingDown className="h-2.5 w-2.5 flex-shrink-0 mt-0.5" />}
+              <span>{ex.text}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function Bids() {
   const { t, i18n } = useTranslation();
-  const { user } = useContext(AuthContext);
+  const { user } = useAuth();
   const [bids, setBids] = useState([]);
   const [enquiries, setEnquiries] = useState([]);
-  const [showModal, setShowModal] = useState(false);
-  const [showCommentModal, setShowCommentModal] = useState(false);
-  const [showTagsModal, setShowTagsModal] = useState(false);
-  const [selectedBid, setSelectedBid] = useState(null);
-  const [commentText, setCommentText] = useState("");
   const [uniqueTags, setUniqueTags] = useState([]);
-  const [selectedFilters, setSelectedFilters] = useState([]);
-  const [editBidTags, setEditBidTags] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [showComments, setShowComments] = useState(false);
+  const [showTags, setShowTags] = useState(false);
+  const [selected, setSelected] = useState(null);
+  const [commentText, setCommentText] = useState("");
+  const [search, setSearch] = useState("");
+  const [filters, setFilters] = useState([]);
+  const [editTags, setEditTags] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    enquiryId: '',
-    amount: '',
-    industry: 'Technology',
-    submissionDate: '',
-    assignedEmployee: '',
-    remarks: '',
-    tags: []
-  });
-
-  // SHAP tooltip state
-  const [hoveredBidId, setHoveredBidId] = useState(null);
-  const tooltipTimer = useRef(null);
-
-  // Live prediction in modal
   const [livePredict, setLivePredict] = useState(null);
   const [predictLoading, setPredictLoading] = useState(false);
   const predictDebounce = useRef(null);
 
-  const fetchBids = async () => {
+  const [form, setForm] = useState({
+    enquiryId: "", amount: "", industry: "Technology",
+    submissionDate: "", assignedEmployee: "", remarks: "", tags: [],
+  });
+
+  const fetchAll = async () => {
+    setLoading(true);
     try {
-      const res = await api.get('/bids/');
-      setBids(res.data);
-    } catch (err) {
-      toast.error(t('bids.failedFetch'));
+      const [b, e, tg] = await Promise.all([
+        api.get("/bids/"),
+        api.get("/enquiries/"),
+        api.get("/tags/"),
+      ]);
+      setBids(b.data);
+      setEnquiries(e.data);
+      setUniqueTags(tg.data);
+    } catch {
+      toast.error(t("bids.failedFetch"));
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchEnquiries = async () => {
-    try {
-      const res = await api.get('/enquiries/');
-      setEnquiries(res.data);
-    } catch (err) {
-      toast.error(t('bids.failedFetchEnq'));
-    }
-  };
+  useEffect(() => { fetchAll(); }, []);
 
-  const fetchUniqueTags = async () => {
-    try {
-      const res = await api.get('/tags/');
-      setUniqueTags(res.data);
-    } catch (err) {
-      console.error("Failed to fetch unique tags", err);
-    }
-  };
-
+  // Socket for live comments
   useEffect(() => {
-    fetchBids();
-    fetchEnquiries();
-    fetchUniqueTags();
-    
-    const socket = io('http://localhost:5000');
-    
-    socket.on('new_comment', (data) => {
-      setBids(prevBids => prevBids.map(bid => {
-        if (bid._id === data.bid_id) {
-          // Check if comment already exists (e.g., if we're the sender)
-          const commentExists = bid.comments && bid.comments.some(c => 
-            c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date
-          );
-          if (commentExists) return bid;
-          return { ...bid, comments: [...(bid.comments || []), data.comment] };
+    const socket = io("http://localhost:5000");
+    socket.on("new_comment", (data) => {
+      setBids((prev) => prev.map((b) => {
+        if (b._id === data.bid_id) {
+          const exists = (b.comments || []).some((c) => c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date);
+          if (exists) return b;
+          return { ...b, comments: [...(b.comments || []), data.comment] };
         }
-        return bid;
+        return b;
       }));
-      
-      setSelectedBid(prevSelected => {
-        if (prevSelected && prevSelected._id === data.bid_id) {
-          const commentExists = prevSelected.comments && prevSelected.comments.some(c => 
-            c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date
-          );
-          if (commentExists) return prevSelected;
-          return { ...prevSelected, comments: [...(prevSelected.comments || []), data.comment] };
+      setSelected((prev) => {
+        if (prev && prev._id === data.bid_id) {
+          const exists = (prev.comments || []).some((c) => c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date);
+          if (exists) return prev;
+          return { ...prev, comments: [...(prev.comments || []), data.comment] };
         }
-        return prevSelected;
+        return prev;
       });
     });
-
-    socket.on('delete_comment', (data) => {
-      setBids(prevBids => prevBids.map(bid => {
-        if (bid._id === data.bid_id) {
-          return { ...bid, comments: (bid.comments || []).filter(c => c.date !== data.comment_date) };
+    socket.on("delete_comment", (data) => {
+      setBids((prev) => prev.map((b) => {
+        if (b._id === data.bid_id) {
+          return { ...b, comments: (b.comments || []).filter((c) => c.date !== data.comment_date) };
         }
-        return bid;
+        return b;
       }));
-      
-      setSelectedBid(prevSelected => {
-        if (prevSelected && prevSelected._id === data.bid_id) {
-          return { ...prevSelected, comments: (prevSelected.comments || []).filter(c => c.date !== data.comment_date) };
-        }
-        return prevSelected;
-      });
+      setSelected((prev) => prev && prev._id === data.bid_id
+        ? { ...prev, comments: (prev.comments || []).filter((c) => c.date !== data.comment_date) }
+        : prev
+      );
     });
-    
     return () => socket.disconnect();
   }, []);
 
-  // Live prediction debounced call for the modal
   const triggerLivePredict = useCallback((data) => {
     if (predictDebounce.current) clearTimeout(predictDebounce.current);
     if (!data.amount || !data.submissionDate) { setLivePredict(null); return; }
     predictDebounce.current = setTimeout(async () => {
       setPredictLoading(true);
       try {
-        const sub_date = new Date(data.submissionDate);
-        const days_to_deadline = Math.max(1, Math.round((sub_date - new Date()) / (1000 * 60 * 60 * 24)));
-        const res = await api.post('/bids/predict', {
+        const sub = new Date(data.submissionDate);
+        const days = Math.max(1, Math.round((sub - new Date()) / (1000 * 60 * 60 * 24)));
+        const res = await api.post("/bids/predict", {
           amount: Number(data.amount),
-          days_to_deadline,
+          days_to_deadline: days,
           industry: data.industry,
           assignedEmployee: data.assignedEmployee,
           priority_encoded: 1,
-          is_repeat_customer: 1
+          is_repeat_customer: 1,
         });
         setLivePredict(res.data);
-      } catch (_) {
+      } catch {
         setLivePredict(null);
       } finally {
         setPredictLoading(false);
@@ -154,77 +243,57 @@ const Bids = () => {
     }, 600);
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleCreate = async (e) => {
     e.preventDefault();
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await api.post('/bids/', formData);
-      setShowModal(false);
+      await api.post("/bids/", form);
+      toast.success(t("bids.createSuccess"));
+      setShowCreate(false);
       setLivePredict(null);
-      fetchBids();
-      fetchUniqueTags();
-      setFormData({
-        enquiryId: '',
-        amount: '',
-        industry: 'Technology',
-        submissionDate: '',
-        assignedEmployee: '',
-        remarks: '',
-        tags: []
-      });
-      toast.success(t('bids.createSuccess'));
-    } catch (err) {
-      toast.error(t('bids.createFailed'));
+      setForm({ enquiryId: "", amount: "", industry: "Technology", submissionDate: "", assignedEmployee: "", remarks: "", tags: [] });
+      fetchAll();
+    } catch {
+      toast.error(t("bids.createFailed"));
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeleteBid = async (id, bidId) => {
-    if (window.confirm(`Are you sure you want to delete bid ${bidId}?`)) {
-      try {
-        await api.delete(`/bids/${id}`);
-        fetchBids();
-        toast.success("Bid deleted successfully!");
-      } catch (err) {
-        toast.error("Failed to delete bid");
-      }
+  const handleDelete = async (id, bidId) => {
+    if (!window.confirm(`Delete bid ${bidId}?`)) return;
+    try {
+      await api.delete(`/bids/${id}`);
+      toast.success("Bid deleted");
+      fetchAll();
+    } catch {
+      toast.error("Failed to delete bid");
     }
   };
 
   const handleDeleteComment = async (commentDate) => {
-    if (!selectedBid) return;
-    if (window.confirm("Are you sure you want to delete this comment?")) {
-      try {
-        const dateStr = encodeURIComponent(commentDate);
-        await api.delete(`/bids/${selectedBid._id}/comments/${dateStr}`);
-        toast.success("Comment deleted successfully!");
-        setSelectedBid(prev => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            comments: (prev.comments || []).filter(c => c.date !== commentDate)
-          };
-        });
-        fetchBids();
-      } catch (err) {
-        toast.error("Failed to delete comment");
-      }
+    if (!selected) return;
+    if (!window.confirm("Delete this comment?")) return;
+    try {
+      const dateStr = encodeURIComponent(commentDate);
+      await api.delete(`/bids/${selected._id}/comments/${dateStr}`);
+      toast.success("Comment deleted");
+      fetchAll();
+    } catch {
+      toast.error("Failed to delete comment");
     }
   };
 
-
   const handleUpdateTags = async (e) => {
     e.preventDefault();
-    if (!selectedBid) return;
+    if (!selected) return;
     try {
-      await api.put(`/bids/${selectedBid._id}`, { tags: editBidTags });
-      setShowTagsModal(false);
-      fetchBids();
-      fetchUniqueTags();
-      toast.success(t('common.save') + " " + t('common.tags'));
-    } catch (err) {
+      await api.put(`/bids/${selected._id}`, { tags: editTags });
+      toast.success("Tags updated");
+      setShowTags(false);
+      fetchAll();
+    } catch {
       toast.error("Failed to update tags");
     }
   };
@@ -232,517 +301,391 @@ const Bids = () => {
   const updateStatus = async (id, status) => {
     try {
       await api.put(`/bids/${id}/status`, { status });
-      fetchBids();
-      toast.success(t('bids.statusUpdated'));
-    } catch (err) {
-      toast.error(t('bids.statusUpdateFailed'));
+      toast.success(t("bids.statusUpdated"));
+      fetchAll();
+    } catch {
+      toast.error(t("bids.statusUpdateFailed"));
     }
   };
 
   const downloadQuotation = async (id, bidId) => {
     try {
-      const res = await api.get(`/bids/${id}/quotation`, { responseType: 'blob' });
-      const blob = new Blob([res.data], { type: 'application/pdf' });
-      const link = document.createElement('a');
-      link.href = window.URL.createObjectURL(blob);
-      link.download = `quotation_${bidId}.pdf`;
-      link.click();
-      toast.success(t('bids.quoteExportSuccess', 'Quotation PDF exported successfully!'));
-    } catch (err) {
-      toast.error(t('bids.quoteExportFailed', 'Failed to export quotation PDF'));
+      const res = await api.get(`/bids/${id}/quotation`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `quotation_${bidId}.pdf`;
+      a.click();
+      toast.success("Quotation exported");
+    } catch {
+      toast.error("Failed to export quotation");
     }
   };
 
-  const getStatusBadgeClass = (status) => {
-    if (['Order Received', 'Completed'].includes(status)) return 'success';
-    if (['Rejected', 'Lost'].includes(status)) return 'danger';
-    if (['Submitted', 'Negotiation'].includes(status)) return 'info';
-    return 'review';
-  };
-
-  const handleAddComment = async (e) => {
+  const addComment = async (e) => {
     e.preventDefault();
-    if (!commentText || !selectedBid) return;
+    if (!commentText || !selected) return;
     try {
-      await api.post(`/bids/${selectedBid._id}/comments`, { text: commentText });
+      await api.post(`/bids/${selected._id}/comments`, { text: commentText });
       setCommentText("");
-      fetchBids();
-      toast.success(t('bids.commentAdded'));
-      const res = await api.get('/bids/');
-      const updatedBids = res.data;
-      setBids(updatedBids);
-      setSelectedBid(updatedBids.find(b => b._id === selectedBid._id));
-    } catch (err) {
-      toast.error(t('bids.commentFailed'));
+      toast.success(t("bids.commentAdded"));
+      fetchAll();
+    } catch {
+      toast.error(t("bids.commentFailed"));
     }
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat(i18n.language || 'en-US', { style: 'currency', currency: 'USD' }).format(amount);
-  };
+  const fmt = (n) => new Intl.NumberFormat(i18n.language || "en-US", { style: "currency", currency: "USD" }).format(n);
 
-  const filteredBids = bids.filter(bid => {
-    if (selectedFilters.length === 0) return true;
-    return bid.tags && bid.tags.some(tag => selectedFilters.includes(tag));
+  const filtered = bids.filter((b) => {
+    if (filters.length > 0 && !(b.tags || []).some((t) => filters.includes(t))) return false;
+    if (search) {
+      const s = search.toLowerCase();
+      return (
+        b.bidId?.toLowerCase().includes(s) ||
+        b.enquiryId?.toLowerCase().includes(s) ||
+        b.assignedEmployee?.toLowerCase().includes(s)
+      );
+    }
+    return true;
   });
 
+  const toggleFilter = (t) => {
+    setFilters((p) => p.includes(t) ? p.filter((x) => x !== t) : [...p, t]);
+  };
+
   return (
-    <div className="bids-page animate-fade-in">
-      <div className="page-header">
-        <h1 className="page-title">{t('bids.title')}</h1>
-        <button className="btn-primary" style={{ width: 'auto' }} onClick={() => setShowModal(true)}>
-          {t('bids.createBid')}
-        </button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{t("bids.title")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {filtered.length} of {bids.length} bids
+          </p>
+        </div>
+        <Button onClick={() => setShowCreate(true)}>
+          <Plus className="h-4 w-4" />
+          {t("bids.createBid")}
+        </Button>
       </div>
 
       {uniqueTags.length > 0 && (
-        <div className="tag-filter-bar">
-          <span className="tag-filter-title">
-            🔍 {t('common.filterByTags')}:
-          </span>
-          {uniqueTags.map(tag => {
-            const isActive = selectedFilters.includes(tag);
-            return (
-              <span
-                key={tag}
-                className={`tag-filter-pill ${isActive ? 'active' : ''}`}
-                onClick={() => {
-                  if (isActive) {
-                    setSelectedFilters(selectedFilters.filter(f => f !== tag));
-                  } else {
-                    setSelectedFilters([...selectedFilters, tag]);
-                  }
-                }}
-              >
-                {tag}
-              </span>
-            );
-          })}
-          {selectedFilters.length > 0 && (
-            <button 
-              className="btn-outline" 
-              style={{ padding: '4px 10px', fontSize: '0.75rem', borderRadius: '12px', marginLeft: 'auto' }}
-              onClick={() => setSelectedFilters([])}
-            >
-              Clear
-            </button>
-          )}
-        </div>
+        <Card>
+          <CardContent className="p-3 flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 mr-2">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
+            </div>
+            <div className="relative flex-1 max-w-xs">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search bids..."
+                className="pl-8 h-8"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {uniqueTags.slice(0, 20).map((tg) => (
+                <button
+                  key={tg}
+                  type="button"
+                  onClick={() => toggleFilter(tg)}
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-full border transition-colors",
+                    filters.includes(tg)
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "bg-muted/30 border-border hover:bg-muted"
+                  )}
+                >
+                  {tg}
+                </button>
+              ))}
+            </div>
+            {filters.length > 0 && (
+              <Button variant="ghost" size="sm" onClick={() => setFilters([])} className="ml-auto">
+                <X className="h-3.5 w-3.5" />
+                Clear
+              </Button>
+            )}
+          </CardContent>
+        </Card>
       )}
 
-      <div className="glass-card data-table-container">
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>{t('bids.bidId')}</th>
-              <th>{t('bids.enquiryId')}</th>
-              <th>{t('bids.amount')}</th>
-              <th>{t('bids.prediction')}</th>
-              <th>{t('bids.status')}</th>
-              <th>{t('bids.assignedTo')}</th>
-              <th>{t('bids.actions')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredBids.map((bid, index) => (
-              <tr key={bid._id}>
-                <td style={{ fontWeight: 600 }}>
-                  {bid.bidId}
-                  {bid.tags && bid.tags.length > 0 && (
-                    <div className="table-tags-container">
-                      {bid.tags.map(tag => (
-                        <span key={tag} className="table-tag-badge">{tag}</span>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td>{bid.enquiryId}</td>
-                <td style={{ fontWeight: 500 }}>{formatCurrency(bid.amount)}</td>
-                <td style={{ position: 'relative' }}>
-                  {bid.aiPrediction ? (
-                    <div
-                      style={{ position: 'relative', display: 'inline-block', cursor: 'help' }}
-                      onMouseEnter={() => { if (tooltipTimer.current) clearTimeout(tooltipTimer.current); setHoveredBidId(bid._id); }}
-                      onMouseLeave={() => { tooltipTimer.current = setTimeout(() => setHoveredBidId(null), 200); }}
-                    >
-                      <span style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        padding: '5px 10px',
-                        borderRadius: '12px',
-                        fontSize: '0.85rem',
-                        fontWeight: 700,
-                        background: bid.aiPrediction >= 70
-                          ? 'rgba(16,185,129,0.12)'
-                          : (bid.aiPrediction >= 40 ? 'rgba(245,158,11,0.12)' : 'rgba(239,68,68,0.12)'),
-                        color: bid.aiPrediction >= 70 ? 'var(--success)' : (bid.aiPrediction >= 40 ? 'var(--warning)' : 'var(--danger)'),
-                        border: `1px solid ${bid.aiPrediction >= 70 ? 'rgba(16,185,129,0.3)' : (bid.aiPrediction >= 40 ? 'rgba(245,158,11,0.3)' : 'rgba(239,68,68,0.3)')}`
-                      }}>
-                        {bid.aiPrediction >= 70 ? '🟢' : (bid.aiPrediction >= 40 ? '🟡' : '🔴')} {bid.aiPrediction}%
-                        <span style={{ color: 'var(--text-secondary)', fontWeight: 400, fontSize: '0.78rem' }}>
-                          {bid.aiPrediction >= 70 ? t('bids.lowRisk') : (bid.aiPrediction >= 40 ? t('bids.mediumRisk') : t('bids.highRisk'))}
-                        </span>
-                        <Info size={12} style={{ opacity: 0.5 }} />
-                      </span>
-
-                      {/* SHAP Tooltip */}
-                      {hoveredBidId === bid._id && (
-                        <div style={getShapTooltipStyle(index, filteredBids.length)}
-                          onMouseEnter={() => { if (tooltipTimer.current) clearTimeout(tooltipTimer.current); }}
-                          onMouseLeave={() => { tooltipTimer.current = setTimeout(() => setHoveredBidId(null), 200); }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px', color: 'var(--accent-primary)' }}>
-                            <Brain size={14} />
-                            <span style={{ fontWeight: 700, fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>AI Explanation</span>
-                          </div>
-                          {bid.shapExplanations && bid.shapExplanations.length > 0 ? (
-                            bid.shapExplanations.map((ex, i) => (
-                              <div key={i} style={shapRowStyle(ex.impact)}>
-                                {ex.impact === 'positive' ? <TrendingUp size={13} style={{ flexShrink: 0 }} /> : <TrendingDown size={13} style={{ flexShrink: 0 }} />}
-                                <span style={{ fontSize: '0.8rem' }}>{ex.text}</span>
-                              </div>
-                            ))
-                          ) : (
-                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              <Minus size={12} /> No explanation data available
-                            </div>
-                          )}
+      <Card>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="p-6 space-y-3">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-14" />)}
+            </div>
+          ) : filtered.length === 0 ? (
+            <Empty>
+              <EmptyIcon><FileText className="h-5 w-5" /></EmptyIcon>
+              <EmptyTitle>No bids yet</EmptyTitle>
+              <EmptyDescription>Create your first bid to get started.</EmptyDescription>
+            </Empty>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Bid ID</TableHead>
+                  <TableHead>Enquiry</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>AI Prediction</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Assigned</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((bid) => (
+                  <TableRow key={bid._id}>
+                    <TableCell>
+                      <div className="font-mono text-xs font-semibold">{bid.bidId}</div>
+                      {bid.tags?.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {bid.tags.slice(0, 2).map((tg) => (
+                            <Badge key={tg} variant="secondary" className="text-[10px] font-normal">{tg}</Badge>
+                          ))}
                         </div>
                       )}
-                    </div>
-                  ) : <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>N/A</span>}
-                </td>
-                <td>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className={`status-badge ${getStatusBadgeClass(bid.status)}`}>
-                      {t(`bids.statusValue.${bid.status.toLowerCase().replace(/[^a-z0-9]/g, '_')}`, bid.status)}
-                    </span>
-                    {bid.slaBreached && (
-                      <span className="sla-badge" title={`${bid.slaElapsedDays} days in this stage (SLA threshold: ${bid.slaThresholdDays} days)`}>
-                        ⚠️ {t('bids.slaBreach', 'SLA Breach')} {t('bids.slaDaysOverdue', { days: (bid.slaElapsedDays || 0) - (bid.slaThresholdDays || 0) })}
-                      </span>
-                    )}
-                  </div>
-                </td>
-                <td>{bid.assignedEmployee}</td>
-                <td style={{ display: 'flex', gap: '8px' }}>
-                  <select 
-                    className="input-field" 
-                    style={{ padding: '6px', fontSize: '0.8rem', width: 'auto' }}
-                    value={bid.status}
-                    onChange={(e) => updateStatus(bid._id, e.target.value)}
-                  >
-                    <option value="Quotation Prepared">{t('bids.statusValue.quotation_prepared', 'Quotation Prepared')}</option>
-                    <option value="Submitted">{t('bids.statusValue.submitted', 'Submitted')}</option>
-                    <option value="Negotiation">{t('bids.statusValue.negotiation', 'Negotiation')}</option>
-                    <option value="Approved / Rejected">{t('bids.statusValue.approved___rejected', 'Approved / Rejected')}</option>
-                    <option value="Order Received">{t('bids.statusValue.order_received', 'Order Received')}</option>
-                    <option value="Completed">{t('bids.statusValue.completed', 'Completed')}</option>
-                    <option value="Rejected">{t('bids.statusValue.rejected', 'Rejected')}</option>
-                  </select>
-                  <button className="btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => { setSelectedBid(bid); setShowCommentModal(true); }}>
-                    {t('bids.comments')} ({bid.comments ? bid.comments.length : 0})
-                  </button>
-                  <button className="btn-outline" style={{ padding: '6px 12px', fontSize: '0.8rem' }} onClick={() => { setSelectedBid(bid); setEditBidTags(bid.tags || []); setShowTagsModal(true); }}>
-                    {t('common.tags')}
-                  </button>
-                  {bid.status === 'Quotation Prepared' && (
-                    <button 
-                      className="btn-primary" 
-                      style={{ padding: '6px 12px', fontSize: '0.8rem', width: 'auto' }} 
-                      onClick={() => downloadQuotation(bid._id, bid.bidId)}
-                    >
-                      📄 {t('bids.exportQuote')}
-                    </button>
-                  )}
-                  <button 
-                    className="btn-outline" 
-                    style={{ padding: '6px 12px', fontSize: '0.8rem', borderColor: 'var(--danger)', color: 'var(--danger)' }} 
-                    onClick={() => handleDeleteBid(bid._id, bid.bidId)}
-                  >
-                    🗑️ {t('common.delete', 'Delete')}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {showModal && (
-        <div style={modalOverlayStyle}>
-          <div className="glass-card" style={{ ...modalContentStyle, maxWidth: '540px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h2 style={{ margin: 0 }}>{t('bids.createTitle')}</h2>
-              <button style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', fontSize: '1.2rem' }} onClick={() => { setShowModal(false); setLivePredict(null); }}>✕</button>
-            </div>
-            <form onSubmit={handleSubmit}>
-              <div className="input-group">
-                <label>{t('bids.selectEnquiryLabel')}</label>
-                <select className="input-field" required value={formData.enquiryId} onChange={e => setFormData({...formData, enquiryId: e.target.value})}>
-                  <option value="">{t('bids.selectEnquiry')}</option>
-                  {enquiries.map(enq => (
-                    <option key={enq.enquiryId} value={enq.enquiryId}>{enq.enquiryId} - {enq.customerName}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div className="input-group" style={{ marginBottom: 0 }}>
-                  <label>{t('bids.bidAmount')}</label>
-                  <input type="number" className="input-field" required value={formData.amount}
-                    onChange={e => {
-                      const updated = {...formData, amount: Number(e.target.value)};
-                      setFormData(updated);
-                      triggerLivePredict(updated);
-                    }}
-                  />
-                </div>
-                <div className="input-group" style={{ marginBottom: 0 }}>
-                  <label>{t('bids.submissionDate')}</label>
-                  <input type="date" className="input-field" required value={formData.submissionDate}
-                    onChange={e => {
-                      const updated = {...formData, submissionDate: e.target.value};
-                      setFormData(updated);
-                      triggerLivePredict(updated);
-                    }}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginTop: '16px' }}>
-                <div className="input-group" style={{ marginBottom: 0 }}>
-                  <label>{t('bids.assignedEmployee')}</label>
-                  <input className="input-field" required value={formData.assignedEmployee}
-                    onChange={e => {
-                      const updated = {...formData, assignedEmployee: e.target.value};
-                      setFormData(updated);
-                      triggerLivePredict(updated);
-                    }}
-                  />
-                </div>
-                <div className="input-group" style={{ marginBottom: 0 }}>
-                  <label>{t('bids.clientIndustry')}</label>
-                  <select className="input-field" value={formData.industry}
-                    onChange={e => {
-                      const updated = {...formData, industry: e.target.value};
-                      setFormData(updated);
-                      triggerLivePredict(updated);
-                    }}
-                  >
-                    <option value="Technology">{t('bids.tech')}</option>
-                    <option value="Banking">{t('bids.bank')}</option>
-                    <option value="Manufacturing">{t('bids.manuf')}</option>
-                    <option value="Retail">{t('bids.retail')}</option>
-                    <option value="Healthcare">{t('bids.health')}</option>
-                    <option value="Other">{t('bids.other')}</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Live AI prediction panel */}
-              {(predictLoading || livePredict) && (
-                <div style={{
-                  margin: '20px 0 4px',
-                  padding: '14px 16px',
-                  borderRadius: '12px',
-                  background: livePredict
-                    ? (livePredict.win_probability >= 70 ? 'rgba(16,185,129,0.08)' : (livePredict.win_probability >= 40 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)'))
-                    : 'rgba(255,255,255,0.04)',
-                  border: livePredict
-                    ? `1px solid ${livePredict.win_probability >= 70 ? 'rgba(16,185,129,0.25)' : (livePredict.win_probability >= 40 ? 'rgba(245,158,11,0.25)' : 'rgba(239,68,68,0.25)')}`
-                    : '1px solid var(--border-color)'
-                }}>
-                  {predictLoading ? (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                      <Brain size={15} style={{ animation: 'spin 1s linear infinite' }} /> Calculating AI prediction…
-                    </div>
-                  ) : livePredict && (
-                    <>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                        <Brain size={16} style={{ color: 'var(--accent-primary)' }} />
-                        <span style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Live AI Estimate</span>
-                        <span style={{
-                          marginLeft: 'auto',
-                          fontWeight: 800,
-                          fontSize: '1.2rem',
-                          color: livePredict.win_probability >= 70 ? 'var(--success)' : (livePredict.win_probability >= 40 ? 'var(--warning)' : 'var(--danger)')
-                        }}>
-                          {livePredict.win_probability}%
-                        </span>
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        {livePredict.shap_explanations && livePredict.shap_explanations.map((ex, i) => (
-                          <div key={i} style={shapRowStyle(ex.impact)}>
-                            {ex.impact === 'positive' ? <TrendingUp size={12} style={{ flexShrink: 0 }} /> : <TrendingDown size={12} style={{ flexShrink: 0 }} />}
-                            <span style={{ fontSize: '0.78rem' }}>{ex.text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              <div className="input-group" style={{ marginTop: '20px' }}>
-                <label>{t('common.tags')}</label>
-                <TagInput
-                  tags={formData.tags}
-                  onChange={tags => setFormData({...formData, tags})}
-                  suggestions={[...new Set([...(defaultIndustryTags[formData.industry] || []), ...uniqueTags])].filter(t => !formData.tags.includes(t))}
-                  placeholder={t('common.tagPlaceholder')}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '24px' }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => { setShowModal(false); setLivePredict(null); }}>{t('common.cancel')}</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1 }} disabled={isSubmitting}>
-                  {isSubmitting ? t('common.saving') : t('common.save')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showCommentModal && selectedBid && (
-        <div style={modalOverlayStyle}>
-          <div className="glass-card" style={modalContentStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-              <h2>{t('bids.commentsTitle', { id: selectedBid.bidId })}</h2>
-              <button style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }} onClick={() => setShowCommentModal(false)}>✕</button>
-            </div>
-            
-            <div style={{ maxHeight: '300px', overflowY: 'auto', marginBottom: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {selectedBid.comments && selectedBid.comments.length > 0 ? (
-                selectedBid.comments.map((c, i) => (
-                  <div key={i} style={{ background: 'rgba(255,255,255,0.05)', padding: '12px', borderRadius: '8px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '4px' }}>
-                      <strong style={{ color: 'var(--accent-primary)' }}>{c.author}</strong>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span>{format(new Date(c.date), 'MMM dd, yyyy h:mm a')}</span>
-                        {(c.author === user?.name || user?.role === 'Admin') && (
-                          <button 
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: 'var(--danger)',
-                              cursor: 'pointer',
-                              fontSize: '0.85rem',
-                              padding: '0',
-                              display: 'flex',
-                              alignItems: 'center'
-                            }}
-                            onClick={() => handleDeleteComment(c.date)}
-                            title="Delete comment"
-                          >
-                            ✕
-                          </button>
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{bid.enquiryId}</TableCell>
+                    <TableCell className="font-semibold">{fmt(bid.amount)}</TableCell>
+                    <TableCell>
+                      <PredictionPill value={bid.aiPrediction} explanations={bid.shapExplanations} />
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <Badge variant={statusVariants[bid.status] || "secondary"}>{bid.status}</Badge>
+                        {bid.slaBreached && (
+                          <Badge variant="destructive" className="text-[10px]">
+                            <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                            SLA
+                          </Badge>
                         )}
                       </div>
-                    </div>
-                    <div>{c.text}</div>
-                  </div>
-                ))
-              ) : (
-                <div style={{ color: 'var(--text-secondary)' }}>{t('bids.noComments')}</div>
-              )}
+                    </TableCell>
+                    <TableCell className="text-xs">{bid.assignedEmployee}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Select value={bid.status} onValueChange={(v) => updateStatus(bid._id, v)}>
+                          <SelectTrigger className="h-7 w-[140px] text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {STATUSES.map((s) => (
+                              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" onClick={() => { setSelected(bid); setShowComments(true); }}>
+                          <MessageSquare className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setSelected(bid); setEditTags(bid.tags || []); setShowTags(true); }}>
+                          <Tag className="h-3.5 w-3.5" />
+                        </Button>
+                        {bid.status === "Quotation Prepared" && (
+                          <Button variant="ghost" size="icon" onClick={() => downloadQuotation(bid._id, bid.bidId)}>
+                            <FileDown className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(bid._id, bid.bidId)} className="text-destructive hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Bid Dialog */}
+      <Dialog open={showCreate} onOpenChange={(o) => { setShowCreate(o); if (!o) setLivePredict(null); }}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("bids.createTitle")}</DialogTitle>
+            <DialogDescription>Build a new bid against an existing enquiry.</DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleCreate} className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>{t("bids.selectEnquiryLabel")}</Label>
+              <Select required value={form.enquiryId} onValueChange={(v) => setForm({ ...form, enquiryId: v })}>
+                <SelectTrigger><SelectValue placeholder={t("bids.selectEnquiry")} /></SelectTrigger>
+                <SelectContent>
+                  {enquiries.map((e) => (
+                    <SelectItem key={e.enquiryId} value={e.enquiryId}>
+                      {e.enquiryId} · {e.customerName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <form onSubmit={handleAddComment} style={{ display: 'flex', gap: '8px' }}>
-              <input 
-                type="text" 
-                className="input-field" 
-                style={{ flex: 1 }} 
-                placeholder={t('bids.addCommentPlaceholder')} 
-                value={commentText} 
-                onChange={(e) => setCommentText(e.target.value)} 
-                required 
-              />
-              <button type="submit" className="btn-primary" style={{ width: 'auto' }}>{t('bids.send')}</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showTagsModal && selectedBid && (
-        <div style={modalOverlayStyle}>
-          <div className="glass-card" style={modalContentStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px' }}>
-              <h2>{t('common.editTagsTitle', { id: selectedBid.bidId })}</h2>
-              <button style={{ background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer' }} onClick={() => setShowTagsModal(false)}>✕</button>
-            </div>
-            <form onSubmit={handleUpdateTags}>
-              <div className="input-group">
-                <label>{t('common.tags')}</label>
-                <TagInput
-                  tags={editBidTags}
-                  onChange={setEditBidTags}
-                  suggestions={[...new Set([...(defaultIndustryTags[selectedBid.industry] || []), ...uniqueTags])].filter(t => !editBidTags.includes(t))}
-                  placeholder={t('common.tagPlaceholder')}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>{t("bids.bidAmount")}</Label>
+                <Input
+                  type="number"
+                  required
+                  value={form.amount}
+                  onChange={(e) => {
+                    const updated = { ...form, amount: e.target.value };
+                    setForm(updated);
+                    triggerLivePredict(updated);
+                  }}
                 />
               </div>
-              <div style={{ display: 'flex', gap: '16px', marginTop: '32px' }}>
-                <button type="button" className="btn-outline" style={{ flex: 1 }} onClick={() => setShowTagsModal(false)}>{t('common.cancel')}</button>
-                <button type="submit" className="btn-primary" style={{ flex: 1 }}>{t('common.save')}</button>
+              <div className="space-y-1.5">
+                <Label>{t("bids.submissionDate")}</Label>
+                <Input
+                  type="date"
+                  required
+                  value={form.submissionDate}
+                  onChange={(e) => {
+                    const updated = { ...form, submissionDate: e.target.value };
+                    setForm(updated);
+                    triggerLivePredict(updated);
+                  }}
+                />
               </div>
-            </form>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>{t("bids.assignedEmployee")}</Label>
+                <Input
+                  required
+                  value={form.assignedEmployee}
+                  onChange={(e) => {
+                    const updated = { ...form, assignedEmployee: e.target.value };
+                    setForm(updated);
+                    triggerLivePredict(updated);
+                  }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>{t("bids.clientIndustry")}</Label>
+                <Select value={form.industry} onValueChange={(v) => {
+                  const updated = { ...form, industry: v };
+                  setForm(updated);
+                  triggerLivePredict(updated);
+                }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(defaultIndustryTags).map((ind) => (
+                      <SelectItem key={ind} value={ind}>{ind}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <LivePrediction livePredict={livePredict} loading={predictLoading} />
+
+            <div className="space-y-1.5">
+              <Label>{t("common.tags")}</Label>
+              <TagInput
+                tags={form.tags}
+                onChange={(tags) => setForm({ ...form, tags })}
+                suggestions={[...new Set([...(defaultIndustryTags[form.industry] || []), ...uniqueTags])].filter((t) => !form.tags.includes(t))}
+                placeholder={t("common.tagPlaceholder")}
+              />
+            </div>
+
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => { setShowCreate(false); setLivePredict(null); }}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? t("common.saving") : t("common.save")}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Comments Dialog */}
+      <Dialog open={showComments} onOpenChange={setShowComments}>
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{t("bids.commentsTitle", { id: selected?.bidId })}</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto space-y-2">
+            {selected?.comments?.length > 0 ? (
+              selected.comments.map((c, i) => {
+                const canDelete = c.author === user?.name || user?.role === "Admin";
+                return (
+                  <div key={i} className="flex gap-2 p-2 rounded-md bg-muted/30">
+                    <Avatar className="h-7 w-7">
+                      <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                        {c.author?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold">{c.author}</span>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground">
+                            {format(new Date(c.date), "MMM dd, h:mm a")}
+                          </span>
+                          {canDelete && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-5 w-5 text-destructive"
+                              onClick={() => handleDeleteComment(c.date)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      <p className="text-sm mt-0.5 break-words">{c.text}</p>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6">{t("bids.noComments")}</p>
+            )}
           </div>
-        </div>
-      )}
+          <form onSubmit={addComment} className="flex gap-2">
+            <Input
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              placeholder={t("bids.addCommentPlaceholder")}
+            />
+            <Button type="submit" size="icon"><Send className="h-4 w-4" /></Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tags Dialog */}
+      <Dialog open={showTags} onOpenChange={setShowTags}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("common.editTagsTitle", { id: selected?.bidId })}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateTags} className="space-y-4">
+            <TagInput
+              tags={editTags}
+              onChange={setEditTags}
+              suggestions={[...new Set([...(defaultIndustryTags[selected?.industry] || []), ...uniqueTags])].filter((t) => !editTags.includes(t))}
+              placeholder={t("common.tagPlaceholder")}
+            />
+            <DialogFooter className="gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowTags(false)}>
+                {t("common.cancel")}
+              </Button>
+              <Button type="submit">{t("common.save")}</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
-};
-
-const modalOverlayStyle = {
-  position: 'fixed',
-  top: 0, left: 0, right: 0, bottom: 0,
-  backgroundColor: 'rgba(15, 23, 42, 0.8)',
-  backdropFilter: 'blur(4px)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  zIndex: 9999,
-  overflowY: 'auto',
-  padding: '20px'
-};
-
-const modalContentStyle = {
-  width: '100%',
-  maxWidth: '500px',
-  background: 'var(--bg-secondary)',
-};
-
-const getShapTooltipStyle = (index, totalBids) => {
-  const showAbove = totalBids > 3 && index >= totalBids - 2;
-  return {
-    position: 'absolute',
-    [showAbove ? 'bottom' : 'top']: 'calc(100% + 8px)',
-    left: '50%',
-    transform: 'translateX(-50%)',
-    zIndex: 10000,
-    background: 'var(--bg-secondary)',
-    border: '1px solid rgba(59,130,246,0.25)',
-    borderRadius: '12px',
-    padding: '14px 16px',
-    minWidth: '280px',
-    maxWidth: '340px',
-    boxShadow: '0 12px 40px -8px rgba(0,0,0,0.5)',
-    backdropFilter: 'blur(16px)',
-    animation: 'tooltipFadeIn 0.15s ease forwards',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '6px',
-    pointerEvents: 'all'
-  };
-};
-
-const shapRowStyle = (impact) => ({
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: '8px',
-  padding: '6px 8px',
-  borderRadius: '8px',
-  background: impact === 'positive' ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-  color: impact === 'positive' ? 'var(--success)' : 'var(--danger)',
-  fontSize: '0.82rem',
-  lineHeight: '1.4'
-});
-
-export default Bids;
+}

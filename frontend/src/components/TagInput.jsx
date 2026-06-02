@@ -1,120 +1,115 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from "react";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 
-const TagInput = ({ tags = [], onChange, suggestions = [], placeholder = "Add tags..." }) => {
-  const [inputValue, setInputValue] = useState('');
+export function TagInput({ tags = [], onChange, suggestions = [], placeholder = "Add tags..." }) {
+  const [inputValue, setInputValue] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const wrapperRef = useRef(null);
 
-  // Filter suggestions to show those matching input and not already selected
-  const filteredSuggestions = suggestions.filter(
-    sugg => sugg.toLowerCase().includes(inputValue.toLowerCase()) && !tags.includes(sugg)
+  useEffect(() => {
+    const onClick = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, []);
+
+  const filtered = suggestions.filter(
+    (s) => s.toLowerCase().includes(inputValue.toLowerCase()) && !tags.includes(s)
   );
 
   const addTag = (tag) => {
-    const cleanTag = tag.trim().toLowerCase();
-    if (cleanTag && !tags.includes(cleanTag)) {
-      onChange([...tags, cleanTag]);
+    const clean = tag.trim().toLowerCase();
+    if (clean && !tags.includes(clean)) {
+      onChange([...tags, clean]);
     }
-    setInputValue('');
+    setInputValue("");
     setShowDropdown(false);
     setActiveIndex(-1);
   };
 
-  const removeTag = (indexToRemove) => {
-    onChange(tags.filter((_, idx) => idx !== indexToRemove));
-  };
+  const removeTag = (idx) => onChange(tags.filter((_, i) => i !== idx));
 
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter') {
+  const handleKey = (e) => {
+    if (e.key === "Enter") {
       e.preventDefault();
-      if (activeIndex >= 0 && activeIndex < filteredSuggestions.length) {
-        addTag(filteredSuggestions[activeIndex]);
+      if (activeIndex >= 0 && activeIndex < filtered.length) {
+        addTag(filtered[activeIndex]);
       } else if (inputValue.trim()) {
         addTag(inputValue);
       }
-    } else if (e.key === 'ArrowDown') {
+    } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      if (filteredSuggestions.length > 0) {
-        setActiveIndex(prev => (prev + 1) % filteredSuggestions.length);
-      }
-    } else if (e.key === 'ArrowUp') {
+      if (filtered.length > 0) setActiveIndex((p) => (p + 1) % filtered.length);
+    } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      if (filteredSuggestions.length > 0) {
-        setActiveIndex(prev => (prev - 1 + filteredSuggestions.length) % filteredSuggestions.length);
-      }
-    } else if (e.key === 'Escape') {
+      if (filtered.length > 0) setActiveIndex((p) => (p - 1 + filtered.length) % filtered.length);
+    } else if (e.key === "Escape") {
       setShowDropdown(false);
-      setActiveIndex(-1);
-    } else if (e.key === 'Backspace' && !inputValue && tags.length > 0) {
+    } else if (e.key === "Backspace" && !inputValue && tags.length > 0) {
       removeTag(tags.length - 1);
     }
   };
 
   return (
-    <div className="tag-input-container">
-      {tags.map((tag, idx) => (
-        <span key={idx} className="tag-input-pill">
-          {tag}
-          <span 
-            className="tag-input-pill-remove" 
-            onClick={(e) => {
-              e.stopPropagation();
-              removeTag(idx);
-            }}
-          >
-            &times;
-          </span>
-        </span>
-      ))}
-      <input
-        type="text"
-        className="tag-input-field"
-        placeholder={tags.length === 0 ? placeholder : ''}
-        value={inputValue}
-        onChange={(e) => {
-          setInputValue(e.target.value);
-          setShowDropdown(true);
-          setActiveIndex(-1);
-        }}
-        onFocus={() => setShowDropdown(true)}
-        onBlur={() => {
-          // Delay to let mouse down event on dropdown register
-          setTimeout(() => setShowDropdown(false), 200);
-        }}
-        onKeyDown={handleKeyDown}
-      />
-      {showDropdown && (inputValue || filteredSuggestions.length > 0) && (
-        <div className="tag-autocomplete-dropdown">
-          {filteredSuggestions.length > 0 ? (
-            filteredSuggestions.map((sugg, idx) => (
-              <div
-                key={idx}
-                className={`tag-autocomplete-item ${idx === activeIndex ? 'active' : ''}`}
-                onMouseDown={(e) => {
-                  e.preventDefault(); // Prevents blur event
-                  addTag(sugg);
-                }}
+    <div ref={wrapperRef} className="relative">
+      <div className="flex flex-wrap gap-1.5 p-2 border border-input rounded-md bg-transparent min-h-9 items-center focus-within:ring-1 focus-within:ring-ring">
+        {tags.map((tag, idx) => (
+          <Badge key={idx} variant="info" className="gap-1 pr-1">
+            {tag}
+            <button
+              type="button"
+              onClick={() => removeTag(idx)}
+              className="ml-0.5 hover:bg-blue-500/20 rounded-full p-0.5"
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </Badge>
+        ))}
+        <input
+          type="text"
+          className="flex-1 min-w-[120px] bg-transparent outline-none text-sm px-1 py-0.5"
+          placeholder={tags.length === 0 ? placeholder : ""}
+          value={inputValue}
+          onChange={(e) => { setInputValue(e.target.value); setShowDropdown(true); setActiveIndex(-1); }}
+          onFocus={() => setShowDropdown(true)}
+          onKeyDown={handleKey}
+        />
+      </div>
+      {showDropdown && (inputValue || filtered.length > 0) && (
+        <div className="absolute z-50 top-full mt-1 w-full max-h-48 overflow-y-auto rounded-md border bg-popover shadow-lg">
+          {filtered.length > 0 ? (
+            filtered.map((s, i) => (
+              <button
+                key={i}
+                type="button"
+                onMouseDown={(e) => { e.preventDefault(); addTag(s); }}
+                onMouseEnter={() => setActiveIndex(i)}
+                className={cn(
+                  "w-full text-left px-3 py-1.5 text-sm hover:bg-accent",
+                  activeIndex === i && "bg-accent"
+                )}
               >
-                {sugg}
-              </div>
+                {s}
+              </button>
             ))
-          ) : (
-            inputValue.trim() && !tags.includes(inputValue.trim().toLowerCase()) && (
-              <div 
-                className="tag-autocomplete-item active" 
-                onMouseDown={(e) => {
-                  e.preventDefault(); // Prevents blur event
-                  addTag(inputValue);
-                }}
-              >
-                Create "{inputValue.trim().toLowerCase()}"
-              </div>
-            )
-          )}
+          ) : inputValue.trim() && !tags.includes(inputValue.trim().toLowerCase()) ? (
+            <button
+              type="button"
+              onMouseDown={(e) => { e.preventDefault(); addTag(inputValue); }}
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
+            >
+              Create "{inputValue.trim().toLowerCase()}"
+            </button>
+          ) : null}
         </div>
       )}
     </div>
   );
-};
-
-export default TagInput;
+}

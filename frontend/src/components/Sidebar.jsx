@@ -1,80 +1,139 @@
-import React, { useContext } from 'react';
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, MessageSquare, FileText, Calendar, BarChart2, Shield, Activity, User } from 'lucide-react';
-import { AuthContext } from '../contexts/AuthContext';
-import { useTranslation } from 'react-i18next';
-import './Sidebar.css';
+import React, { useState, useEffect, useContext } from "react";
+import { NavLink, useLocation } from "react-router-dom";
+import {
+  LayoutDashboard, MessageSquare, FileText, CalendarDays,
+  BarChart3, Activity, User, Shield, Sparkles,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useTranslation } from "react-i18next";
+import { cn } from "@/lib/utils";
 
-const Sidebar = () => {
-  const { user } = useContext(AuthContext);
+const navConfig = [
+  { to: "/dashboard", icon: LayoutDashboard, key: "sidebar.dashboard" },
+  { to: "/enquiries", icon: MessageSquare, key: "sidebar.enquiries" },
+  { to: "/bids", icon: FileText, key: "sidebar.bids" },
+  { to: "/calendar", icon: CalendarDays, key: "sidebar.calendar" },
+  { to: "/profile", icon: User, key: "sidebar.profile" },
+];
+
+const adminNav = [
+  { to: "/reports", icon: BarChart3, key: "sidebar.reports" },
+  { to: "/audit-logs", icon: Activity, key: "sidebar.auditLogs" },
+];
+
+export function Sidebar() {
+  const { user } = useAuth();
   const { t } = useTranslation();
+  const location = useLocation();
 
   return (
-    <div className="sidebar glass-panel">
-      <div className="sidebar-header">
-        <h2>BidFlow</h2>
+    <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:z-30 border-r border-border bg-sidebar text-sidebar-foreground">
+      <div className="flex h-16 items-center gap-2 px-6 border-b border-sidebar-border">
+        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-sidebar-primary to-chart-2 text-white">
+          <Sparkles className="h-5 w-5" />
+        </div>
+        <div className="flex flex-col">
+          <span className="font-semibold text-sm tracking-tight">BidFlow</span>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-widest">Bid Intelligence</span>
+        </div>
       </div>
-      <nav className="sidebar-nav">
-        <ul>
-          <li>
-            <NavLink to="/dashboard" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-              <LayoutDashboard size={20} />
-              <span>{t('sidebar.dashboard')}</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/enquiries" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-              <MessageSquare size={20} />
-              <span>{t('sidebar.enquiries')}</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/bids" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-              <FileText size={20} />
-              <span>{t('sidebar.bids')}</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/calendar" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-              <Calendar size={20} />
-              <span>{t('sidebar.calendar', 'Calendar')}</span>
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/profile" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-              <User size={20} />
-              <span>{t('sidebar.profile')}</span>
-            </NavLink>
-          </li>
 
-          {user && user.role === 'Admin' && (
+      <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
+        <ul className="space-y-1">
+          {navConfig.map((item) => {
+            const Icon = item.icon;
+            return (
+              <li key={item.to}>
+                <NavLink
+                  to={item.to}
+                  className={({ isActive }) =>
+                    cn(
+                      "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      isActive
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                    )
+                  }
+                >
+                  <Icon className="h-4 w-4" />
+                  <span>{t(item.key)}</span>
+                </NavLink>
+              </li>
+            );
+          })}
+
+          {user?.role === "Admin" && (
             <>
-              <li>
-                <NavLink to="/reports" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-                  <BarChart2 size={20} />
-                  <span>{t('sidebar.reports')}</span>
-                </NavLink>
+              <li className="pt-4 pb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                Administration
               </li>
-              <li>
-                <NavLink to="/audit-logs" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}>
-                  <Activity size={20} />
-                  <span>{t('sidebar.auditLogs')}</span>
-                </NavLink>
-              </li>
+              {adminNav.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <li key={item.to}>
+                    <NavLink
+                      to={item.to}
+                      className={({ isActive }) =>
+                        cn(
+                          "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                          isActive
+                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                        )
+                      }
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span>{t(item.key)}</span>
+                    </NavLink>
+                  </li>
+                );
+              })}
             </>
-          )}
-          {user && user.role === 'Admin' && (
-            <li>
-              <div className="nav-link" style={{ pointerEvents: 'none', opacity: 0.7 }}>
-                <Shield size={20} />
-                <span>{t('sidebar.adminPrivileges')}</span>
-              </div>
-            </li>
           )}
         </ul>
       </nav>
-    </div>
-  );
-};
 
-export default Sidebar;
+      {user?.role === "Admin" && (
+        <div className="border-t border-sidebar-border p-4">
+          <div className="flex items-center gap-2 rounded-lg bg-sidebar-accent/50 px-3 py-2">
+            <Shield className="h-4 w-4 text-sidebar-primary" />
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold">{t("sidebar.adminPrivileges")}</span>
+              <span className="text-[10px] text-muted-foreground">Full system access</span>
+            </div>
+          </div>
+        </div>
+      )}
+    </aside>
+  );
+}
+
+export function MobileSidebar() {
+  const { user } = useAuth();
+  const { t } = useTranslation();
+  const location = useLocation();
+
+  return (
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur">
+      <div className="grid grid-cols-5 gap-1 px-2 py-1">
+        {navConfig.slice(0, 5).map((item) => {
+          const Icon = item.icon;
+          const active = location.pathname === item.to;
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 py-2 rounded-md text-[10px] font-medium transition-colors",
+                active ? "text-foreground" : "text-muted-foreground"
+              )}
+            >
+              <Icon className={cn("h-5 w-5", active && "text-primary")} />
+              <span className="truncate max-w-full">{t(item.key)}</span>
+            </NavLink>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
