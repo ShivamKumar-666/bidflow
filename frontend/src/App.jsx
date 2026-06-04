@@ -7,6 +7,7 @@ import { AuthProvider, AuthContext } from "@/contexts/AuthContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Enquiries from "@/pages/Enquiries";
@@ -134,15 +135,17 @@ const AppRoutes = () => {
 
 function App() {
   return (
-    <AuthProvider>
-      <Router>
-        <NotificationProvider>
-          <TooltipProvider delayDuration={200}>
-            <AppRoutes />
-          </TooltipProvider>
-        </NotificationProvider>
-      </Router>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <Router>
+          <NotificationProvider>
+            <TooltipProvider delayDuration={200}>
+              <AppRoutes />
+            </TooltipProvider>
+          </NotificationProvider>
+        </Router>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }
 

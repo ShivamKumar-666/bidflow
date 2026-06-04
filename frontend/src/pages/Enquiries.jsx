@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import {
-  Plus, Tag as TagIcon, Share2, Search, Filter, X, MessageSquare,
+  Tag as TagIcon, Share2, Search, Filter, X, MessageSquare,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,7 @@ export default function Enquiries() {
   const [selected, setSelected] = useState(null);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState([]);
+  const [sortBy, setSortBy] = useState("priority");
   const [editTags, setEditTags] = useState([]);
 
   const [form, setForm] = useState({
@@ -60,7 +61,7 @@ export default function Enquiries() {
         api.get("/enquiries/"),
         api.get("/tags/"),
       ]);
-      setEnquiries(enq.data);
+      setEnquiries(Array.isArray(enq.data) ? enq.data : (enq.data.items || []));
       setUniqueTags(tg.data);
     } catch {
       toast.error(t("enquiries.failedFetch"));
@@ -108,22 +109,57 @@ export default function Enquiries() {
     }
   };
 
-  const filtered = enquiries.filter((e) => {
-    if (filters.length > 0 && !(e.tags || []).some((t) => filters.includes(t))) return false;
-    if (search) {
-      const s = search.toLowerCase();
-      return (
-        e.customerName?.toLowerCase().includes(s) ||
-        e.productServiceRequired?.toLowerCase().includes(s) ||
-        e.enquiryId?.toLowerCase().includes(s)
-      );
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const val = search.trim().toLowerCase();
+      if (!val) return;
+      const matchingTag = uniqueTags.find((tg) => tg.toLowerCase() === val);
+      if (matchingTag && !filters.includes(matchingTag)) {
+        setFilters((p) => [...p, matchingTag]);
+        setSearch("");
+      }
     }
-    return true;
-  });
-
-  const toggleFilter = (t) => {
-    setFilters((p) => p.includes(t) ? p.filter((x) => x !== t) : [...p, t]);
   };
+
+  const removeFilter = (tag) => {
+    setFilters((p) => p.filter((x) => x !== tag));
+  };
+
+  const filtered = useMemo(() => {
+    let result = enquiries.filter((e) => {
+      if (filters.length > 0 && !(e.tags || []).some((t) => filters.includes(t))) return false;
+      if (search) {
+        const s = search.toLowerCase();
+        return (
+          e.customerName?.toLowerCase().includes(s) ||
+          e.productServiceRequired?.toLowerCase().includes(s) ||
+          e.enquiryId?.toLowerCase().includes(s) ||
+          (e.tags || []).some((t) => t.toLowerCase().includes(s))
+        );
+      }
+      return true;
+    });
+
+    const priorityOrder = { High: 0, Medium: 1, Low: 2 };
+    switch (sortBy) {
+      case "priority":
+        result.sort((a, b) => (priorityOrder[a.priority] ?? 1) - (priorityOrder[b.priority] ?? 1));
+        break;
+      case "date":
+        result.sort((a, b) => new Date(b.date) - new Date(a.date));
+        break;
+      case "customer":
+        result.sort((a, b) => (a.customerName || "").localeCompare(b.customerName || ""));
+        break;
+      case "status":
+        result.sort((a, b) => (a.status || "").localeCompare(b.status || ""));
+        break;
+      default:
+        break;
+    }
+    return result;
+  }, [enquiries, filters, search, sortBy]);
 
   return (
     <div className="space-y-6">
@@ -137,7 +173,6 @@ export default function Enquiries() {
         <Dialog open={showModal} onOpenChange={setShowModal}>
           <DialogTrigger asChild>
             <Button>
-              <Plus className="h-4 w-4" />
               {t("enquiries.newEnquiry")}
             </Button>
           </DialogTrigger>
@@ -190,48 +225,56 @@ export default function Enquiries() {
         </Dialog>
       </div>
 
-      {uniqueTags.length > 0 && (
-        <Card>
-          <CardContent className="p-3 flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 mr-2">
-              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
-            </div>
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search..."
-                className="pl-8 h-8"
-              />
-            </div>
+      <Card>
+        <CardContent className="p-3 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
+          </div>
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search or type a tag + Enter..."
+              className="pl-8 h-8"
+            />
+          </div>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="h-8 w-[160px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="priority">Priority (High First)</SelectItem>
+              <SelectItem value="date">Date (Newest)</SelectItem>
+              <SelectItem value="customer">Customer Name</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+            </SelectContent>
+          </Select>
+          {filters.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {uniqueTags.slice(0, 20).map((tg) => (
+              {filters.map((tg) => (
                 <button
                   key={tg}
                   type="button"
-                  onClick={() => toggleFilter(tg)}
-                  className={cn(
-                    "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                    filters.includes(tg)
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-muted/30 border-border hover:bg-muted"
-                  )}
+                  onClick={() => removeFilter(tg)}
+                  className="text-xs px-2.5 py-1 rounded-full border transition-colors inline-flex items-center gap-1 bg-primary text-primary-foreground border-primary hover:bg-primary/90"
                 >
                   {tg}
+                  <X className="h-2.5 w-2.5" />
                 </button>
               ))}
             </div>
-            {filters.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setFilters([])} className="ml-auto">
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          )}
+          {(filters.length > 0 || search) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFilters([]); setSearch(""); }} className="ml-auto">
+              <X className="h-3.5 w-3.5" />
+              Clear All
+            </Button>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="p-0">

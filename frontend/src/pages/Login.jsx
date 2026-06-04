@@ -96,7 +96,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [googleInitialized, setGoogleInitialized] = useState(false);
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
-  const otpRefs = Array.from({ length: 6 }, () => useRef(null));
+  const otpRefs = useRef([]);
 
   const isRegistering = mode === "register";
 
@@ -105,8 +105,8 @@ export default function Login() {
   }, [twoFAPending]);
 
   useEffect(() => {
-    if (mode === "2fa" && otpRefs[0].current) {
-      otpRefs[0].current.focus();
+    if (mode === "2fa" && otpRefs.current[0]) {
+      otpRefs.current[0].focus();
     }
   }, [mode]);
 
@@ -135,8 +135,7 @@ export default function Login() {
   useEffect(() => {
     const initGoogle = async () => {
       try {
-        const res = await api.get("/auth/google-client-id");
-        const clientId = res.data.client_id;
+        const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
         if (clientId && window.google) {
           window.google.accounts.id.initialize({
             client_id: clientId,
@@ -157,7 +156,7 @@ export default function Login() {
           }, 50);
         }
       } catch (err) {
-        console.error("Failed to load Google Client ID", err);
+        console.error("Failed to initialize Google Sign-In", err);
       }
     };
     const timer = setTimeout(initGoogle, 500);
@@ -174,7 +173,9 @@ export default function Login() {
           setError("Please enter your full name.");
           return;
         }
-        await register(name.trim(), email.trim().toLowerCase(), password);
+        const result = await register(name.trim(), email.trim().toLowerCase(), password);
+        toast.success(result?.msg || "Account created. Please check your email to verify your account.");
+        setMode("login");
       } else {
         const result = await login(email.trim().toLowerCase(), password);
         if (result?.step === "setup") {
@@ -194,7 +195,7 @@ export default function Login() {
     newDigits[idx] = digit;
     setOtpDigits(newDigits);
     setError("");
-    if (digit && idx < 5) otpRefs[idx + 1].current?.focus();
+    if (digit && idx < 5) otpRefs.current[idx + 1]?.focus();
     if (digit && idx === 5) {
       const full = newDigits.join("");
       if (full.length === 6) handleVerify2FA(full);
@@ -206,7 +207,7 @@ export default function Login() {
       const newDigits = [...otpDigits];
       newDigits[idx - 1] = "";
       setOtpDigits(newDigits);
-      otpRefs[idx - 1].current?.focus();
+      otpRefs.current[idx - 1]?.focus();
     } else if (e.key === "Enter") {
       const code = otpDigits.join("");
       if (code.length === 6) handleVerify2FA(code);
@@ -218,7 +219,7 @@ export default function Login() {
     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
     if (pasted.length === 6) {
       setOtpDigits(pasted.split(""));
-      otpRefs[5].current?.focus();
+      otpRefs.current[5]?.focus();
       handleVerify2FA(pasted);
     }
   };
@@ -234,7 +235,7 @@ export default function Login() {
     } catch (err) {
       setError(err?.response?.data?.msg || "Invalid code. Please try again.");
       setOtpDigits(["", "", "", "", "", ""]);
-      otpRefs[0].current?.focus();
+      otpRefs.current[0]?.focus();
     } finally {
       setLoading(false);
     }
@@ -264,7 +265,7 @@ export default function Login() {
               {otpDigits.map((digit, i) => (
                 <input
                   key={i}
-                  ref={otpRefs[i]}
+                  ref={(el) => { otpRefs.current[i] = el; }}
                   type="text"
                   inputMode="numeric"
                   maxLength={1}

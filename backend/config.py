@@ -1,13 +1,32 @@
+"""Application configuration loaded from environment variables.
+
+Fail-fast behaviour:
+- In production (`FLASK_ENV=production`), missing/weak secrets raise
+  `RuntimeError` at import time so the process refuses to start (SEC-02).
+- In development/test, the historical placeholder defaults are still
+  accepted (with a one-time warning) so the local dev experience is
+  unchanged.
+"""
+
 import os
 from datetime import timedelta
 from urllib.parse import quote_plus
 
 
+_PLACEHOLDER_SUBSTRINGS = ("change-this", "dev-only", "not-for-production")
+
+
+def _is_weak(value: str | None) -> bool:
+    if not value:
+        return True
+    return any(s in value for s in _PLACEHOLDER_SUBSTRINGS)
+
+
 def _build_mongo_uri():
-    """Build authenticated MongoDB URI from env vars if credentials are provided."""
+    """Build an authenticated MongoDB URI from env vars if credentials are provided."""
     base_uri = os.environ.get('MONGO_URI')
     if base_uri:
-        return base_uri  # Fully specified URI takes precedence
+        return base_uri
 
     host = os.environ.get('MONGO_HOST', 'localhost')
     port = os.environ.get('MONGO_PORT', '27017')
@@ -26,21 +45,34 @@ class Config:
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or 'dev-only-jwt-key-not-for-production'
 
     # Token lifetime
-    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)  # Reduced from 24h for security
+    JWT_ACCESS_TOKEN_EXPIRES   = timedelta(hours=1)
+    JWT_REFRESH_TOKEN_EXPIRES  = timedelta(days=7)   # SEC-06: refresh token
 
     # ── JWT blocklist ──────────────────────────────────────────────────────────
-    # Flask-JWT-Extended checks the token_in_blocklist_loader on every protected
-    # request. The actual store is MongoDB (RevokedTokens collection) set up in
-    # app.py. This flag enables the check mechanism.
+    # SEC-01: JWT stored in httpOnly cookies (not localStorage).
+    # "cookies" is preferred; "headers" is kept as fallback so existing
+    # clients and testing tools still work with Authorization: Bearer.
+    JWT_TOKEN_LOCATION      = ["cookies", "headers"]
     JWT_COOKIE_SECURE       = False   # set True in prod (HTTPS)
-    JWT_TOKEN_LOCATION      = ["headers"]
+    JWT_COOKIE_SAMESITE     = "Lax"
+    JWT_ACCESS_COOKIE_NAME  = "access_token_cookie"
+
+    # SEC-04: CSRF protection using double-submit cookie pattern.
+    # Flask-JWT-Extended sets a separate CSRF cookie; the frontend reads it
+    # and sends it back as X-CSRF-TOKEN header for state-changing methods.
+    JWT_COOKIE_CSRF_PROTECT = True
+    JWT_CSRF_IN_COOKIES     = True
+    JWT_ACCESS_CSRF_COOKIE_NAME = "csrf_access_token"
+
+    # SEC-06: refresh token cookie name and settings
+    JWT_REFRESH_COOKIE_NAME = "refresh_token_cookie"
 
     # File uploads
     UPLOAD_FOLDER       = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
     MAX_CONTENT_LENGTH  = 16 * 1024 * 1024   # 16 MB
 
     # Flask env
-    FLASK_ENV = os.environ.get('FLASK_ENV', 'development')
+    FLASK_ENV        = os.environ.get('FLASK_ENV', 'development')
     RATELIMIT_ENABLED = (os.environ.get('FLASK_ENV') != 'testing')
 
     # Email (use SendGrid SMTP, Gmail, or Mailtrap for dev)
@@ -51,9 +83,24 @@ class Config:
     MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD')
     MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@bidflow.com')
 
-    # Token signing secret — must be long and random, never commit it
+    # Token signing secret
     EMAIL_TOKEN_SECRET = os.environ.get('EMAIL_TOKEN_SECRET', 'change-this-in-production')
-    FRONTEND_URL = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
-    GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
+    FRONTEND_URL       = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
+    GOOGLE_CLIENT_ID   = os.environ.get('GOOGLE_CLIENT_ID')
 
-
+    # Production-only fail-fast guard (SEC-02)
+    @classmethod
+    def validate_secrets(cls):
+        """Raise RuntimeError if running in production with weak/missing secrets."""
+        if os.environ.get('FLASK_ENV') != 'production':
+            return
+        weak = []
+        for key in ('SECRET_KEY', 'JWT_SECRET_KEY', 'EMAIL_TOKEN_SECRET'):
+            value = os.environ.get(key)
+            if _is_weak(value):
+                weak.append(key)
+        if weak:
+            raise RuntimeError(
+                f"Refusing to start: the following secrets are missing or weak in "
+                f"production: {', '.join(weak)}. Set strong values in your env."
+            )

@@ -183,7 +183,7 @@ const Reports = () => {
   const handleExportPDF = async () => {
     try {
       const res = await api.get("/bids/");
-      const bidsData = res.data;
+      const bidsData = Array.isArray(res.data) ? res.data : (res.data.items || []);
 
       const doc = new jsPDF();
       doc.text(t("reports.pdfTitle"), 14, 15);

@@ -14,10 +14,15 @@ scikit-learn==1.4.2
 joblib==1.4.2
 numpy==1.26.4
 pandas==2.2.2
+xgboost>=2.0.0
+shap>=0.45.0
+xhtml2pdf>=0.2.11
+reportlab>=4.0.0
 gunicorn==22.0.0
 eventlet==0.37.0
 Flask-Mail==0.9.1
 itsdangerous==2.1.2
 google-auth==2.29.0
+bleach==6.1.0
 
 

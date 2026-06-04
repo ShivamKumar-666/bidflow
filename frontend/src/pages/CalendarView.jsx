@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon, ExternalLink, Inbox } from "lucide-react";
@@ -32,22 +32,49 @@ export default function CalendarView() {
   const [events, setEvents] = useState([]);
   const [upcoming, setUpcoming] = useState([]);
   const [selected, setSelected] = useState(null);
+  const [showMonthPicker, setShowMonthPicker] = useState(false);
+  const [showYearPicker, setShowYearPicker] = useState(false);
+  const monthRef = useRef(null);
+  const yearRef = useRef(null);
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
 
   useEffect(() => {
     const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
-    api.get(`/bids/calendar?month=${monthStr}`).then((r) => setEvents(r.data || [])).catch(() => {});
+    api.get(`/bids/calendar?month=${monthStr}`)
+      .then((r) => {
+        setEvents(r.data || []);
+      })
+      .catch((err) => {
+        console.error("Calendar API error:", err);
+      });
   }, [currentYear, currentMonth]);
 
   useEffect(() => {
-    api.get("/bids/calendar").then((r) => {
-      const sorted = (r.data || [])
-        .filter((b) => b.status !== "Order Received" && b.status !== "Rejected")
-        .sort((a, b) => new Date(a.submissionDate) - new Date(b.submissionDate));
-      setUpcoming(sorted.slice(0, 10));
-    }).catch(() => {});
+    api.get("/bids/calendar")
+      .then((r) => {
+        const sorted = (r.data || [])
+          .filter((b) => b.status !== "Order Received" && b.status !== "Rejected")
+          .sort((a, b) => new Date(a.submissionDate) - new Date(b.submissionDate));
+        setUpcoming(sorted.slice(0, 10));
+      })
+      .catch((err) => {
+        console.error("Upcoming deadlines API error:", err);
+      });
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (monthRef.current && !monthRef.current.contains(e.target)) {
+        setShowMonthPicker(false);
+      }
+      if (yearRef.current && !yearRef.current.contains(e.target)) {
+        setShowYearPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
@@ -77,9 +104,17 @@ export default function CalendarView() {
   };
 
   const eventsByDate = events.reduce((acc, e) => {
-    (acc[e.submissionDate] = acc[e.submissionDate] || []).push(e);
+    let dateKey = e.submissionDate;
+    if (dateKey && dateKey.includes("T")) {
+      dateKey = dateKey.split("T")[0];
+    }
+    if (dateKey) {
+      (acc[dateKey] = acc[dateKey] || []).push(e);
+    }
     return acc;
   }, {});
+
+  const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
 
   return (
     <div className="space-y-6">
@@ -106,9 +141,60 @@ export default function CalendarView() {
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
-              <h2 className="text-xl font-bold tracking-tight">
-                {monthNames[currentMonth]} {currentYear}
-              </h2>
+              <div className="flex items-center gap-2">
+                <div className="relative" ref={monthRef}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowMonthPicker(!showMonthPicker); setShowYearPicker(false); }}
+                    className="text-xl font-bold tracking-tight hover:text-primary transition-colors px-2 py-1 rounded"
+                  >
+                    {monthNames[currentMonth]}
+                  </button>
+                  {showMonthPicker && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-48 rounded-md border bg-popover text-popover-foreground shadow-md p-2 grid grid-cols-3 gap-1">
+                      {monthNames.map((m, i) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => { setCurrentDate(new Date(currentYear, i, 1)); setShowMonthPicker(false); }}
+                          className={cn(
+                            "text-xs px-2 py-1.5 rounded hover:bg-accent transition-colors",
+                            i === currentMonth && "bg-primary text-primary-foreground"
+                          )}
+                        >
+                          {m.slice(0, 3)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="relative" ref={yearRef}>
+                  <button
+                    type="button"
+                    onClick={() => { setShowYearPicker(!showYearPicker); setShowMonthPicker(false); }}
+                    className="text-xl font-bold tracking-tight hover:text-primary transition-colors px-2 py-1 rounded"
+                  >
+                    {currentYear}
+                  </button>
+                  {showYearPicker && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-32 rounded-md border bg-popover text-popover-foreground shadow-md p-2 grid grid-cols-2 gap-1 max-h-48 overflow-y-auto">
+                      {years.map((y) => (
+                        <button
+                          key={y}
+                          type="button"
+                          onClick={() => { setCurrentDate(new Date(y, currentMonth, 1)); setShowYearPicker(false); }}
+                          className={cn(
+                            "text-xs px-2 py-1.5 rounded hover:bg-accent transition-colors",
+                            y === currentYear && "bg-primary text-primary-foreground"
+                          )}
+                        >
+                          {y}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               <div className="w-24" />
             </div>
           </CardHeader>
@@ -122,19 +208,22 @@ export default function CalendarView() {
               {cells.map((cell) => {
                 const date = dateStr(cell.day, cell.current);
                 const dayEvents = date ? eventsByDate[date] || [] : [];
+                const hasEvents = dayEvents.length > 0;
                 return (
                   <div
                     key={cell.key}
                     className={cn(
-                      "min-h-24 rounded-md border border-border/50 p-1.5 text-xs transition-colors",
+                      "min-h-24 rounded-md border p-1.5 text-xs transition-colors",
                       cell.current ? "bg-card" : "bg-muted/20 text-muted-foreground/50",
                       isToday(cell.day, cell.current) && "ring-2 ring-primary",
-                      dayEvents.length > 0 && "cursor-pointer hover:bg-accent/30"
+                      hasEvents && "border-primary/50 bg-primary/5",
+                      hasEvents && cell.current && "cursor-pointer hover:bg-accent/30"
                     )}
                   >
                     <div className={cn(
                       "font-semibold mb-1",
-                      isToday(cell.day, cell.current) && "text-primary"
+                      isToday(cell.day, cell.current) && "text-primary",
+                      hasEvents && !isToday(cell.day, cell.current) && "text-primary"
                     )}>
                       {cell.day}
                     </div>

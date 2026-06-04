@@ -1,7 +1,27 @@
-# pyrefly: ignore [missing-import]
+"""Database client + index initialization."""
+
+import logging
+import sys
+from urllib.parse import urlparse
+
 from pymongo import MongoClient, ASCENDING
 from config import Config
-import sys
+
+logger = logging.getLogger(__name__)
+
+
+def _redact_uri(uri: str) -> str:
+    """Strip the user:password component of a MongoDB URI for safe logging."""
+    try:
+        u = urlparse(uri)
+        if u.username or u.password:
+            host = u.hostname or ""
+            port = f":{u.port}" if u.port else ""
+            db_name = u.path.lstrip("/") or ""
+            return f"mongodb://***:***@{host}{port}/{db_name}"
+        return uri
+    except Exception:
+        return "<unparseable mongo uri>"
 
 
 def get_db():
@@ -41,18 +61,67 @@ def get_db():
             background=True
         )
 
+        # ── Bid indexes (PERF-NEW-02) ─────────────────────────────────────────
+        db.Bids.create_index(
+            [("bidId", ASCENDING)],
+            unique=True,
+            background=True
+        )
+        db.Bids.create_index(
+            [("assignedEmployee", ASCENDING), ("status", ASCENDING)],
+            background=True
+        )
+        db.Bids.create_index(
+            [("createdBy", ASCENDING)],
+            background=True
+        )
+        db.Bids.create_index(
+            [("enquiryId", ASCENDING)],
+            background=True
+        )
+
+        # ── Enquiry indexes (PERF-NEW-02) ─────────────────────────────────────
+        db.Enquiries.create_index(
+            [("enquiryId", ASCENDING)],
+            unique=True,
+            background=True
+        )
+        db.Enquiries.create_index(
+            [("createdBy", ASCENDING)],
+            background=True
+        )
+        db.Enquiries.create_index(
+            [("shareToken", ASCENDING)],
+            unique=True,
+            sparse=True,
+            background=True
+        )
+
+        # ── Document indexes (PERF-NEW-02) ────────────────────────────────────
+        db.Documents.create_index(
+            [("bidId", ASCENDING)],
+            background=True
+        )
+
+        # ── Notification indexes (PERF-NEW-02) ────────────────────────────────
+        db.Notifications.create_index(
+            [("userId", ASCENDING), ("createdAt", -1)],
+            background=True
+        )
 
         return db
 
     except Exception as e:
+        safe_uri = _redact_uri(Config.MONGO_URI)
         print("\n" + "!" * 80, file=sys.stderr)
         print(" WARNING: COULD NOT CONNECT TO MONGODB ON STARTUP!", file=sys.stderr)
-        print(f" MONGO_URI: {Config.MONGO_URI}", file=sys.stderr)
-        print(" Details:", e, file=sys.stderr)
+        print(f" MONGO_URI: {safe_uri}", file=sys.stderr)
+        print(f" Details: {e}", file=sys.stderr)
         print(" Please ensure your local MongoDB service is running.", file=sys.stderr)
         print(" - On Windows, open services.msc and start the 'MongoDB' service,", file=sys.stderr)
         print("   or run 'Start-Service MongoDB' in an Administrator PowerShell.", file=sys.stderr)
         print("!" * 80 + "\n", file=sys.stderr)
+        logger.error("MongoDB connection failed: uri=%s err=%s", safe_uri, e)
 
         # Return a lazy client so the app still boots but raises on requests.
         client = MongoClient(Config.MONGO_URI)

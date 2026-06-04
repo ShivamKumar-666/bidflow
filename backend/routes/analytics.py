@@ -1,56 +1,92 @@
 from flask import Blueprint, jsonify, Response
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from bson.objectid import ObjectId
 import io
 import csv
 from database import db
 
 analytics_bp = Blueprint('analytics', __name__)
 
+
+def _scope(user_id, role):
+    """Return a Mongo filter scoping bids to the caller's tenant view.
+    Admins get `{}` (everything). Non-admins get bids assigned to them.
+    Returns (filter_dict, employee_name_or_None).
+    """
+    if role == 'Admin':
+        return {}, None
+    if not user_id or not ObjectId.is_valid(user_id):
+        return {"_id": {"$exists": False}}, None
+    user = db.Users.find_one({"_id": ObjectId(user_id)}, {"name": 1})
+    name = user.get('name') if user else None
+    if not name:
+        return {"_id": {"$exists": False}}, None
+    return {"assignedEmployee": name}, name
+
+
 @analytics_bp.route('/dashboard', methods=['GET'])
 @jwt_required()
 def get_dashboard_metrics():
-    total_enquiries = db.Enquiries.count_documents({})
-    active_bids = db.Bids.count_documents({"status": {"$nin": ["Completed", "Approved / Rejected", "Order Received", "Rejected"]}})
-    won_bids = db.Bids.count_documents({"status": "Order Received"})
-    lost_bids = db.Bids.count_documents({"status": "Rejected"})
-    
-    # Calculate revenue generated from won bids
+    """Aggregate dashboard metrics. Scoped to the caller's tenant view so
+    non-admin users only see their own bid stats (closes a cross-tenant leak)."""
+    user_id = get_jwt_identity()
+    role    = get_jwt().get('role')
+    bid_filter, _ = _scope(user_id, role)
+
+    # Enquiries: scoped by createdBy (not bid-linked — a user should see
+    # all enquiries they created, not just ones with bids).
+    if role == 'Admin':
+        enq_filter = {}
+    else:
+        enq_filter = {"createdBy": user_id} if user_id else {"_id": {"$exists": False}}
+
+    total_enquiries = db.Enquiries.count_documents(enq_filter)
+    active_bids = db.Bids.count_documents({**bid_filter, "status": {"$nin": ["Completed", "Approved / Rejected", "Order Received", "Rejected"]}})
+    won_bids = db.Bids.count_documents({**bid_filter, "status": "Order Received"})
+    lost_bids = db.Bids.count_documents({**bid_filter, "status": "Rejected"})
+
     revenue_pipeline = [
-        {"$match": {"status": "Order Received"}},
+        {"$match": {**bid_filter, "status": "Order Received"}},
         {"$group": {"_id": None, "totalRevenue": {"$sum": "$amount"}}}
     ]
     revenue_result = list(db.Bids.aggregate(revenue_pipeline))
     revenue_generated = revenue_result[0]['totalRevenue'] if revenue_result else 0
-    
-    # Additional KPIs
+
     total_bids_for_rate = won_bids + lost_bids
     win_rate = round((won_bids / total_bids_for_rate * 100) if total_bids_for_rate > 0 else 0, 1)
-    
+
     avg_pipeline = [
+        {"$match": bid_filter},
         {"$group": {"_id": None, "avgSize": {"$avg": "$amount"}}}
     ]
     avg_result = list(db.Bids.aggregate(avg_pipeline))
     avg_bid_size = avg_result[0]['avgSize'] if avg_result else 0
-    
-    pending_approvals = db.Bids.count_documents({"status": "Under Review"}) # Or however we define pending approvals
-    
+
+    pending_approvals = db.Bids.count_documents({**bid_filter, "status": "Under Review"})
+
     return jsonify({
-        "totalEnquiries": total_enquiries,
-        "activeBids": active_bids,
-        "wonBids": won_bids,
-        "lostBids": lost_bids,
+        "totalEnquiries":   total_enquiries,
+        "activeBids":       active_bids,
+        "wonBids":          won_bids,
+        "lostBids":         lost_bids,
         "revenueGenerated": revenue_generated,
         "pendingApprovals": pending_approvals,
-        "winRate": win_rate,
-        "avgBidSize": avg_bid_size
+        "winRate":          win_rate,
+        "avgBidSize":       avg_bid_size,
     }), 200
+
 
 @analytics_bp.route('/export/excel', methods=['GET'])
 @jwt_required()
 def export_bids_excel():
-    bids = list(db.Bids.find({}))
-    
-    # Create CSV (since pandas might not be installed, using standard csv as simple excel replacement)
+    """CSV export of bids. Scoped to the caller's tenant view (closes the
+    cross-tenant export IDOR — any user previously got every bid in the DB)."""
+    user_id = get_jwt_identity()
+    role    = get_jwt().get('role')
+    bid_filter, _ = _scope(user_id, role)
+
+    bids = list(db.Bids.find(bid_filter))
+
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow(['Bid ID', 'Enquiry ID', 'Amount', 'Status', 'Assigned To', 'Submission Date'])
@@ -61,9 +97,9 @@ def export_bids_excel():
             bid.get('amount', 0),
             bid.get('status', ''),
             bid.get('assignedEmployee', ''),
-            bid.get('submissionDate', '')
+            bid.get('submissionDate', ''),
         ])
-    
+
     output.seek(0)
     return Response(
         output.getvalue(),

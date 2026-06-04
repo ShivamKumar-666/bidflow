@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
 from extensions import limiter
 from flask_jwt_extended import (
-    create_access_token, jwt_required, get_jwt_identity, get_jwt
+    create_access_token, create_refresh_token, jwt_required,
+    get_jwt_identity, get_jwt,
+    set_access_cookies, set_refresh_cookies
 )
 import pyotp
 import qrcode
@@ -169,12 +171,16 @@ def verify_2fa():
     # Try TOTP first
     totp = pyotp.TOTP(user['totp_secret'])
     if totp.verify(code, valid_window=1):
-        # Issue full access token
+        # Issue full access token + refresh token (SEC-01, SEC-06)
         full_token = create_access_token(
             identity=user_id,
             additional_claims={'role': user['role']}
         )
-        return jsonify({
+        refresh_token = create_refresh_token(
+            identity=user_id,
+            additional_claims={'role': user['role']}
+        )
+        resp = jsonify({
             'access_token': full_token,
             'user': {
                 'name': user['name'],
@@ -182,7 +188,10 @@ def verify_2fa():
                 'role': user['role'],
                 'totp_enabled': True
             }
-        }), 200
+        })
+        set_access_cookies(resp, full_token)
+        set_refresh_cookies(resp, refresh_token)
+        return resp, 200
 
     # Try backup codes
     backup_codes = user.get('backup_codes', [])
@@ -198,8 +207,12 @@ def verify_2fa():
             identity=user_id,
             additional_claims={'role': user['role']}
         )
+        refresh_token = create_refresh_token(
+            identity=user_id,
+            additional_claims={'role': user['role']}
+        )
         remaining = len(backup_codes)
-        return jsonify({
+        resp = jsonify({
             'access_token': full_token,
             'user': {
                 'name': user['name'],
@@ -209,7 +222,10 @@ def verify_2fa():
             },
             'backup_code_used': True,
             'backup_codes_remaining': remaining
-        }), 200
+        })
+        set_access_cookies(resp, full_token)
+        set_refresh_cookies(resp, refresh_token)
+        return resp, 200
 
     return jsonify({'msg': 'Invalid code. Please try again.'}), 401
 

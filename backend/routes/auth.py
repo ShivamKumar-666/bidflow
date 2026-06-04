@@ -1,8 +1,9 @@
 import re
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
-    create_access_token, jwt_required,
-    get_jwt_identity, get_jwt
+    create_access_token, create_refresh_token, jwt_required,
+    get_jwt_identity, get_jwt,
+    set_access_cookies, set_refresh_cookies, unset_jwt_cookies
 )
 import bcrypt
 from database import db
@@ -10,10 +11,27 @@ from extensions import limiter
 from datetime import timedelta, timezone, datetime as dt
 from utils.email_tokens import generate_verification_token, confirm_verification_token
 from utils.email_sender import send_verification_email
+from utils.auth_helpers import now_utc
 from itsdangerous import SignatureExpired, BadSignature
 
 
 auth_bp = Blueprint('auth', __name__)
+
+
+def _issue_tokens(user, response):
+    """Create access + refresh tokens and set both httpOnly cookies (SEC-01, SEC-06).
+    Returns the access_token (the refresh token is only in the cookie)."""
+    access_token = create_access_token(
+        identity=str(user['_id']),
+        additional_claims={'role': user['role']}
+    )
+    refresh_token = create_refresh_token(
+        identity=str(user['_id']),
+        additional_claims={'role': user['role']}
+    )
+    set_access_cookies(response, access_token)
+    set_refresh_cookies(response, refresh_token)
+    return access_token
 
 
 @auth_bp.route('/register', methods=['POST'])
@@ -54,7 +72,7 @@ def register():
         "password":      hashed_password.decode('utf-8'),
         "role":          role,
         "is_verified":   False,    # ← account inactive until email confirmed
-        "created_at":    dt.utcnow()
+        "created_at":    now_utc()
     }
     db.Users.insert_one(user)
 
@@ -118,7 +136,7 @@ def login():
             }), 200
         else:
             # Admin hasn't set up 2FA yet — send full token but flag setup needed
-            return jsonify(
+            resp = jsonify(
                 access_token=access_token,
                 user={
                     'name': user['name'],
@@ -127,12 +145,16 @@ def login():
                     'totp_enabled': False
                 },
                 requires_2fa_setup=True
-            ), 200
+            )
+            _issue_tokens(user, resp)
+            return resp, 200
 
-    return jsonify(
+    resp = jsonify(
         access_token=access_token,
         user={'name': user['name'], 'email': user['email'], 'role': user['role']}
-    ), 200
+    )
+    _issue_tokens(user, resp)
+    return resp, 200
 
 
 @auth_bp.route('/logout', methods=['POST'])
@@ -154,7 +176,29 @@ def logout():
         {"$setOnInsert": {"jti": jti, "exp": expiry_dt}},
         upsert=True
     )
-    return jsonify({"msg": "Successfully logged out."}), 200
+    resp = jsonify({"msg": "Successfully logged out."})
+    unset_jwt_cookies(resp)                             # SEC-01: clear both access + refresh cookies
+    return resp, 200
+
+
+@auth_bp.route('/refresh', methods=['POST'])
+@jwt_required(refresh=True)
+def refresh():
+    """Issue a fresh access token using a valid refresh token (SEC-06).
+    The refresh token is sent automatically in a separate httpOnly cookie."""
+    from bson.objectid import ObjectId
+    user_id = get_jwt_identity()
+    user    = db.Users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    new_access_token = create_access_token(
+        identity=str(user['_id']),
+        additional_claims={'role': user['role']}
+    )
+    resp = jsonify({"msg": "Token refreshed"})
+    set_access_cookies(resp, new_access_token)
+    return resp, 200
 
 
 @auth_bp.route('/me', methods=['GET'])
@@ -269,7 +313,7 @@ def verify_email():
 
     db.Users.update_one(
         {"email": email},
-        {"$set": {"is_verified": True, "verified_at": dt.utcnow()}}
+        {"$set": {"is_verified": True, "verified_at": now_utc()}}
     )
 
     return jsonify({"msg": "Email verified successfully. You can now log in."}), 200
@@ -358,7 +402,7 @@ def google_login():
                 "role":          'Sales Executive',
                 "is_verified":   True,   # Already verified by Google
                 "google_oauth":  True,   # Google-authenticated flag
-                "created_at":    dt.utcnow()
+                "created_at":    now_utc()
             }
             db.Users.insert_one(user)
             user = db.Users.find_one({"email": email})
@@ -385,7 +429,7 @@ def google_login():
                     'temp_token': temp_token
                 }), 200
             else:
-                return jsonify(
+                resp = jsonify(
                     access_token=access_token,
                     user={
                         'name': user['name'],
@@ -394,12 +438,16 @@ def google_login():
                         'totp_enabled': False
                     },
                     requires_2fa_setup=True
-                ), 200
+                )
+                _issue_tokens(user, resp)
+                return resp, 200
 
-        return jsonify(
+        resp = jsonify(
             access_token=access_token,
             user={'name': user['name'], 'email': user['email'], 'role': user['role']}
-        ), 200
+        )
+        _issue_tokens(user, resp)
+        return resp, 200
 
     except ValueError:
         # Invalid signature or expired token

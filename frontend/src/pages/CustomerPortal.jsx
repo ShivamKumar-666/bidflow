@@ -41,7 +41,7 @@ const CustomerPortal = () => {
     const fetchPublicData = async () => {
       try {
         setLoading(true);
-        const res = await axios.get(`http://localhost:5000/api/enquiries/public/share/${token}`);
+        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}`);
         setData(res.data);
         setError(null);
       } catch (err) {
@@ -252,7 +252,7 @@ const CustomerPortal = () => {
                           size="sm"
                         >
                           <a
-                            href={`http://localhost:5000/api/enquiries/public/share/${token}/download/${doc._id}`}
+                            href={`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}/download/${doc._id}`}
                             download
                           >
                             <Download className="h-3.5 w-3.5" />

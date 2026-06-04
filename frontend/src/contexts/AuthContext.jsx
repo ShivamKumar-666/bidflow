@@ -12,14 +12,11 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const token = localStorage.getItem("token");
-      if (token) {
-        try {
-          const res = await api.get("/auth/me");
-          setUser(res.data);
-        } catch {
-          localStorage.removeItem("token");
-        }
+      try {
+        const res = await api.get("/auth/me");
+        setUser(res.data);
+      } catch {
+        setUser(null);
       }
       setLoading(false);
     };
@@ -36,7 +33,6 @@ export function AuthProvider({ children }) {
       return { step: "2fa" };
     }
 
-    localStorage.setItem("token", data.access_token);
     setUser(data.user);
 
     if (data.requires_2fa_setup) {
@@ -57,7 +53,6 @@ export function AuthProvider({ children }) {
       return { step: "2fa" };
     }
 
-    localStorage.setItem("token", data.access_token);
     setUser(data.user);
 
     if (data.requires_2fa_setup) {
@@ -71,7 +66,6 @@ export function AuthProvider({ children }) {
   const verify2FA = async (code) => {
     const res = await api.post("/2fa/verify", { temp_token: tempToken, code });
     const data = res.data;
-    localStorage.setItem("token", data.access_token);
     setUser(data.user);
     setTwoFAPending(false);
     setTempToken(null);
@@ -95,22 +89,18 @@ export function AuthProvider({ children }) {
   };
 
   const refreshUser = async () => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      try {
-        const res = await api.get("/auth/me");
-        setUser(res.data);
-        return res.data;
-      } catch {
-        localStorage.removeItem("token");
-        setUser(null);
-      }
+    try {
+      const res = await api.get("/auth/me");
+      setUser(res.data);
+      return res.data;
+    } catch {
+      setUser(null);
     }
   };
 
   const register = async (name, email, password) => {
-    await api.post("/auth/register", { name, email, password, role: "Sales Executive" });
-    await login(email, password);
+    const res = await api.post("/auth/register", { name, email, password });
+    return res.data;
   };
 
   const updateProfile = async (profileData) => {
@@ -122,7 +112,6 @@ export function AuthProvider({ children }) {
     try {
       await api.post("/auth/logout");
     } catch {}
-    localStorage.removeItem("token");
     setUser(null);
     setTwoFAPending(false);
     setTwoFASetup(false);

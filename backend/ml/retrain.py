@@ -22,10 +22,28 @@ Strategy
 
 import os
 import datetime
+import logging
+import hmac
+import hashlib
 import numpy as np
 import joblib
+from config import Config
+
+logger = logging.getLogger(__name__)
+
+
+def _sign_binary(data: bytes) -> str:
+    """Compute an HMAC-SHA256 signature over binary data using SECRET_KEY (SEC-28).
+    The same key is used to verify the signature on load so that tampered
+    model blobs in MongoDB are rejected."""
+    return hmac.new(
+        Config.SECRET_KEY.encode(),
+        data,
+        hashlib.sha256
+    ).hexdigest()
 
 MIN_TRAINING_RECORDS = 50   # refuse to train on tiny datasets
+MIN_ACCURACY = 0.55          # refuse to save models below this accuracy (ML-NEW-01)
 
 ML_DIR       = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH   = os.path.join(ML_DIR, "bid_model.pkl")
@@ -61,7 +79,7 @@ def retrain_from_db(db) -> dict:
             "status":       "insufficient_data",
             "records":      len(terminal_bids),
             "min_required": MIN_TRAINING_RECORDS,
-            "timestamp":    datetime.datetime.utcnow().isoformat()
+            "timestamp":    datetime.datetime.now(datetime.timezone.utc).isoformat()
         }
 
     # ── 2. Build agent win-rate map from the same dataset ─────────────────────
@@ -95,7 +113,11 @@ def retrain_from_db(db) -> dict:
             created = bid.get("history", [{}])[0].get("date")
             sub_str = bid.get("submissionDate", "")
             if created and sub_str:
-                sub_dt           = datetime.datetime.strptime(sub_str, "%Y-%m-%d")
+                sub_dt = datetime.datetime.strptime(sub_str, "%Y-%m-%d")
+                # Normalize to naive UTC for arithmetic (created may be tz-aware
+                # since we now write tz-aware datetimes on the write path).
+                if isinstance(created, datetime.datetime) and created.tzinfo is not None:
+                    created = created.astimezone(datetime.timezone.utc).replace(tzinfo=None)
                 days_to_deadline = max(1, (sub_dt - created).days)
         except Exception:
             pass
@@ -126,6 +148,16 @@ def retrain_from_db(db) -> dict:
     clf = xgb.XGBClassifier(eval_metric='logloss', random_state=42)
     clf.fit(X_train, y_train)
     accuracy = round(float(clf.score(X_test, y_test)), 4)
+
+    if accuracy < MIN_ACCURACY:
+        logger.warning("Model accuracy %.4f below threshold %.2f, not saving", accuracy, MIN_ACCURACY)
+        return {
+            "status":       "low_accuracy",
+            "accuracy":     accuracy,
+            "min_required": MIN_ACCURACY,
+            "records":      len(terminal_bids),
+            "timestamp":    datetime.datetime.now(datetime.timezone.utc).isoformat()
+        }
 
     # ── 6. Atomic hot-swap ─────────────────────────────────────────────────────
     tmp_model   = MODEL_PATH   + ".tmp"
@@ -158,17 +190,19 @@ def retrain_from_db(db) -> dict:
             "isActive": True,
             "accuracy": accuracy,
             "records": len(terminal_bids),
-            "trainedAt": datetime.datetime.utcnow(),
+            "trainedAt": datetime.datetime.now(datetime.timezone.utc),
             "modelBinary": model_bin,
-            "encoderBinary": encoder_bin
+            "modelSignature": _sign_binary(model_bin),
+            "encoderBinary": encoder_bin,
+            "encoderSignature": _sign_binary(encoder_bin)
         })
     except Exception as e:
-        print(f"Error saving version to MongoDB: {e}")
+        logger.exception("Error saving model version to MongoDB: %s", e)
 
     # ── 7. Return summary ──────────────────────────────────────────────────────
     return {
         "status":    "success",
         "records":   len(terminal_bids),
         "accuracy":  accuracy,
-        "timestamp": datetime.datetime.utcnow().isoformat()
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }

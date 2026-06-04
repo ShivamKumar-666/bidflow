@@ -129,10 +129,15 @@ function GlobalSearch() {
         e.preventDefault();
         setOpen((p) => !p);
       }
+      if (e.key === "Escape" && open) {
+        setOpen(false);
+        setQuery("");
+        setResults({ enquiries: [], bids: [], documents: [] });
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -170,7 +175,7 @@ function GlobalSearch() {
   };
 
   const onKey = (e) => {
-    if (e.key === "Escape") setOpen(false);
+    if (e.key === "Escape") { setOpen(false); setQuery(""); setResults({ enquiries: [], bids: [], documents: [] }); }
     else if (e.key === "ArrowDown") {
       e.preventDefault();
       setActiveIndex((p) => (p + 1) % Math.max(1, flat.length));

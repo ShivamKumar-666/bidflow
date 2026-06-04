@@ -1,12 +1,12 @@
-import React, { useState, useEffect, useRef, useCallback, useContext } from "react";
+import React, { useState, useEffect, useRef, useCallback, useContext, useMemo } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { io } from "socket.io-client";
 import { useTranslation } from "react-i18next";
 import {
-  Plus, Tag, MessageSquare, FileDown, Trash2, Brain, TrendingUp, TrendingDown,
-  Minus, Info, Send, X, Search, Filter, Loader2, AlertTriangle, Pencil,
+  Tag, MessageSquare, FileDown, Trash2, Brain, TrendingUp, TrendingDown,
+  Minus, Info, Send, X, Search, Filter, Loader2, AlertTriangle, Pencil, FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -150,7 +150,10 @@ export default function Bids() {
   const [selected, setSelected] = useState(null);
   const [commentText, setCommentText] = useState("");
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState([]);
+  const [sortBy, setSortBy] = useState("deadline");
+  const [industryFilters, setIndustryFilters] = useState([]);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [industryHover, setIndustryHover] = useState(false);
   const [editTags, setEditTags] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [livePredict, setLivePredict] = useState(null);
@@ -170,8 +173,8 @@ export default function Bids() {
         api.get("/enquiries/"),
         api.get("/tags/"),
       ]);
-      setBids(b.data);
-      setEnquiries(e.data);
+      setBids(Array.isArray(b.data) ? b.data : (b.data.items || []));
+      setEnquiries(Array.isArray(e.data) ? e.data : (e.data.items || []));
       setUniqueTags(tg.data);
     } catch {
       toast.error(t("bids.failedFetch"));
@@ -184,7 +187,7 @@ export default function Bids() {
 
   // Socket for live comments
   useEffect(() => {
-    const socket = io("http://localhost:5000");
+    const socket = io(import.meta.env.VITE_SOCKET_URL);
     socket.on("new_comment", (data) => {
       setBids((prev) => prev.map((b) => {
         if (b._id === data.bid_id) {
@@ -215,7 +218,15 @@ export default function Bids() {
         : prev
       );
     });
-    return () => socket.disconnect();
+    return () => {
+      socket.disconnect();
+      // Cancel any pending predict request so it doesn't fire after unmount
+      // (CQ-21 fix).
+      if (predictDebounce.current) {
+        clearTimeout(predictDebounce.current);
+        predictDebounce.current = null;
+      }
+    };
   }, []);
 
   const triggerLivePredict = useCallback((data) => {
@@ -335,24 +346,59 @@ export default function Bids() {
     }
   };
 
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const val = search.trim().toLowerCase();
+      if (!val) return;
+      const industries = ["Technology", "Banking", "Manufacturing", "Retail", "Healthcare", "Other"];
+      const matching = industries.find((ind) => ind.toLowerCase() === val);
+      if (matching && !industryFilters.includes(matching)) {
+        setIndustryFilters((p) => [...p, matching]);
+        setSearch("");
+      }
+    }
+  };
+
+  const removeIndustryFilter = (ind) => {
+    setIndustryFilters((p) => p.filter((x) => x !== ind));
+  };
+
   const fmt = (n) => new Intl.NumberFormat(i18n.language || "en-US", { style: "currency", currency: "USD" }).format(n);
 
-  const filtered = bids.filter((b) => {
-    if (filters.length > 0 && !(b.tags || []).some((t) => filters.includes(t))) return false;
-    if (search) {
-      const s = search.toLowerCase();
-      return (
-        b.bidId?.toLowerCase().includes(s) ||
-        b.enquiryId?.toLowerCase().includes(s) ||
-        b.assignedEmployee?.toLowerCase().includes(s)
-      );
-    }
-    return true;
-  });
+  const filtered = useMemo(() => {
+    let result = bids.filter((b) => {
+      if (industryFilters.length > 0 && !industryFilters.includes(b.industry)) return false;
+      if (search) {
+        const s = search.toLowerCase();
+        return (
+          b.bidId?.toLowerCase().includes(s) ||
+          b.enquiryId?.toLowerCase().includes(s) ||
+          b.assignedEmployee?.toLowerCase().includes(s) ||
+          b.industry?.toLowerCase().includes(s)
+        );
+      }
+      return true;
+    });
 
-  const toggleFilter = (t) => {
-    setFilters((p) => p.includes(t) ? p.filter((x) => x !== t) : [...p, t]);
-  };
+    switch (sortBy) {
+      case "deadline":
+        result.sort((a, b) => new Date(a.submissionDate) - new Date(b.submissionDate));
+        break;
+      case "amount":
+        result.sort((a, b) => (b.amount || 0) - (a.amount || 0));
+        break;
+      case "employee":
+        result.sort((a, b) => (a.assignedEmployee || "").localeCompare(b.assignedEmployee || ""));
+        break;
+      case "industry":
+        result.sort((a, b) => (a.industry || "").localeCompare(b.industry || ""));
+        break;
+      default:
+        break;
+    }
+    return result;
+  }, [bids, search, sortBy, industryFilters]);
 
   return (
     <div className="space-y-6">
@@ -364,54 +410,126 @@ export default function Bids() {
           </p>
         </div>
         <Button onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4" />
           {t("bids.createBid")}
         </Button>
       </div>
 
-      {uniqueTags.length > 0 && (
-        <Card>
-          <CardContent className="p-3 flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-2 mr-2">
-              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
-            </div>
-            <div className="relative flex-1 max-w-xs">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search bids..."
-                className="pl-8 h-8"
-              />
-            </div>
+      <Card>
+        <CardContent className="p-3 flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
+          </div>
+          <div className="relative flex-1 min-w-[200px] max-w-xs">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder="Search or type an industry + Enter..."
+              className="pl-8 h-8"
+            />
+          </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setSortOpen((p) => !p)}
+              className="h-8 w-[180px] inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground"
+            >
+              <span className="truncate">
+                {sortBy === "deadline" && "Deadline (Urgent First)"}
+                {sortBy === "amount" && "Amount (Highest)"}
+                {sortBy === "employee" && "Assigned Employee"}
+                {sortBy === "industry" && "Industry"}
+              </span>
+              <svg className="ml-2 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {sortOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setSortOpen(false)} />
+                <div className="absolute top-full left-0 mt-1 z-50 w-[180px] rounded-md border bg-popover text-popover-foreground shadow-md">
+                  <button
+                    type="button"
+                    onClick={() => { setSortBy("deadline"); setSortOpen(false); }}
+                    className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent", sortBy === "deadline" && "bg-accent")}
+                  >
+                    Deadline (Urgent First)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSortBy("amount"); setSortOpen(false); }}
+                    className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent", sortBy === "amount" && "bg-accent")}
+                  >
+                    Amount (Highest)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSortBy("employee"); setSortOpen(false); }}
+                    className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent", sortBy === "employee" && "bg-accent")}
+                  >
+                    Assigned Employee
+                  </button>
+                  <div
+                    className="relative"
+                    onMouseEnter={() => setIndustryHover(true)}
+                    onMouseLeave={() => setIndustryHover(false)}
+                  >
+                    <div className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center justify-between", sortBy === "industry" && "bg-accent")}>
+                      <span>Industry</span>
+                      <svg className="h-3 w-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                    </div>
+                    {industryHover && (
+                      <div className="absolute left-full top-0 ml-1 w-[160px] rounded-md border bg-popover text-popover-foreground shadow-md z-50">
+                        {["Technology", "Banking", "Manufacturing", "Retail", "Healthcare", "Other"].map((ind) => {
+                          const isActive = industryFilters.includes(ind);
+                          return (
+                            <button
+                              key={ind}
+                              type="button"
+                              onClick={() => {
+                                if (isActive) {
+                                  setIndustryFilters((p) => p.filter((x) => x !== ind));
+                                } else {
+                                  setIndustryFilters((p) => [...p, ind]);
+                                }
+                              }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
+                            >
+                              {isActive && <span className="text-primary">✓</span>}
+                              <span className={cn(!isActive && "ml-4")}>{ind}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          {industryFilters.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {uniqueTags.slice(0, 20).map((tg) => (
+              {industryFilters.map((ind) => (
                 <button
-                  key={tg}
+                  key={ind}
                   type="button"
-                  onClick={() => toggleFilter(tg)}
-                  className={cn(
-                    "text-xs px-2.5 py-1 rounded-full border transition-colors",
-                    filters.includes(tg)
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-muted/30 border-border hover:bg-muted"
-                  )}
+                  onClick={() => removeIndustryFilter(ind)}
+                  className="text-xs px-2.5 py-1 rounded-full border transition-colors inline-flex items-center gap-1 bg-primary text-primary-foreground border-primary hover:bg-primary/90"
                 >
-                  {tg}
+                  {ind}
+                  <X className="h-2.5 w-2.5" />
                 </button>
               ))}
             </div>
-            {filters.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => setFilters([])} className="ml-auto">
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
+          )}
+          {(industryFilters.length > 0 || search) && (
+            <Button variant="ghost" size="sm" onClick={() => { setIndustryFilters([]); setSearch(""); }} className="ml-auto">
+              <X className="h-3.5 w-3.5" />
+              Clear All
+            </Button>
+          )}
+        </CardContent>
+      </Card>
       <Card>
         <CardContent className="p-0">
           {loading ? (
@@ -504,7 +622,7 @@ export default function Bids() {
       </Card>
 
       {/* Create Bid Dialog */}
-      <Dialog open={showCreate} onOpenChange={(o) => { setShowCreate(o); if (!o) setLivePredict(null); }}>
+      <Dialog open={showCreate} onOpenChange={(o) => { setShowCreate(o); if (!o) { setLivePredict(null); setForm({ enquiryId: "", amount: "", industry: "Technology", submissionDate: "", assignedEmployee: "", remarks: "", tags: [] }); } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>{t("bids.createTitle")}</DialogTitle>

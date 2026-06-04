@@ -1,343 +1,239 @@
 # BidFlow — Intelligent Bid Management System
 
-BidFlow is a state-of-the-art, secure, and intelligent bid management platform designed to automate, analyze, and optimize business bidding processes. Featuring a robust Python/Flask backend and a highly responsive React/Vite frontend wrapped in a premium glassmorphism design system, BidFlow integrates machine learning predictions, real-time collaboration, role-based dashboards, and audit logs.
+BidFlow is an enterprise-grade bid and proposal management platform that automates, analyzes, and optimizes business bidding processes. Built with a Python/Flask backend and React/Vite frontend, it integrates machine learning predictions, real-time collaboration, role-based access, and audit logging.
+
+---
+
+## 📖 About BidFlow
+
+In competitive B2B sales, companies lose millions due to disorganized bid tracking, missed deadlines, and gut-feel decisions. BidFlow centralizes the entire bid lifecycle — from customer enquiry to final outcome — into one intelligent platform.
+
+### What It Does
+
+- **Enquiry Management** — Capture and prioritize customer enquiries with tags and detailed requirements
+- **Bid Tracking** — Full lifecycle management: Quotation Prepared → Under Review → Negotiation → Order Received / Rejected
+- **Deadline Calendar** — Interactive monthly view with click-to-navigate month/year pickers; never miss a submission
+- **AI Win Predictions** — ML model predicts bid success probability from historical data so teams can prioritize high-value opportunities
+- **Team Collaboration** — Real-time comments via WebSockets, document attachments, and role-based dashboards
+- **KPI Analytics** — Live revenue, win rate, and pipeline metrics with Chart.js visualizations and CSV export
+- **Customer Portal** — Secure token-based links let customers check bid status without exposing internal data
+
+### Real-World Industry Impact
+
+| Industry | Use Case |
+|----------|----------|
+| **Manufacturing** | RFQ management, machinery & logistics contract tracking |
+| **Banking & Finance** | Regulated bid processes, loan syndications, compliance audit trails |
+| **Technology / IT** | Software dev bids, SaaS licensing, cloud & cybersecurity proposals |
+| **Healthcare** | Medical device procurement, pharma supply, clinical trial contracts |
+| **Retail & E-Commerce** | POS implementations, inventory systems, loyalty program proposals |
+
+### Key Advantages
+
+| Advantage | Business Value |
+|-----------|---------------|
+| AI Win Predictions | Prioritize high-probability bids; stop wasting effort on low-value ones |
+| Real-Time Collaboration | Kill email chains; all discussions and documents in one place |
+| Deadline Management | Visual calendar with alerts prevents costly missed submissions |
+| Role-Based Security | Executives see only their bids; admins get full oversight |
+| Audit Compliance | Every action logged for governance and ISO audits |
+| Multi-Language (7 langs + RTL) | Serve global teams and Arabic-speaking clients natively |
+| Two-Factor Authentication | Protect sensitive bid data from unauthorized access |
+| Customer Self-Service | Reduce status-inquiry calls via secure portal links |
 
 ---
 
 ## ⚡ Quick Setup
 
-### 1. Clone the repo
+### Prerequisites
+
+- **Node.js** v18+ and **npm**
+- **Python** v3.8+
+- **MongoDB** running on port `27017`
+- **mongodump** (MongoDB Database Tools) for backups
+
+### 1. Clone & Configure
+
 ```bash
 git clone https://github.com/ShivamKumar-666/bidflow.git
 cd bidflow
-```
-
-### 2. Set up environment variables
-Copy the template variables file to `.env` inside the `backend` directory:
-```bash
 cp backend/.env.example backend/.env
 ```
-Open `backend/.env` and update the values. Specifically, set up the SMTP configurations (such as a Mailtrap box or Gmail App Password) to allow user account verification emails to be sent successfully.
 
-### 3. Backend Setup
+Edit `backend/.env` — set `SECRET_KEY`, `JWT_SECRET_KEY`, and SMTP credentials for account verification emails.
+
+### 2. Backend
+
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate        # On Windows (PowerShell: .\venv\Scripts\Activate.ps1)
-# source venv/bin/activate   # On macOS/Linux
+venv\Scripts\activate          # Windows (PowerShell: .\venv\Scripts\Activate.ps1)
+# source venv/bin/activate     # macOS/Linux
 pip install -r requirements.txt
-python wsgi.py               # Starts the Flask dev server
+python app.py                  # → http://localhost:5000
 ```
 
-### 4. Frontend Setup
+### 3. Frontend
+
 ```bash
 cd ../frontend
 npm install
-npm run dev                  # Starts Vite client
+npm run dev                    # → http://localhost:5173
 ```
-Access the client at `http://localhost:5173`.
+
+### One-Click Start (Windows)
+
+```bash
+start.bat
+```
+
+Automatically starts MongoDB, backend, and frontend.
 
 ---
 
 ## 🌟 Key Features
 
-### 1. 🔐 Two-Factor Authentication (2FA) for Admins
-* **Google Authenticator Setup**: Admins are prompted to configure 2FA upon first login. Generates a secure TOTP secret and a dynamic QR code for scanning.
-* **bcrypt-Hashed Backup Codes**: Generates 8 unique, single-use, 8-character backup codes stored with bcrypt hashing.
-* **Temporary Session Control**: Short-lived temporary JWT (`sub_type: 2fa_pending`) during login restricts system access until the TOTP or backup code is verified.
-* **Security Settings**: Admins can disable 2FA (verifying password) or regenerate backup codes (verifying current TOTP) from their profile.
+### 🔐 Two-Factor Authentication (Admins)
+Google Authenticator TOTP setup with QR code, 8 bcrypt-hashed backup codes, and temporary JWT sessions until 2FA is verified.
 
-### 2. 🌐 Internationalization & RTL Support
-* **Multi-lingual Client**: Fully translated interface using `react-i18next`.
-* **7 Supported Languages**: English, Hindi, Gujarati, Spanish, French, German, Arabic.
-* **Bi-directional Layout**: Automatically adjusts `dir="rtl"` for Arabic, with correct alignments.
-* **Accessibility (A11y)**: Fully integrated standard ARIA roles and labels (e.g., for custom verification codes, theme switchers, progress bars, and password hide/show buttons) for comprehensive screen-reader compatibility.
+### 🌐 Internationalization & RTL
+7 languages (EN, HI, GU, ES, FR, DE, AR) via `react-i18next`. Auto `dir="rtl"` for Arabic. Full ARIA accessibility.
 
-### 3. 🌗 Dynamic Glassmorphic Theme Engine
-* **Light & Dark Mode**: Persists user preference in `localStorage` and responds to system preferences.
+### 🌗 Glassmorphic Theme Engine
+Light/dark mode persisted in `localStorage`, respects system preference.
 
-### 4. 🛡️ Role-Based Access Controls (RBAC) & Audit Logs
-* **JWT Authentication**: Powered by `Flask-JWT-Extended` with bcrypt password hashing.
-* **JWT Token Revocation**: Logout revokes the active JWT server-side via a MongoDB `RevokedTokens` collection with a TTL index for automatic cleanup.
-* **Dynamic Interfaces**: Role-based routing and layouts for `Sales Executive` vs. `Admin`.
-* **Automated Audit Logging**: Critical actions are logged with user, action, details, and timestamp — viewable only by Admins.
+### ️ RBAC & Audit Logs
+JWT auth via `Flask-JWT-Extended`, bcrypt hashing, server-side token revocation with MongoDB TTL cleanup, and admin-only audit log viewer.
 
-### 5. 🧠 Intelligent Bid Success Prediction (AI-Powered)
-* **Unified ML Pipeline**: `scikit-learn` Logistic Regression estimating win probabilities.
-* **Real Win Rate Feature**: The assigned estimator's win rate is **computed from actual bid outcomes** in `db.Bids` — not from a user-controlled profile field — preventing feature manipulation.
-* **Cold-Start Safety**: Users with fewer than 3 terminal bids default to a neutral 0.5 prior.
-* **Live Model Retraining**: Admins can trigger `POST /api/admin/retrain` to retrain the model from real MongoDB data (requires ≥ 50 labeled bids). Hot-swaps `.pkl` files atomically.
+### 🧠 AI Bid Success Prediction
+`scikit-learn` Logistic Regression with real computed win rates from `db.Bids` (not user-controlled fields). Cold-start safety for new users. Live retraining via `POST /api/admin/retrain` (≥ 50 labeled bids).
 
-### 6. 💬 Real-Time Collaboration
-* **Live Bid Comments**: Team members post comments directly on bids.
-* **WebSockets**: `Flask-SocketIO` pushes new comments to all connected clients instantly.
+### 💬 Real-Time Collaboration
+Flask-SocketIO pushes bid comments and notifications instantly to all connected clients.
 
-### 7. 📁 Secure Document Management
-* Proposal attachments (PDF, DOCX, images) linked to bids. Max 16MB, blocked file type extensions.
+###  Secure Document Management
+PDF/DOCX/image attachments linked to bids. 16MB max, blocked file extensions, path traversal protection.
 
-### 8. 📊 KPI Analytics & Export
-* Live metrics: Revenue, Win Rate, Average Bid Size, Active Bids.
-* Interactive `Chart.js` visuals and one-click CSV export.
+### 📊 KPI Analytics
+Revenue, win rate, average bid size, active bids — with Chart.js charts and one-click CSV export.
 
-### 9. 🔌 Network Resilience
-* Axios auto-retry interceptor for transient server errors (3 retries, 500ms delay).
+###  Notification Centre
+Real-time push notifications for bid status changes and comments. Smart filtering prevents self-spam. Unread badge in navbar.
 
-### 10. 🔔 In-App Real-Time Notification Centre
-* **Real-time Push**: Integrated via Flask-SocketIO. Users receive instant notifications on bid status updates and new comments.
-* **Smart Filtering**: Built-in rules prevent self-spam notifications.
-* **History Feed**: Preserved in MongoDB with an unread indicator badge in the Navbar and dropdown feed.
+### 📅 Interactive Calendar
+Monthly grid with deadline highlighting, month/year click-to-navigate pickers, and upcoming deadline sidebar.
 
-### 11. 📅 Interactive Bid Calendar View
-* **Dynamic Deadlines**: Displays upcoming bid submission deadlines in a grid calendar view with month filtering.
-* **Contextual Data**: Automatically resolves and presents priority, customer name, and products required.
-
-### 12. 🔗 Public Customer Portal Sharing
-* **Token-Based Sharing**: Secure sharing of specific enquiry details and associated public bid statuses.
-* **Security Hardening**: Hides ML predictions and automatically expires public tokens after 90 days.
-
-### 13. 💬 Real-Time Bid & Comment Deletion
-* **Bid Deletion**: Complete deletion API allowing authorized users to delete bids, with automatic notification cleanup and audit logs.
-* **Comment Deletion**: Authors and Admins can delete comments in real time, synchronizing updates instantly across clients.
+### 🔗 Public Customer Portal
+Token-based secure sharing of enquiry details and bid statuses. ML predictions hidden; tokens expire after 90 days.
 
 ---
 
-## 🛡️ Security Hardening
+## 🛡️ Security Summary
 
-| Gap | Fix Implemented |
-|-----|----------------|
-| **No rate limiting** | `Flask-Limiter`: login 10/min, register 5/min, 2FA verify 5/min |
-| **No JWT revocation** | `POST /api/auth/logout` revokes JTI in `db.RevokedTokens` (MongoDB TTL index auto-expires) |
-| **MongoDB no auth** | `MONGO_USERNAME` / `MONGO_PASSWORD` env vars build authenticated URI; see `.env.example` |
-| **No backup** | `backup.py` + `backup.bat` run `mongodump` with 7-day retention; schedule via Task Scheduler |
-| **Static frozen ML model** | `POST /api/admin/retrain` retrains from live bid outcomes; hot-swaps `.pkl` atomically |
-| **User-controlled win rate** | `get_computed_win_rate()` reads real bid history from `db.Bids`; profile `winRate` is display-only |
-| **Sequential IDOR-prone IDs** | `secrets.token_hex(4)` → `BID-3a7f9c2b` / `ENQ-a4c82d1f` format (2³² combinations) |
-| **Flask dev server** | `wsgi.py` + `gunicorn.conf.py` for Linux/Docker; `debug` conditional on `FLASK_ENV` |
-| **Duplicate Bid Creation** | State-based `isSubmitting` flag disables double-clicking during bid creation |
-| **Model Target Leak** | Overfit amount columns corrected in training dataset to enable real variable predictions |
-| **Customer Portal Leak** | Share portal hides internal ML prediction stats and automatically expires tokens after 90 days |
-| **Unauthorized Comment Deletion** | Backend verification ensures only comment author or Admin can delete comments |
-| **Privilege Escalation at Signup (C-1)** | Registration role is hardcoded to `'Sales Executive'`. Custom roles must be updated directly in database or by an Admin |
-| **Hardcoded Default Secret Keys (C-2)** | Changed to strict env-based configuration (`os.environ.get(...) or 'dev-only-...'`) and reduced token expiry to 1 hour |
-| **TOTP Secret / Backup Code Leak (C-3)** | Added MongoDB field projection exclusion on `/me` and profile update routes |
-| **Mass Assignment in Bid & Enquiry (C-4, C-5)** | Implemented field allowlists for both PUT endpoints to block unauthorized property modifications |
-| **Path Traversal on Document Download (C-6)** | Switched filename-based download to secure database ID lookup and path restrictions via configuration uploads directory |
-| **Unauthenticated Socket.IO Join (C-8)** | Modified `join` socket handler to verify JWT and restrict users to joining their own room (`user_{user_id}`) |
-| **Wildcard CORS Policy (H-1)** | Restricted allowed CORS origins to specific local development ports (`http://localhost:5173`) |
-| **Missing RBAC on Bid Operations (H-3, H-4)** | Added ownership checks so only the assigned employee or an Admin can delete bids or update status |
-| **Missing Status Value Validation (H-5)** | Validates that status updates match a whitelist of valid statuses ("Quotation Prepared", "Under Review", "Negotiation", "Order Received", "Rejected") |
-| **Regex Injection / ReDoS (H-8)** | Escapes search query patterns with `re.escape()` to prevent denial-of-service backtracking |
-| **Weak Password & Email Formats (H-9, H-10)** | Implemented 8-character minimum password validation and email format verification regex |
-| **Debug Mode Defaults (M-5)** | Configured `allow_unsafe_werkzeug` to run ONLY in development and locked debug mode strictly to `FLASK_ENV == 'development'` |
+| Area | Implementation |
+|------|---------------|
+| Rate Limiting | `Flask-Limiter`: login 10/min, register 5/min, 2FA 5/min |
+| JWT Revocation | Server-side JTI blacklist with MongoDB TTL auto-expiry |
+| MongoDB Auth | `MONGO_USERNAME` / `MONGO_PASSWORD` env-driven URI |
+| Non-Sequential IDs | `secrets.token_hex(4)` → `BID-3a7f9c2b` format |
+| RBAC Enforcement | Ownership checks on bid delete/status; admin-only audit & retrain |
+| Mass Assignment | Field allowlists on all PUT endpoints |
+| Path Traversal | DB-ID-based document lookup; no filename exposure |
+| CORS | Restricted to `http://localhost:5173` |
+| Password Policy | 8-char minimum + email format regex |
+| 2FA Secret Protection | MongoDB field projection excludes TOTP secrets from API responses |
 
 ---
 
 ## 📂 Project Structure
 
-```text
+```
 bidflow/
 ├── backend/
-│   ├── app.py                # Flask application entrypoint & blueprint registrations
-│   ├── config.py             # Configuration parameters (JWT, MongoDB, Rate Limit, Uploads)
-│   ├── database.py           # MongoDB connection initialization and collection exports
-│   ├── extensions.py         # Flask extension instances (Limiter, SocketIO)
-│   ├── requirements.txt      # Python dependencies list
-│   ├── wsgi.py               # WSGI entrypoint for Gunicorn
-│   ├── gunicorn.conf.py      # Production Gunicorn configuration (Linux/Docker)
-│   ├── backup.py             # Backup script with auto-mongodump detection & TTL pruning
-│   ├── test_suite.py         # Isolated integration test suite with mock DB
-│   ├── test_flow.py          # End-to-end integration test runner
-│   ├── routes/
-│   │   ├── admin.py          # Admin endpoints (retraining)
-│   │   ├── analytics.py      # Analytics and KPI calculations
-│   │   ├── audit.py          # Audit log retrieval route
-│   │   ├── auth.py           # User registration, login, logout with rate limits
-│   │   ├── bids.py           # Bid creation, listing, AI prediction fallback, win-rate computation
-│   │   ├── enquiries.py      # Enquiry CRUD routes
-│   │   └── twofa.py          # Two-factor authentication Setup, Enable, Verify, Disable, Backup Codes
-│   └── ml/
-│       ├── prepare_and_train.py  # Script for preparing training data and initial training
-│       ├── retrain.py            # Live ML retraining pipeline logic
-│       ├── bid_model.pkl         # Trained logistic regression model object
-│       └── industry_encoder.pkl  # Label encoder for industry categories
+│   ├── app.py              # Flask entrypoint & blueprint registration
+│   ├── config.py           # JWT, MongoDB, rate limit config
+│   ├── database.py         # MongoDB connection & collections
+│   ├── extensions.py       # Limiter, SocketIO instances
+│   ├── wsgi.py             # Gunicorn entrypoint
+│   ├── backup.py           # mongodump with TTL pruning
+│   ├── routes/             # auth, bids, enquiries, admin, analytics, audit, twofa
+│   └── ml/                 # prepare_and_train.py, retrain.py, model .pkl files
 ├── frontend/
-│   ├── src/
-│   │   ├── App.jsx           # Main React App routing setup
-│   │   ├── main.jsx          # Entry point rendering App
-│   │   ├── i18n.js           # internationalization configuration & bi-directional layout handler
-│   │   ├── index.css         # Styling, themes (light/dark) and glassmorphism variables
-│   │   ├── components/       # Reusable components (Navbar, Sidebar, etc.)
-│   │   ├── contexts/         # React Contexts (AuthContext, ThemeContext)
-│   │   ├── locales/          # Translation json dictionaries (ar, de, en, es, fr, gu, hi)
-│   │   ├── pages/            # Application views (Bids, Dashboard, Login, Profile, TwoFASetup, etc.)
-│   │   └── services/         # Axios API connection layer
-│   └── package.json          # Node dependencies and build scripts
-├── start.bat                 # One-click startup script (processes cleanup, MongoDB, backend, frontend)
-├── backup.bat                # Windows backup task execution wrapper
-└── README.md                 # System overview and instruction documentation
+│   ── src/
+│       ├── pages/          # Bids, Enquiries, Calendar, Dashboard, Profile, etc.
+│       ├── components/     # Navbar, Sidebar, TagInput, shared UI
+│       ├── contexts/       # AuthContext, ThemeContext
+│       ├── locales/        # i18n JSON (ar, de, en, es, fr, gu, hi)
+│       └── services/       # Axios API layer with auto-retry
+├── start.bat               # One-click launcher
+└── backup.bat              # Windows backup wrapper
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## ️ Technology Stack
 
-### Frontend
-* **Core**: React 19, Vite
-* **Routing**: React Router DOM (v6)
-* **HTTP Client**: Axios (with auto-retry interceptor)
-* **Localization**: `i18next`, `react-i18next`, `i18next-browser-languagedetector`
-* **Charts**: `chart.js`, `react-chartjs-2`
-* **Icons**: `lucide-react`
-* **Styling**: Vanilla CSS (glassmorphism tokens, dark/light themes, responsive)
-* **Notifications**: `react-hot-toast`
+**Frontend:** React 19, Vite, React Router v6, Axios, `react-i18next`, Chart.js, `lucide-react`, shadcn/ui, `react-hot-toast`
 
-### Backend
-* **Runtime**: Python 3.8+
-* **Web Framework**: Flask 3.0 (Blueprint architecture)
-* **WebSockets**: Flask-SocketIO (Socket.IO v4) + eventlet
-* **Security & Auth**: Flask-JWT-Extended, Flask-Limiter, pyotp, qrcode, bcrypt, Flask-CORS
-* **Machine Learning**: scikit-learn, joblib, numpy, pandas
-* **Database**: MongoDB (via PyMongo) with TTL indexes
-* **Production WSGI**: Gunicorn + eventlet worker (Linux/Docker)
+**Backend:** Python 3.8+, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, `scikit-learn`, PyMongo, bcrypt, pyotp
+
+**Database:** MongoDB with TTL indexes
+
+**Production:** Gunicorn + eventlet worker, nginx/Caddy reverse proxy
 
 ---
 
-## 📋 Prerequisites
+##  Environment Variables
 
-* **Node.js** (v18+) and **npm**
-* **Python** (v3.8+)
-* **MongoDB** running locally on port `27017`
-* **mongodump** (MongoDB Database Tools) — required for `backup.py`
-
----
-
-## 🔑 Environment Configuration
-
-Copy `backend/.env.example` to `backend/.env` and fill in your values:
-
-```bash
-cp backend/.env.example backend/.env
-```
-
-Key variables:
-
-| Variable | Purpose | Default |
-|----------|---------|---------|
-| `SECRET_KEY` | Flask session key | hardcoded (change in prod!) |
-| `JWT_SECRET_KEY` | JWT signing key | hardcoded (change in prod!) |
-| `MONGO_URI` | Full MongoDB URI (overrides individual fields) | — |
-| `MONGO_HOST` | MongoDB host | `localhost` |
-| `MONGO_PORT` | MongoDB port | `27017` |
-| `MONGO_DB` | Database name | `bidflow` |
-| `MONGO_USERNAME` | MongoDB username | *(empty = no auth)* |
-| `MONGO_PASSWORD` | MongoDB password | *(empty = no auth)* |
-| `FLASK_ENV` | `development` / `production` | `development` |
-| `BACKUP_RETENTION_DAYS` | Days to keep backups | `7` |
-
----
-
-## 🚀 Installation & Setup
-
-### 1. Backend Configuration
-```bash
-cd backend
-python -m venv venv
-
-# Activate (Windows):
-venv\Scripts\activate
-# Activate (macOS/Linux):
-source venv/bin/activate
-
-pip install -r requirements.txt
-```
-
-### 2. Frontend Configuration
-```bash
-cd frontend
-npm install
-```
-
----
-
-## ⚡ Running the Application
-
-### The Quick Way (Windows)
-```bash
-start.bat
-```
-Automatically checks/starts MongoDB, activates venv, starts Flask backend, and launches Vite frontend.
-
-### Manual Boot
-```bash
-# Backend
-cd backend && venv\Scripts\activate && python app.py
-# → http://localhost:5000
-
-# Frontend
-cd frontend && npm run dev
-# → http://localhost:5173
-```
-
-### Production (Linux/Docker)
-```bash
-cd backend
-gunicorn -c gunicorn.conf.py wsgi:app
-```
+| Variable | Purpose |
+|----------|---------|
+| `SECRET_KEY` | Flask session signing |
+| `JWT_SECRET_KEY` | JWT token signing |
+| `MONGO_URI` | Full MongoDB connection string (overrides individual fields) |
+| `MONGO_HOST` / `MONGO_PORT` / `MONGO_DB` | Individual MongoDB fields |
+| `MONGO_USERNAME` / `MONGO_PASSWORD` | MongoDB authentication |
+| `FLASK_ENV` | `development` or `production` |
+| `BACKUP_RETENTION_DAYS` | Auto-prune backups older than N days (default: 7) |
+| `SMTP_*` | Email verification (Mailtrap / Gmail App Password) |
 
 ---
 
 ## 💾 Automated Backups
 
 ```bash
-# Manual run
 cd backend && venv\Scripts\activate && python backup.py
-
-# Windows convenience wrapper (run from project root)
-backup.bat
+# Or on Windows: backup.bat
 ```
 
-**Windows Task Scheduler** (daily at 2 AM):
-1. Create a new task → Action: `Start a program`
+Backups saved to `<project_root>/backups/YYYY-MM-DD_HH-MM-SS/`. Old dumps auto-pruned by `BACKUP_RETENTION_DAYS`.
+
+**Windows Task Scheduler** — daily at 2 AM:
+1. New Task → Action: `Start a program`
 2. Program: `C:\path\to\bidflow\backup.bat`
 3. Trigger: Daily, 2:00 AM
 
-Backups are saved to `<project_root>/backups/YYYY-MM-DD_HH-MM-SS/`. Dumps older than `BACKUP_RETENTION_DAYS` (default 7) are auto-pruned.
-
 ---
 
-## 🤖 Machine Learning
+##  Machine Learning
 
-### Train from CRM Dataset (initial setup)
 ```bash
-cd backend/ml
-python prepare_and_train.py  # Builds combined_training_data.csv and trains model
-```
+# Initial training from CRM dataset
+cd backend/ml && python prepare_and_train.py
 
-### Retrain from Live Bid Data (Admin only)
-Once you have ≥ 50 bids with terminal statuses (`Order Received` or `Rejected`):
-```bash
-# Via API (requires Admin JWT)
+# Live retraining (Admin only, requires ≥ 50 labeled bids)
 POST /api/admin/retrain
-
-# Check model readiness
 GET  /api/admin/model-status
 ```
 
 ---
 
-## 🧪 Testing Suites
-
-### Isolated Integration Test Suite (`test_suite.py`)
-Runs all modules against isolated `bidflow_test` database. Tests: Auth, JWT Revocation, RBAC, Non-sequential IDs, AI Predictions, Win Rate Isolation, SocketIO, KPIs, Document Uploads, User Profiles, Admin Endpoints.
+## 🧪 Testing
 
 ```bash
+# Isolated integration tests (mock DB)
 cd backend && venv\Scripts\activate && python test_suite.py
-```
 
-### Live HTTP API Flow Test (`test_flow.py`)
-End-to-end test against a running server (Register → Login → Create Enquiry → Bid → Status → Dashboard).
-```bash
-# Ensure python app.py is running first, then:
+# Live end-to-end flow test (server must be running)
 cd backend && venv\Scripts\activate && python test_flow.py
 ```
 
@@ -345,12 +241,10 @@ cd backend && venv\Scripts\activate && python test_flow.py
 
 ## 🚨 Production Checklist
 
-Before deploying to production:
-
-- [ ] Generate strong `SECRET_KEY` and `JWT_SECRET_KEY` (`python -c "import secrets; print(secrets.token_hex(32))"`)
+- [ ] Generate strong `SECRET_KEY` and `JWT_SECRET_KEY`
 - [ ] Set `FLASK_ENV=production`
-- [ ] Configure MongoDB authentication (`MONGO_USERNAME` / `MONGO_PASSWORD`)
-- [ ] Use Gunicorn (`gunicorn -c gunicorn.conf.py wsgi:app`) instead of `python app.py`
-- [ ] Set up daily automated backups via Windows Task Scheduler or cron
-- [ ] Enable HTTPS (reverse proxy: nginx or Caddy)
-- [ ] For high-traffic: replace in-memory rate limiter storage with Redis (`LIMITER_STORAGE_URI=redis://...`)
+- [ ] Enable MongoDB authentication
+- [ ] Use Gunicorn instead of `python app.py`
+- [ ] Schedule daily backups
+- [ ] Enable HTTPS via nginx/Caddy
+- [ ] Switch rate limiter storage to Redis for high traffic

@@ -9,10 +9,11 @@ POST /api/admin/retrain       — trigger live model retraining from db.Bids
 GET  /api/admin/model-status  — show current model file metadata
 """
 
-from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt
+from flask import Blueprint, jsonify, request, current_app
+from flask_jwt_extended import jwt_required
 from database import db
 from utils import log_audit
+from utils.auth_helpers import admin_required, now_utc
 import os
 import datetime
 
@@ -23,26 +24,12 @@ MODEL_PATH   = os.path.join(ML_DIR, 'bid_model.pkl')
 ENCODER_PATH = os.path.join(ML_DIR, 'industry_encoder.pkl')
 
 
-def _require_admin():
-    """Returns (claims, error_response) — error_response is None if OK."""
-    claims = get_jwt()
-    if claims.get('role') != 'Admin':
-        return claims, (jsonify({'msg': 'Admin access required'}), 403)
-    return claims, None
-
-
 @admin_bp.route('/retrain', methods=['POST'])
 @jwt_required()
+@admin_required
 def retrain_model():
-    """
-    Trigger a live model retrain from real MongoDB bid outcomes.
-    Requires Admin role.
-    Returns a JSON summary (status, records used, accuracy, timestamp).
-    """
-    _, err = _require_admin()
-    if err:
-        return err
-
+    """Trigger a live model retrain from real MongoDB bid outcomes.
+    Requires Admin role. Returns a JSON summary (status, records, accuracy, timestamp)."""
     from ml.retrain import retrain_from_db
     result = retrain_from_db(db)
 
@@ -63,19 +50,17 @@ def retrain_model():
 
 @admin_bp.route('/model-status', methods=['GET'])
 @jwt_required()
+@admin_required
 def model_status():
     """Return metadata about the currently deployed model files."""
-    _, err = _require_admin()
-    if err:
-        return err
 
     def file_info(path):
         if os.path.exists(path):
             mtime = os.path.getmtime(path)
             return {
-                "exists": True,
-                "size_kb": round(os.path.getsize(path) / 1024, 1),
-                "last_modified": datetime.datetime.utcfromtimestamp(mtime).isoformat()
+                "exists":         True,
+                "size_kb":        round(os.path.getsize(path) / 1024, 1),
+                "last_modified":  datetime.datetime.fromtimestamp(mtime, tz=datetime.timezone.utc).isoformat(),
             }
         return {"exists": False}
 
@@ -85,46 +70,41 @@ def model_status():
     )
 
     return jsonify({
-        "model":             file_info(MODEL_PATH),
-        "encoder":           file_info(ENCODER_PATH),
-        "terminal_bids":     terminal_count,
-        "min_to_retrain":    50,
-        "ready_to_retrain":  terminal_count >= 50
+        "model":            file_info(MODEL_PATH),
+        "encoder":          file_info(ENCODER_PATH),
+        "terminal_bids":    terminal_count,
+        "min_to_retrain":   50,
+        "ready_to_retrain": terminal_count >= 50,
     }), 200
 
 
 @admin_bp.route('/sla/check', methods=['POST'])
 @jwt_required()
+@admin_required
 def trigger_sla_check():
     """Manually run the SLA breach checker. Requires Admin role."""
-    _, err = _require_admin()
-    if err:
-        return err
-
     from celery_app import check_sla_breaches
     try:
         results = check_sla_breaches()
         log_audit("SLA_CHECK_TRIGGERED", f"SLA check run manually. Checked {results['checked']} bids, found {results['breaches']} breaches.")
         return jsonify(results), 200
-    except Exception as e:
-        return jsonify({"msg": f"Failed to run SLA check: {str(e)}"}), 500
+    except Exception:
+        current_app.logger.exception("trigger_sla_check failed")
+        return jsonify({"msg": "Failed to run SLA check"}), 500
 
 
 @admin_bp.route('/sla/report', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_sla_report():
     """Retrieve SLA breach reports grouped by stage and employee. Requires Admin role."""
-    _, err = _require_admin()
-    if err:
-        return err
-
     try:
         # Group current breaches by status stage
         stage_summary = list(db.Bids.aggregate([
             {"$match": {"slaBreached": True}},
             {"$group": {"_id": "$status", "count": {"$sum": 1}}}
         ]))
-        
+
         # Group current breaches by assigned employee
         employee_summary = list(db.Bids.aggregate([
             {"$match": {"slaBreached": True}},
@@ -140,49 +120,44 @@ def get_sla_report():
             b["_id"] = str(b["_id"])
 
         report = {
-            "by_stage": [{"stage": item["_id"], "count": item["count"]} for item in stage_summary],
+            "by_stage":    [{"stage": item["_id"], "count": item["count"]} for item in stage_summary],
             "by_employee": [{"employee": item["_id"] or "Unassigned", "count": item["count"]} for item in employee_summary],
-            "details": breached_bids
+            "details":     breached_bids,
         }
-        
         return jsonify(report), 200
-    except Exception as e:
-        return jsonify({"msg": f"Failed to load SLA report: {str(e)}"}), 500
+    except Exception:
+        current_app.logger.exception("get_sla_report failed")
+        return jsonify({"msg": "Failed to load SLA report"}), 500
 
 
 @admin_bp.route('/models', methods=['GET'])
 @jwt_required()
+@admin_required
 def get_model_versions():
     """Retrieve list of all model versions. Requires Admin role."""
-    _, err = _require_admin()
-    if err:
-        return err
-
     try:
         versions = list(db.ModelVersions.find(
             {},
             {"version": 1, "isActive": 1, "accuracy": 1, "records": 1, "trainedAt": 1}
         ).sort("version", -1))
-        
+
         for v in versions:
             v["_id"] = str(v["_id"])
             if "trainedAt" in v and isinstance(v["trainedAt"], datetime.datetime):
                 v["trainedAt"] = v["trainedAt"].isoformat()
 
         return jsonify(versions), 200
-    except Exception as e:
-        return jsonify({"msg": f"Failed to fetch model versions: {str(e)}"}), 500
+    except Exception:
+        current_app.logger.exception("get_model_versions failed")
+        return jsonify({"msg": "Failed to fetch model versions"}), 500
 
 
 @admin_bp.route('/models/rollback', methods=['POST'])
 @jwt_required()
+@admin_required
 def rollback_model_version():
     """Roll back active model to a specific version. Requires Admin role."""
-    _, err = _require_admin()
-    if err:
-        return err
-
-    data = request.get_json()
+    data = request.get_json() or {}
     version = data.get("version")
     if version is None:
         return jsonify({"msg": "Missing version parameter"}), 400
@@ -194,14 +169,15 @@ def rollback_model_version():
 
         db.ModelVersions.update_many({}, {"$set": {"isActive": False}})
         db.ModelVersions.update_one({"version": int(version)}, {"$set": {"isActive": True}})
-        
+
         # Trigger hotswap in bids route
         from routes.bids import get_model_and_encoder
         get_model_and_encoder()
 
         log_audit("MODEL_ROLLBACK", f"Model rolled back to version {version}. Accuracy: {target.get('accuracy')}")
-        
+
         return jsonify({"msg": f"Successfully rolled back to version {version}", "version": version}), 200
-    except Exception as e:
-        return jsonify({"msg": f"Rollback failed: {str(e)}"}), 500
+    except Exception:
+        current_app.logger.exception("rollback_model_version failed")
+        return jsonify({"msg": "Rollback failed"}), 500
 

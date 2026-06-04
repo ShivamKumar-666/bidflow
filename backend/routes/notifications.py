@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from database import db
 from bson.objectid import ObjectId
 import datetime
+from utils.auth_helpers import now_utc
 
 notifications_bp = Blueprint('notifications', __name__)
 
@@ -11,14 +12,7 @@ notifications_bp = Blueprint('notifications', __name__)
 
 def create_notification(user_id: str, title: str, message: str,
                         notif_type: str = "system", ref_id: str = None):
-    """
-    Insert a notification document into MongoDB and return it.
-    user_id  : ObjectId string of the target user.
-    title    : Short heading shown in the bell dropdown.
-    message  : Longer description.
-    notif_type: 'status_change' | 'new_comment' | 'system'
-    ref_id   : bid._id string for deep-linking (optional).
-    """
+    """Insert a notification document into MongoDB and return it."""
     doc = {
         "userId":    user_id,
         "title":     title,
@@ -26,7 +20,7 @@ def create_notification(user_id: str, title: str, message: str,
         "type":      notif_type,
         "refId":     ref_id,
         "isRead":    False,
-        "createdAt": datetime.datetime.utcnow(),
+        "createdAt": now_utc(),
     }
     db.Notifications.insert_one(doc)
     doc["_id"] = str(doc["_id"])
