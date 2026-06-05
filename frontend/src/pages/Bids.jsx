@@ -54,7 +54,31 @@ const statusVariants = {
 
 const STATUSES = ["Quotation Prepared", "Under Review", "Negotiation", "Order Received", "Rejected"];
 
-function PredictionPill({ value, explanations }) {
+function ShapBar({ explanation }) {
+  const maxAbs = 15;
+  const pct = Math.min(Math.abs(explanation.shap_value) / maxAbs * 100, 100);
+  const isPositive = explanation.impact === "positive";
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between text-xs">
+        <span className="font-medium text-foreground capitalize">{explanation.feature.replace(/_/g, " ")}</span>
+        <span className={cn("font-mono font-semibold text-xs", isPositive ? "text-emerald-600" : "text-rose-600")}>
+          {isPositive ? "+" : ""}{explanation.shap_value}%
+        </span>
+      </div>
+      <div className="relative h-2 rounded-full bg-muted overflow-hidden">
+        <div
+          className={cn("absolute top-0 h-full rounded-full transition-all", isPositive ? "bg-emerald-500" : "bg-rose-500")}
+          style={{ width: `${pct}%`, left: isPositive ? "50%" : `${50 - pct}%` }}
+        />
+        <div className="absolute top-0 left-1/2 w-px h-full bg-border" />
+      </div>
+      <p className="text-[10px] text-muted-foreground leading-tight">{explanation.text}</p>
+    </div>
+  );
+}
+
+function PredictionPill({ value, explanations, onExplain }) {
   if (value == null) return <span className="text-muted-foreground text-xs">N/A</span>;
   const tone = value >= 70 ? "success" : value >= 40 ? "warning" : "destructive";
   const Icon = value >= 70 ? TrendingUp : value >= 40 ? Minus : TrendingDown;
@@ -71,35 +95,45 @@ function PredictionPill({ value, explanations }) {
   }
 
   return (
-    <TooltipProvider delayDuration={150}>
-      <Tooltip>
-        <TooltipTrigger asChild>{Pill}</TooltipTrigger>
-        <TooltipContent side="top" className="max-w-xs p-3">
-          <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-primary">
-            <Brain className="h-3 w-3" />
-            AI Explanation
-          </div>
-          <div className="space-y-1.5">
-            {explanations.slice(0, 3).map((ex, i) => (
-              <div key={i} className={cn(
-                "flex items-start gap-1.5 text-[11px] p-1.5 rounded",
-                ex.impact === "positive" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
-              )}>
-                {ex.impact === "positive" ? <TrendingUp className="h-3 w-3 flex-shrink-0 mt-0.5" /> : <TrendingDown className="h-3 w-3 flex-shrink-0 mt-0.5" />}
-                <span>{ex.text}</span>
-              </div>
-            ))}
-          </div>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className="flex items-center gap-1">
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>{Pill}</TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs p-3">
+            <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-primary">
+              <Brain className="h-3 w-3" />
+              AI Explanation
+            </div>
+            <div className="space-y-1.5">
+              {explanations.slice(0, 3).map((ex, i) => (
+                <div key={i} className={cn(
+                  "flex items-start gap-1.5 text-[11px] p-1.5 rounded",
+                  ex.impact === "positive" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/10 text-rose-600 dark:text-rose-400"
+                )}>
+                  {ex.impact === "positive" ? <TrendingUp className="h-3 w-3 flex-shrink-0 mt-0.5" /> : <TrendingDown className="h-3 w-3 flex-shrink-0 mt-0.5" />}
+                  <span>{ex.text}</span>
+                </div>
+              ))}
+            </div>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      {onExplain && (
+        <Button variant="ghost" size="icon" className="h-5 w-5" onClick={onExplain}>
+          <Info className="h-3 w-3 text-muted-foreground" />
+        </Button>
+      )}
+    </div>
   );
 }
 
 function LivePrediction({ livePredict, loading }) {
+  const [showAll, setShowAll] = useState(false);
   if (!loading && !livePredict) return null;
   const value = livePredict?.win_probability ?? 0;
   const tone = value >= 70 ? "emerald" : value >= 40 ? "amber" : "rose";
+  const explanations = livePredict?.shap_explanations || [];
+  const visibleExplanations = showAll ? explanations : explanations.slice(0, 5);
   return (
     <div className={cn(
       "rounded-lg p-3 border",
@@ -120,18 +154,22 @@ function LivePrediction({ livePredict, loading }) {
           </span>
         )}
       </div>
-      {livePredict?.shap_explanations && (
-        <div className="space-y-1">
-          {livePredict.shap_explanations.slice(0, 3).map((ex, i) => (
-            <div key={i} className={cn(
-              "text-[10px] flex items-start gap-1.5 p-1 rounded",
-              ex.impact === "positive" ? "text-emerald-600" : "text-rose-600"
-            )}>
-              {ex.impact === "positive" ? <TrendingUp className="h-2.5 w-2.5 flex-shrink-0 mt-0.5" /> : <TrendingDown className="h-2.5 w-2.5 flex-shrink-0 mt-0.5" />}
-              <span>{ex.text}</span>
-            </div>
-          ))}
-        </div>
+      {!loading && explanations.length > 0 && (
+        <>
+          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+            {visibleExplanations.map((ex, i) => (
+              <ShapBar key={i} explanation={ex} />
+            ))}
+          </div>
+          {explanations.length > 5 && (
+            <button
+              onClick={() => setShowAll(!showAll)}
+              className="mt-2 text-[10px] text-primary hover:underline font-medium"
+            >
+              {showAll ? "Show less" : `Show ${explanations.length - 5} more`}
+            </button>
+          )}
+        </>
       )}
     </div>
   );
@@ -159,6 +197,7 @@ export default function Bids() {
   const [livePredict, setLivePredict] = useState(null);
   const [predictLoading, setPredictLoading] = useState(false);
   const predictDebounce = useRef(null);
+  const [shapModal, setShapModal] = useState({ open: false, bidId: "", value: 0, explanations: [] });
 
   const [form, setForm] = useState({
     enquiryId: "", amount: "", industry: "Technology",
@@ -571,7 +610,16 @@ export default function Bids() {
                     <TableCell className="font-mono text-xs">{bid.enquiryId}</TableCell>
                     <TableCell className="font-semibold">{fmt(bid.amount)}</TableCell>
                     <TableCell>
-                      <PredictionPill value={bid.aiPrediction} explanations={bid.shapExplanations} />
+                      <PredictionPill
+                        value={bid.aiPrediction}
+                        explanations={bid.shapExplanations}
+                        onExplain={() => setShapModal({
+                          open: true,
+                          bidId: bid.bidId,
+                          value: bid.aiPrediction,
+                          explanations: bid.shapExplanations || [],
+                        })}
+                      />
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -802,6 +850,36 @@ export default function Bids() {
               <Button type="submit">{t("common.save")}</Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* SHAP Explanation Modal */}
+      <Dialog open={shapModal.open} onOpenChange={(o) => setShapModal({ ...shapModal, open: o })}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <div className="flex items-center gap-2 mb-1">
+              <Brain className="h-5 w-5 text-primary" />
+              <DialogTitle className="flex items-center gap-2">
+                AI Prediction Breakdown
+                <Badge variant={shapModal.value >= 70 ? "success" : shapModal.value >= 40 ? "warning" : "destructive"} className="font-mono">
+                  {shapModal.value}%
+                </Badge>
+              </DialogTitle>
+            </div>
+            <DialogDescription className="font-mono text-xs">{shapModal.bidId}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+            {shapModal.explanations.length > 0 ? (
+              shapModal.explanations.map((ex, i) => (
+                <ShapBar key={i} explanation={ex} />
+              ))
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">No explanation data available for this bid.</p>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShapModal({ ...shapModal, open: false })}>Close</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

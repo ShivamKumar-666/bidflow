@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from bson.objectid import ObjectId
 import io
 import csv
+import os
 from database import db
 
 analytics_bp = Blueprint('analytics', __name__)
@@ -106,3 +107,50 @@ def export_bids_excel():
         mimetype="text/csv",
         headers={"Content-Disposition": "attachment;filename=bids_export.csv"}
     )
+
+
+@analytics_bp.route('/model-stats', methods=['GET'])
+@jwt_required()
+def get_model_stats():
+    """Return ML model performance stats for the dashboard widget."""
+    # Active model version
+    active = db.ModelVersions.find_one({"isActive": True})
+    model_info = None
+    if active:
+        trained_at = active.get("trainedAt")
+        if trained_at:
+            if hasattr(trained_at, 'isoformat'):
+                trained_at = trained_at.isoformat()
+        model_info = {
+            "version": active.get("version"),
+            "accuracy": active.get("accuracy"),
+            "records": active.get("records"),
+            "trainedAt": trained_at,
+        }
+
+    # Count bids with AI predictions
+    total_predictions = db.Bids.count_documents({"aiPrediction": {"$exists": True}})
+
+    # Average confidence
+    avg_pipeline = [
+        {"$match": {"aiPrediction": {"$exists": True}}},
+        {"$group": {"_id": None, "avgConfidence": {"$avg": "$aiPrediction"}}}
+    ]
+    avg_result = list(db.Bids.aggregate(avg_pipeline))
+    avg_confidence = round(avg_result[0]["avgConfidence"], 1) if avg_result else 0
+
+    # Terminal bid count (for retrain readiness)
+    terminal_count = db.Bids.count_documents({"status": {"$in": ["Order Received", "Rejected"]}})
+
+    # Check if local model file exists
+    ml_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ml')
+    model_exists = os.path.exists(os.path.join(ml_dir, 'bid_model.pkl'))
+
+    return jsonify({
+        "model": model_info,
+        "totalPredictions": total_predictions,
+        "avgConfidence": avg_confidence,
+        "terminalBids": terminal_count,
+        "retrainReady": terminal_count >= 50,
+        "modelFileExists": model_exists,
+    }), 200

@@ -51,6 +51,7 @@ In competitive B2B sales, companies lose millions due to disorganized bid tracki
 - **Python** v3.8+
 - **MongoDB** running on port `27017`
 - **mongodump** (MongoDB Database Tools) for backups
+- **imbalanced-learn** (auto-installed via `pip install -r requirements.txt`)
 
 ### 1. Clone & Configure
 
@@ -106,7 +107,7 @@ Light/dark mode persisted in `localStorage`, respects system preference.
 JWT auth via `Flask-JWT-Extended`, bcrypt hashing, server-side token revocation with MongoDB TTL cleanup, and admin-only audit log viewer.
 
 ### 🧠 AI Bid Success Prediction
-`scikit-learn` Logistic Regression with real computed win rates from `db.Bids` (not user-controlled fields). Cold-start safety for new users. Live retraining via `POST /api/admin/retrain` (≥ 50 labeled bids).
+XGBoost classifier with 14 engineered features (amount, deadline urgency, employee/industry win rates, interaction features). SHAP explainability shows per-feature impact on every prediction. Real computed win rates from `db.Bids` (not user-controlled fields). SMOTE handles class imbalance. GridSearchCV with `balanced_accuracy` scoring targets 80-90% accuracy. Cold-start safety for new users. Live retraining via `POST /api/admin/retrain` (≥ 50 labeled bids).
 
 ### 💬 Real-Time Collaboration
 Flask-SocketIO pushes bid comments and notifications instantly to all connected clients.
@@ -154,10 +155,19 @@ bidflow/
 │   ├── config.py           # JWT, MongoDB, rate limit config
 │   ├── database.py         # MongoDB connection & collections
 │   ├── extensions.py       # Limiter, SocketIO instances
+│   ├── conftest.py         # Pytest fixtures (app, client, auth_headers)
+│   ├── pytest.ini          # Test configuration
 │   ├── wsgi.py             # Gunicorn entrypoint
 │   ├── backup.py           # mongodump with TTL pruning
 │   ├── routes/             # auth, bids, enquiries, admin, analytics, audit, twofa
-│   └── ml/                 # prepare_and_train.py, retrain.py, model .pkl files
+│   ├── ml/                 # prepare_and_train.py, retrain.py, model .pkl files
+│   └── tests/              # pytest test suite (test_auth.py, test_bids.py, etc.)
+├── data/                   # Raw CRM data + combined training dataset
+│   ├── sales_pipeline.csv  # 8800 CRM records
+│   ├── accounts.csv        # 85 accounts with sector/industry
+│   ├── products.csv        # 7 products with series/price
+│   ├── sales_teams.csv     # 35 sales agents with region
+│   └── combined_training_data.csv  # 6711 processed ML records
 ├── frontend/
 │   ── src/
 │       ├── pages/          # Bids, Enquiries, Calendar, Dashboard, Profile, etc.
@@ -165,6 +175,7 @@ bidflow/
 │       ├── contexts/       # AuthContext, ThemeContext
 │       ├── locales/        # i18n JSON (ar, de, en, es, fr, gu, hi)
 │       └── services/       # Axios API layer with auto-retry
+├── combine_datasets.py     # Merges data/ sources into combined_training_data.csv
 ├── start.bat               # One-click launcher
 └── backup.bat              # Windows backup wrapper
 ```
@@ -175,7 +186,9 @@ bidflow/
 
 **Frontend:** React 19, Vite, React Router v6, Axios, `react-i18next`, Chart.js, `lucide-react`, shadcn/ui, `react-hot-toast`
 
-**Backend:** Python 3.8+, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, `scikit-learn`, PyMongo, bcrypt, pyotp
+**Backend:** Python 3.8+, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, XGBoost, SHAP, scikit-learn, imbalanced-learn (SMOTE), PyMongo, bcrypt, pyotp, bleach
+
+**Testing:** pytest, pytest-cov, pytest-env (34 tests, 62% route coverage)
 
 **Database:** MongoDB with TTL indexes
 
@@ -214,28 +227,53 @@ Backups saved to `<project_root>/backups/YYYY-MM-DD_HH-MM-SS/`. Old dumps auto-p
 
 ---
 
-##  Machine Learning
+## 🧠 Machine Learning
 
+### Model Architecture
+- **Algorithm:** XGBoost with L1/L2 regularization
+- **Features:** 14 engineered features (amount, log-amount, deadline urgency, employee/industry win rates, interaction terms)
+- **Class Imbalance:** SMOTE oversampling + `scale_pos_weight`
+- **Tuning:** GridSearchCV with `balanced_accuracy` scoring (target: 80-90%)
+- **Explainability:** SHAP values for per-feature impact visualization
+- **Data Sources:** `data/sales_pipeline.csv`, `data/accounts.csv`, `data/products.csv`, `data/sales_teams.csv` → `data/combined_training_data.csv`
+
+### Commands
 ```bash
-# Initial training from CRM dataset
+# Combine raw data into training dataset
+python combine_datasets.py
+
+# Initial training with GridSearchCV (2-5 minutes)
 cd backend/ml && python prepare_and_train.py
 
 # Live retraining (Admin only, requires ≥ 50 labeled bids)
 POST /api/admin/retrain
+
+# Check model status
 GET  /api/admin/model-status
 ```
+
+### Performance
+- **Balanced Accuracy:** 89.1%
+- **ROC-AUC:** 0.92
+- **F1 (Lost):** 0.87
+- **F1 (Won):** 0.93
 
 ---
 
 ## 🧪 Testing
 
 ```bash
-# Isolated integration tests (mock DB)
-cd backend && venv\Scripts\activate && python test_suite.py
+# Run all pytest tests with coverage
+cd backend && venv\Scripts\activate && pytest --cov=routes
 
-# Live end-to-end flow test (server must be running)
-cd backend && venv\Scripts\activate && python test_flow.py
+# HTML coverage report
+pytest --cov=routes --cov-report=html
+
+# Run specific test file
+pytest tests/test_auth.py -v
 ```
+
+**Coverage:** 62% of routes (34 tests across 6 test files)
 
 ---
 

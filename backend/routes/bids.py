@@ -101,81 +101,254 @@ def get_model_and_encoder():
 def explain_prediction(features_array, shap_values, feature_names):
     """
     Map SHAP values to user-friendly reasons explaining the prediction score.
+    Returns all features with numeric SHAP values for the frontend bar chart.
     """
     explanations = []
     pairs = []
     for name, val, s_val in zip(feature_names, features_array[0], shap_values):
-        pairs.append((name, val, s_val))
+        pairs.append((name, float(val), float(s_val)))
     
     # Sort by absolute SHAP value descending (largest impact first)
     pairs.sort(key=lambda x: abs(x[2]), reverse=True)
     
-    for name, val, s_val in pairs[:3]:  # Return top 3 explanations
+    for name, val, s_val in pairs:
         if name == 'amount':
-            if s_val < -0.01:
+            if s_val < -0.001:
                 explanations.append({
                     "feature": "amount",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
                     "impact": "negative",
-                    "text": f"Amount (${val:,.2f}) is high for this segment"
+                    "text": f"Amount (${val:,.0f}) reduces probability by {abs(round(s_val * 100, 1))}%"
                 })
-            elif s_val > 0.01:
+            elif s_val > 0.001:
                 explanations.append({
                     "feature": "amount",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
                     "impact": "positive",
-                    "text": f"Competitive amount (${val:,.2f}) increases probability"
+                    "text": f"Competitive amount (${val:,.0f}) adds +{round(s_val * 100, 1)}% to probability"
+                })
+        elif name == 'amount_log':
+            if s_val < -0.001:
+                explanations.append({
+                    "feature": "amount_log",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Log-scaled amount ({val:.1f}) reduces probability by {abs(round(s_val * 100, 1))}%"
+                })
+            elif s_val > 0.001:
+                explanations.append({
+                    "feature": "amount_log",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Log-scaled amount ({val:.1f}) adds +{round(s_val * 100, 1)}% to probability"
                 })
         elif name == 'days_to_deadline':
-            if s_val < -0.01:
+            if s_val < -0.001:
                 explanations.append({
                     "feature": "days_to_deadline",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
                     "impact": "negative",
-                    "text": f"Tight deadline ({int(val)} days) limits prep time"
+                    "text": f"Tight deadline ({int(val)} days) reduces probability by {abs(round(s_val * 100, 1))}%"
                 })
-            elif s_val > 0.01:
+            elif s_val > 0.001:
                 explanations.append({
                     "feature": "days_to_deadline",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
                     "impact": "positive",
-                    "text": f"Sufficient days to deadline ({int(val)} days) allows thorough scoping"
+                    "text": f"{int(val)} days to deadline adds +{round(s_val * 100, 1)}% to probability"
                 })
-        elif name == 'employee_win_rate':
-            if s_val < -0.01:
+        elif name == 'deadline_urgency':
+            if s_val > 0.001:
                 explanations.append({
-                    "feature": "employee_win_rate",
+                    "feature": "deadline_urgency",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Urgent deadline adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "deadline_urgency",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
                     "impact": "negative",
-                    "text": f"Representative win rate ({val*100:.1f}%) is low historically"
-                })
-            elif s_val > 0.01:
-                explanations.append({
-                    "feature": "employee_win_rate",
-                    "impact": "positive",
-                    "text": f"Assigned representative has a strong win rate ({val*100:.1f}%)"
-                })
-        elif name == 'is_repeat_customer':
-            if s_val > 0.01 and val == 1:
-                explanations.append({
-                    "feature": "is_repeat_customer",
-                    "impact": "positive",
-                    "text": "Strong relationship with repeat customer"
+                    "text": f"Deadline urgency reduces probability by {abs(round(s_val * 100, 1))}%"
                 })
         elif name == 'priority_encoded':
-            if s_val > 0.01:
+            if s_val > 0.001:
                 explanations.append({
                     "feature": "priority_encoded",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
                     "impact": "positive",
-                    "text": "High priority status accelerates deal momentum"
+                    "text": f"High priority adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "priority_encoded",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Low priority reduces probability by {abs(round(s_val * 100, 1))}%"
+                })
+        elif name == 'employee_win_rate':
+            if s_val < -0.001:
+                explanations.append({
+                    "feature": "employee_win_rate",
+                    "value": round(val * 100, 1),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Win rate {val*100:.0f}% reduces probability by {abs(round(s_val * 100, 1))}%"
+                })
+            elif s_val > 0.001:
+                explanations.append({
+                    "feature": "employee_win_rate",
+                    "value": round(val * 100, 1),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Win rate {val*100:.0f}% adds +{round(s_val * 100, 1)}% to probability"
+                })
+        elif name == 'employee_experience':
+            if s_val > 0.001:
+                explanations.append({
+                    "feature": "employee_experience",
+                    "value": round(val, 1),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Employee experience ({int(val)} bids) adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "employee_experience",
+                    "value": round(val, 1),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Employee experience reduces probability by {abs(round(s_val * 100, 1))}%"
+                })
+        elif name == 'industry_win_rate':
+            if s_val > 0.001:
+                explanations.append({
+                    "feature": "industry_win_rate",
+                    "value": round(val * 100, 1),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Industry win rate {val*100:.0f}% adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "industry_win_rate",
+                    "value": round(val * 100, 1),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Industry win rate {val*100:.0f}% reduces probability by {abs(round(s_val * 100, 1))}%"
+                })
+        elif name == 'amount_vs_industry_avg':
+            if s_val > 0.001:
+                explanations.append({
+                    "feature": "amount_vs_industry_avg",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Amount vs industry avg ({val:.1f}x) adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "amount_vs_industry_avg",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Amount vs industry avg ({val:.1f}x) reduces probability by {abs(round(s_val * 100, 1))}%"
+                })
+        elif name == 'amount_x_win_rate':
+            if s_val > 0.001:
+                explanations.append({
+                    "feature": "amount_x_win_rate",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Amount × win rate interaction adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "amount_x_win_rate",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Amount × win rate interaction reduces probability by {abs(round(s_val * 100, 1))}%"
                 })
         elif name == 'industry_encoded':
-            if s_val < -0.01:
+            if s_val < -0.001:
                 explanations.append({
                     "feature": "industry_encoded",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
                     "impact": "negative",
-                    "text": "Industry segment has lower historical conversion"
+                    "text": f"Industry segment reduces probability by {abs(round(s_val * 100, 1))}%"
                 })
-            elif s_val > 0.01:
+            elif s_val > 0.001:
                 explanations.append({
                     "feature": "industry_encoded",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
                     "impact": "positive",
-                    "text": "High historical success rate in this industry"
+                    "text": f"Strong industry fit adds +{round(s_val * 100, 1)}% to probability"
+                })
+        elif name == 'product_series_encoded':
+            if s_val > 0.001:
+                explanations.append({
+                    "feature": "product_series_encoded",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Product series adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "product_series_encoded",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Product series reduces probability by {abs(round(s_val * 100, 1))}%"
+                })
+        elif name == 'regional_office_encoded':
+            if s_val > 0.001:
+                explanations.append({
+                    "feature": "regional_office_encoded",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Regional office adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "regional_office_encoded",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Regional office reduces probability by {abs(round(s_val * 100, 1))}%"
+                })
+        elif name == 'sales_price':
+            if s_val > 0.001:
+                explanations.append({
+                    "feature": "sales_price",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "positive",
+                    "text": f"Sales price (${val:,.0f}) adds +{round(s_val * 100, 1)}% to probability"
+                })
+            elif s_val < -0.001:
+                explanations.append({
+                    "feature": "sales_price",
+                    "value": round(val, 2),
+                    "shap_value": round(s_val * 100, 1),
+                    "impact": "negative",
+                    "text": f"Sales price (${val:,.0f}) reduces probability by {abs(round(s_val * 100, 1))}%"
                 })
                 
     return explanations
@@ -201,6 +374,7 @@ def _get_shap_explainer(clf):
 def compute_shap_explanations(clf, encoder, features_array):
     """
     Run SHAP explanations on features_array for the given XGBoost classifier.
+    Returns explanations for all features with numeric SHAP values.
     """
     try:
         explainer = _get_shap_explainer(clf)
@@ -217,7 +391,13 @@ def compute_shap_explanations(clf, encoder, features_array):
             else:
                 shap_vals = shap_out
 
-        feature_names = ['amount', 'days_to_deadline', 'priority_encoded', 'employee_win_rate', 'is_repeat_customer', 'industry_encoded']
+        feature_names = [
+            'amount', 'amount_log', 'days_to_deadline', 'deadline_urgency',
+            'priority_encoded', 'employee_win_rate', 'employee_experience',
+            'industry_win_rate', 'amount_vs_industry_avg', 'amount_x_win_rate',
+            'industry_encoded', 'product_series_encoded', 'regional_office_encoded',
+            'sales_price',
+        ]
         return explain_prediction(features_array, shap_vals, feature_names)
     except Exception as e:
         current_app.logger.warning("SHAP explanation calculation failed: %s", e)
@@ -270,6 +450,43 @@ def get_computed_win_rate(employee_name: str) -> float:
 
     won  = sum(1 for b in terminal_bids if b["status"] == "Order Received")
     return round(won / len(terminal_bids), 4)
+
+
+def get_industry_win_rate(industry: str) -> float:
+    """Compute industry-level win rate from bid history."""
+    if not industry or industry == "Other":
+        return 0.5
+
+    terminal_bids = list(db.Bids.find(
+        {
+            "industry": industry,
+            "status": {"$in": ["Order Received", "Rejected"]}
+        },
+        {"status": 1}
+    ))
+
+    if len(terminal_bids) < 3:
+        return 0.5
+
+    won = sum(1 for b in terminal_bids if b["status"] == "Order Received")
+    return round(won / len(terminal_bids), 4)
+
+
+def get_industry_avg_amount(industry: str) -> float:
+    """Compute average bid amount for an industry."""
+    if not industry or industry == "Other":
+        return 0.0
+
+    bids = list(db.Bids.find(
+        {"industry": industry},
+        {"amount": 1}
+    ))
+
+    if not bids:
+        return 0.0
+
+    amounts = [float(b.get("amount") or 0) for b in bids if b.get("amount")]
+    return round(np.mean(amounts), 2) if amounts else 0.0
 
 
 @bids_bp.route('/', methods=['GET'])
@@ -349,8 +566,15 @@ def create_bid():
         except Exception:
             pass
 
+        # Deadline urgency
+        if days_to_deadline < 7:
+            deadline_urgency = 2
+        elif days_to_deadline < 30:
+            deadline_urgency = 1
+        else:
+            deadline_urgency = 0
+
         priority_encoded  = 1   # Medium default
-        is_repeat_customer = 1  # default
 
         industry_encoded = 0
         if encoder:
@@ -359,8 +583,26 @@ def create_bid():
             except Exception:
                 industry_encoded = 0
 
-        features         = np.array([[amount, days_to_deadline, priority_encoded,
-                                       employee_win_rate, is_repeat_customer, industry_encoded]])
+        # Compute new features
+        amount_log = float(np.log1p(amount))
+        employee_experience = db.Bids.count_documents({"assignedEmployee": assigned_employee}) if assigned_employee else 1
+        industry_wr = get_industry_win_rate(industry)
+        industry_avg = get_industry_avg_amount(industry)
+        amount_vs_industry_avg = amount / industry_avg if industry_avg > 0 else 1.0
+        amount_x_win_rate = amount_log * employee_win_rate
+
+        # Defaults for features not available at inference
+        product_series_encoded = 0
+        regional_office_encoded = 0
+        sales_price = 0.0
+
+        features = np.array([[
+            amount, amount_log, days_to_deadline, deadline_urgency,
+            priority_encoded, employee_win_rate, employee_experience,
+            industry_wr, amount_vs_industry_avg, amount_x_win_rate,
+            industry_encoded, product_series_encoded, regional_office_encoded,
+            sales_price,
+        ]])
         prediction_prob  = clf.predict_proba(features)[0][1]
         prediction       = int(prediction_prob * 100)
         explanations     = compute_shap_explanations(clf, encoder, features)
@@ -541,9 +783,16 @@ def predict_bid():
         amount             = float(data.get("amount", 0))
         days_to_deadline   = float(data.get("days_to_deadline", 30))
         priority_encoded   = float(data.get("priority_encoded", 1))
-        is_repeat_customer = float(data.get("is_repeat_customer", 1))
 
-        # ── Win rate: compute from actual bid history (fix #6) ────────────────
+        # Deadline urgency
+        if days_to_deadline < 7:
+            deadline_urgency = 2
+        elif days_to_deadline < 30:
+            deadline_urgency = 1
+        else:
+            deadline_urgency = 0
+
+        # ─ Win rate: compute from actual bid history (fix #6) ────────────────
         current_user_id = get_jwt_identity()
         current_user    = db.Users.find_one({"_id": ObjectId(current_user_id)})
         current_name    = current_user.get("name", "") if current_user else ""
@@ -569,8 +818,26 @@ def predict_bid():
             except Exception:
                 pass
 
-        features    = np.array([[amount, days_to_deadline, priority_encoded,
-                                  employee_win_rate, is_repeat_customer, industry_encoded]])
+        # Compute new features
+        amount_log = float(np.log1p(amount))
+        employee_experience = db.Bids.count_documents({"assignedEmployee": override_name}) if override_name else 1
+        industry_wr = get_industry_win_rate(industry)
+        industry_avg = get_industry_avg_amount(industry)
+        amount_vs_industry_avg = amount / industry_avg if industry_avg > 0 else 1.0
+        amount_x_win_rate = amount_log * employee_win_rate
+
+        # Defaults for features not available at inference
+        product_series_encoded = 0
+        regional_office_encoded = 0
+        sales_price = 0.0
+
+        features = np.array([[
+            amount, amount_log, days_to_deadline, deadline_urgency,
+            priority_encoded, employee_win_rate, employee_experience,
+            industry_wr, amount_vs_industry_avg, amount_x_win_rate,
+            industry_encoded, product_series_encoded, regional_office_encoded,
+            sales_price,
+        ]])
         probability = clf.predict_proba(features)[0][1]
         explanations = compute_shap_explanations(clf, encoder, features)
 

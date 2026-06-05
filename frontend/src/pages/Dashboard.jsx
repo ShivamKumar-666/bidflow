@@ -9,7 +9,7 @@ import {
 } from "chart.js";
 import {
   TrendingUp, TrendingDown, DollarSign, FileText, MessageSquare, CheckCircle2, Clock,
-  ArrowUpRight, Activity, Briefcase, BarChart3,
+  ArrowUpRight, Activity, Briefcase, BarChart3, Brain, Cpu, Database,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,13 +67,18 @@ export default function Dashboard() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const [metrics, setMetrics] = useState(null);
+  const [modelStats, setModelStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetch = async () => {
       try {
-        const res = await api.get("/analytics/dashboard");
+        const [res, modelRes] = await Promise.all([
+          api.get("/analytics/dashboard"),
+          api.get("/analytics/model-stats"),
+        ]);
         setMetrics(res.data);
+        setModelStats(modelRes.data);
       } catch (err) {
         toast.error(t("dashboard.failedLoad"));
       } finally {
@@ -196,6 +201,68 @@ export default function Dashboard() {
         </Card>
 
         <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-4 w-4 text-primary" />
+              AI Model Status
+            </CardTitle>
+            <CardDescription>XGBoost prediction engine</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Model</span>
+                  <Badge variant="outline" className="font-mono text-[10px]">XGBoost</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Accuracy</span>
+                  <span className="text-sm font-bold text-emerald-600">
+                    {modelStats?.model?.accuracy ? `${(modelStats.model.accuracy * 100).toFixed(1)}%` : "N/A"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Predictions Made</span>
+                  <span className="text-sm font-semibold">{modelStats?.totalPredictions || 0}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Avg Confidence</span>
+                  <span className="text-sm font-semibold">{modelStats?.avgConfidence || 0}%</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">Terminal Bids</span>
+                  <span className="text-sm font-semibold">{modelStats?.terminalBids || 0}</span>
+                </div>
+                <div className="pt-2 border-t">
+                  <div className="flex items-center gap-1.5">
+                    <Database className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">
+                      {modelStats?.model?.trainedAt
+                        ? `Last trained: ${new Date(modelStats.model.trainedAt).toLocaleDateString()}`
+                        : "No model trained yet"}
+                    </span>
+                  </div>
+                  {modelStats?.retrainReady && (
+                    <Badge variant="success" className="mt-1.5 text-[10px]">
+                      <Cpu className="h-2.5 w-2.5 mr-1" />
+                      Ready to retrain
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
