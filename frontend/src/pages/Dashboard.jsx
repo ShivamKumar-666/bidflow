@@ -9,7 +9,7 @@ import {
 } from "chart.js";
 import {
   TrendingUp, TrendingDown, DollarSign, FileText, MessageSquare, CheckCircle2, Clock,
-  ArrowUpRight, Activity, Briefcase, BarChart3, Brain, Cpu, Database,
+  ArrowUpRight, Activity, Briefcase, BarChart3, Brain, Cpu, Database, Hash,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -239,13 +239,25 @@ export default function Dashboard() {
                   <span className="text-xs text-muted-foreground">Terminal Bids</span>
                   <span className="text-sm font-semibold">{modelStats?.terminalBids || 0}</span>
                 </div>
-                <div className="pt-2 border-t">
+                <div className="pt-2 border-t space-y-1.5">
                   <div className="flex items-center gap-1.5">
                     <Database className="h-3 w-3 text-muted-foreground" />
                     <span className="text-[10px] text-muted-foreground">
                       {modelStats?.model?.trainedAt
                         ? `Last trained: ${new Date(modelStats.model.trainedAt).toLocaleDateString()}`
                         : "No model trained yet"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <FileText className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">
+                      Training Records: {modelStats?.model?.records?.toLocaleString() || 'N/A'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Hash className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-[10px] text-muted-foreground">
+                      Model Version: v{modelStats?.model?.version ?? 'N/A'}
                     </span>
                   </div>
                   {modelStats?.retrainReady && (

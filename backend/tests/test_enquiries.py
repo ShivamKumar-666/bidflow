@@ -98,7 +98,8 @@ class TestCustomerPortalSharing:
             'bidId': bid_data['bidId'],
             'filename': 'proposal.pdf',
             'path': 'mock_file.pdf',
-            'uploadDate': datetime.datetime.utcnow()
+            'uploadDate': datetime.datetime.utcnow(),
+            'uploadedBy': 'test_user'
         }).inserted_id
 
         public_updated = client.get(f'/api/enquiries/public/share/{token}')

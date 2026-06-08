@@ -15,7 +15,7 @@ from unittest.mock import patch
 BID_ID_PATTERN = re.compile(r'^BID-[0-9a-f]{8}$')
 ENQ_ID_PATTERN = re.compile(r'^ENQ-[0-9a-f]{8}$')
 
-COLLECTIONS = ['Users', 'Enquiries', 'Bids', 'AuditLogs', 'Documents', 'RevokedTokens']
+COLLECTIONS = ['Users', 'Enquiries', 'Bids', 'AuditLogs', 'Documents', 'RevokedTokens', 'Notifications', 'ModelVersions']
 
 
 @pytest.fixture(scope='session')

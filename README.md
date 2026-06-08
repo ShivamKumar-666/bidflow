@@ -143,6 +143,7 @@ Token-based secure sharing of enquiry details and bid statuses. ML predictions h
 | CORS | Restricted to `http://localhost:5173` |
 | Password Policy | 8-char minimum + email format regex |
 | 2FA Secret Protection | MongoDB field projection excludes TOTP secrets from API responses |
+| JSON Schema Validation | MongoDB enforces document structure at DB level (moderate validation) |
 
 ---
 
@@ -154,6 +155,7 @@ bidflow/
 │   ├── app.py              # Flask entrypoint & blueprint registration
 │   ├── config.py           # JWT, MongoDB, rate limit config
 │   ├── database.py         # MongoDB connection & collections
+│   ├── schemas.py          # JSON Schema validation for all 8 collections
 │   ├── extensions.py       # Limiter, SocketIO instances
 │   ├── conftest.py         # Pytest fixtures (app, client, auth_headers)
 │   ├── pytest.ini          # Test configuration
@@ -161,7 +163,7 @@ bidflow/
 │   ├── backup.py           # mongodump with TTL pruning
 │   ├── routes/             # auth, bids, enquiries, admin, analytics, audit, twofa
 │   ├── ml/                 # prepare_and_train.py, retrain.py, model .pkl files
-│   └── tests/              # pytest test suite (test_auth.py, test_bids.py, etc.)
+│   └── tests/              # pytest test suite (9 files, 75 tests)
 ├── data/                   # Raw CRM data + combined training dataset
 │   ├── sales_pipeline.csv  # 8800 CRM records
 │   ├── accounts.csv        # 85 accounts with sector/industry
@@ -188,7 +190,7 @@ bidflow/
 
 **Backend:** Python 3.8+, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, XGBoost, SHAP, scikit-learn, imbalanced-learn (SMOTE), PyMongo, bcrypt, pyotp, bleach
 
-**Testing:** pytest, pytest-cov, pytest-env (34 tests, 62% route coverage)
+**Testing:** pytest, pytest-cov, pytest-env (75 tests, 75% route coverage)
 
 **Database:** MongoDB with TTL indexes
 
@@ -273,7 +275,7 @@ pytest --cov=routes --cov-report=html
 pytest tests/test_auth.py -v
 ```
 
-**Coverage:** 62% of routes (34 tests across 6 test files)
+**Coverage:** 75% of routes (75 tests across 9 test files)
 
 ---
 

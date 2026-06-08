@@ -15,7 +15,9 @@ Output:
 """
 
 import os
+import sys
 import json
+import datetime
 import pandas as pd
 import numpy as np
 import xgboost as xgb
@@ -25,6 +27,9 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, classification_report, roc_auc_score, f1_score, balanced_accuracy_score
 from collections import Counter
 
+# Add parent directory to path for config import
+sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+
 try:
     from imblearn.over_sampling import SMOTE
     HAS_SMOTE = True
@@ -32,6 +37,13 @@ except ImportError:
     HAS_SMOTE = False
     print("WARNING: imbalanced-learn not installed. SMOTE will be skipped.")
     print("Install with: pip install imbalanced-learn")
+
+try:
+    from pymongo import MongoClient
+    from config import Config
+    HAS_MONGO = True
+except ImportError:
+    HAS_MONGO = False
 
 
 def main():
@@ -199,6 +211,34 @@ def main():
     print(f"\n{'='*60}")
     print("TRAINING COMPLETE")
     print(f"{'='*60}")
+    
+    # Register model in MongoDB ModelVersions collection for dashboard visibility
+    if HAS_MONGO:
+        try:
+            client = MongoClient(Config.MONGO_URI, serverSelectionTimeoutMS=3000)
+            client.admin.command('ping')
+            db = client.get_default_database()
+            if db is None:
+                db = client['bidflow']
+            
+            # Deactivate any existing versions
+            db.ModelVersions.update_many({}, {"$set": {"isActive": False}})
+            
+            # Insert new model version (only include fields with actual values)
+            db.ModelVersions.insert_one({
+                "version": 1,
+                "isActive": True,
+                "accuracy": bal_acc,
+                "records": len(df),
+                "trainedAt": datetime.datetime.now(datetime.timezone.utc),
+            })
+            
+            print(f"\nModel registered in MongoDB ModelVersions (version 1, accuracy: {bal_acc*100:.1f}%)")
+            client.close()
+        except Exception as e:
+            print(f"\n[WARNING] Could not register model in MongoDB: {e}")
+            print("   Model saved to disk but dashboard may show 'No model trained yet'.")
+            print("   Run: python ml/backfill_model_version.py to backfill.")
 
 
 if __name__ == "__main__":

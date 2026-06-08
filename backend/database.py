@@ -6,6 +6,7 @@ from urllib.parse import urlparse
 
 from pymongo import MongoClient, ASCENDING
 from config import Config
+from schemas import ALL_SCHEMAS
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,33 @@ def get_db():
             [("userId", ASCENDING), ("createdAt", -1)],
             background=True
         )
+
+        # ── Apply JSON Schema Validation ──────────────────────────────────────
+        # Enforces document structure at the database level (defense-in-depth).
+        # Uses moderate validation level to tolerate legacy data while enforcing
+        # schema on new inserts and updates to existing fields.
+        existing = db.list_collection_names()
+        for collection_name, schema in ALL_SCHEMAS.items():
+            try:
+                if collection_name in existing:
+                    db.command(
+                        "collMod",
+                        collection_name,
+                        validator={"$jsonSchema": schema},
+                        validationLevel="moderate",
+                        validationAction="error"
+                    )
+                    logger.info(f"Schema validation applied to {collection_name}")
+                else:
+                    db.create_collection(
+                        collection_name,
+                        validator={"$jsonSchema": schema},
+                        validationLevel="moderate",
+                        validationAction="error"
+                    )
+                    logger.info(f"Collection '{collection_name}' created with schema validation")
+            except Exception as e:
+                logger.warning(f"Could not apply schema to {collection_name}: {e}")
 
         return db
 
