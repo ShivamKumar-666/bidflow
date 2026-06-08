@@ -26,3 +26,6 @@ uploads/
 # IDE
 .vscode/
 .idea/
+
+# Reports
+report.md
