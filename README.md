@@ -4,7 +4,7 @@ BidFlow is an enterprise-grade bid and proposal management platform that automat
 
 ---
 
-## 📖 About BidFlow
+## About BidFlow
 
 In competitive B2B sales, companies lose millions due to disorganized bid tracking, missed deadlines, and gut-feel decisions. BidFlow centralizes the entire bid lifecycle — from customer enquiry to final outcome — into one intelligent platform.
 
@@ -43,7 +43,7 @@ In competitive B2B sales, companies lose millions due to disorganized bid tracki
 
 ---
 
-## ⚡ Quick Setup
+## Quick Setup
 
 ### Prerequisites
 
@@ -92,44 +92,144 @@ Automatically starts MongoDB, backend, and frontend.
 
 ---
 
-## 🌟 Key Features
+## Docker Deployment
 
-### 🔐 Two-Factor Authentication (Admins)
+BidFlow includes a production-ready Docker Compose setup with 4 services.
+
+### Start All Services
+
+```bash
+docker compose up -d
+```
+
+### Services
+
+| Container | Port | Description |
+|-----------|------|-------------|
+| `bidflow-mongo` | 27017 | MongoDB 7 with health check |
+| `bidflow-backend` | 5000 | Flask API (Gunicorn + Eventlet) |
+| `bidflow-celery` | — | Celery worker + beat scheduler |
+| `bidflow-frontend` | 80 | Nginx serving React SPA |
+
+### Access
+
+- **Frontend:** http://localhost
+- **Backend API:** http://localhost:5000
+- **MongoDB:** localhost:27017
+
+### Stop Services
+
+```bash
+docker compose down
+```
+
+### Volumes
+
+- `mongo_data` — Persistent MongoDB data
+- `backend_uploads` — Uploaded documents
+
+---
+
+## CI/CD Pipeline
+
+BidFlow uses GitHub Actions for continuous integration and deployment.
+
+### CI Pipeline (`.github/workflows/ci.yml`)
+
+Triggered on push to `main`/`develop` and pull requests:
+
+1. **Backend Tests** — pytest with coverage
+2. **Frontend Lint** — ESLint validation
+3. **Frontend Build** — Vite production build
+4. **Docker Build** — Verify images build successfully
+
+### CD Pipeline (`.github/workflows/cd.yml`)
+
+Triggered on push to `main` and version tags:
+
+1. **Build Images** — Backend and frontend Docker images
+2. **Push to GHCR** — GitHub Container Registry
+3. **Auto-tagging** — Branch name, semver, or commit SHA
+
+---
+
+## Key Features
+
+### Two-Factor Authentication (Admins)
 Google Authenticator TOTP setup with QR code, 8 bcrypt-hashed backup codes, and temporary JWT sessions until 2FA is verified.
 
-### 🌐 Internationalization & RTL
+### Internationalization & RTL
 7 languages (EN, HI, GU, ES, FR, DE, AR) via `react-i18next`. Auto `dir="rtl"` for Arabic. Full ARIA accessibility.
 
-### 🌗 Glassmorphic Theme Engine
+### Glassmorphic Theme Engine
 Light/dark mode persisted in `localStorage`, respects system preference.
 
-### ️ RBAC & Audit Logs
+### RBAC & Audit Logs
 JWT auth via `Flask-JWT-Extended`, bcrypt hashing, server-side token revocation with MongoDB TTL cleanup, and admin-only audit log viewer.
 
-### 🧠 AI Bid Success Prediction
-XGBoost classifier with 14 engineered features (amount, deadline urgency, employee/industry win rates, interaction features). SHAP explainability shows per-feature impact on every prediction. Real computed win rates from `db.Bids` (not user-controlled fields). SMOTE handles class imbalance. GridSearchCV with `balanced_accuracy` scoring targets 80-90% accuracy. Cold-start safety for new users. Live retraining via `POST /api/admin/retrain` (≥ 50 labeled bids).
+### AI Bid Success Prediction
+XGBoost classifier with 14 engineered features (amount, deadline urgency, employee/industry win rates, interaction features). SHAP explainability shows per-feature impact on every prediction. Real computed win rates from `db.Bids` (not user-controlled fields). SMOTE handles class imbalance. GridSearchCV with `balanced_accuracy` scoring targets 80-90% accuracy. Cold-start safety for new users. Live retraining via `POST /api/admin/retrain` (>= 50 labeled bids).
 
-### 💬 Real-Time Collaboration
+### Real-Time Collaboration
 Flask-SocketIO pushes bid comments and notifications instantly to all connected clients.
 
-###  Secure Document Management
+### Secure Document Management
 PDF/DOCX/image attachments linked to bids. 16MB max, blocked file extensions, path traversal protection.
 
-### 📊 KPI Analytics
+### KPI Analytics
 Revenue, win rate, average bid size, active bids — with Chart.js charts and one-click CSV export.
 
-###  Notification Centre
+### Notification Centre
 Real-time push notifications for bid status changes and comments. Smart filtering prevents self-spam. Unread badge in navbar.
 
-### 📅 Interactive Calendar
+### Interactive Calendar
 Monthly grid with deadline highlighting, month/year click-to-navigate pickers, and upcoming deadline sidebar.
 
-### 🔗 Public Customer Portal
+### Public Customer Portal
 Token-based secure sharing of enquiry details and bid statuses. ML predictions hidden; tokens expire after 90 days.
 
 ---
 
-## 🛡️ Security Summary
+## Architecture
+
+### Service Layer
+
+The backend uses a **service layer pattern** to separate business logic from HTTP concerns:
+
+```
+routes/          ← HTTP handlers (thin controllers)
+services/        ← Business logic (testable, reusable)
+database.py      ← MongoDB connection & schema validation
+```
+
+| Service | Responsibility |
+|---------|---------------|
+| `BidService` | ML predictions, SHAP explanations, win rates, bid CRUD |
+| `EnquiryService` | Enquiry management, sharing, visibility filters |
+| `AuthService` | Password validation, token issuance, 2FA logic |
+| `AnalyticsService` | Dashboard metrics, CSV exports, model stats |
+| `DocumentService` | File validation, upload/download, access control |
+| `NotificationService` | Notification creation, read status |
+
+### System Layers
+
+```
+Client (Browser)
+    ↓ HTTPS / WebSocket
+Proxy (Nginx)
+    ↓ /api/* routing
+Application (Flask + Celery)
+    ↓ Business logic
+Service Layer
+    ↓ Data access
+Data Tier (MongoDB + File Storage)
+    ↓
+ML Pipeline (XGBoost + SHAP)
+```
+
+---
+
+## Security Summary
 
 | Area | Implementation |
 |------|---------------|
@@ -141,64 +241,89 @@ Token-based secure sharing of enquiry details and bid statuses. ML predictions h
 | Mass Assignment | Field allowlists on all PUT endpoints |
 | Path Traversal | DB-ID-based document lookup; no filename exposure |
 | CORS | Restricted to `http://localhost:5173` |
-| Password Policy | 8-char minimum + email format regex |
+| Password Policy | 8-char minimum + uppercase + number + special character |
 | 2FA Secret Protection | MongoDB field projection excludes TOTP secrets from API responses |
 | JSON Schema Validation | MongoDB enforces document structure at DB level (moderate validation) |
+| Model Integrity | HMAC-SHA256 signature verification for ML models in MongoDB |
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 
 ```
 bidflow/
 ├── backend/
 │   ├── app.py              # Flask entrypoint & blueprint registration
 │   ├── config.py           # JWT, MongoDB, rate limit config
-│   ├── database.py         # MongoDB connection & collections
-│   ├── schemas.py          # JSON Schema validation for all 8 collections
+│   ├── database.py         # MongoDB connection & schema validation
+│   ├── schemas.py          # JSON Schema validators for all 8 collections
 │   ├── extensions.py       # Limiter, SocketIO instances
-│   ├── conftest.py         # Pytest fixtures (app, client, auth_headers)
-│   ├── pytest.ini          # Test configuration
+│   ├── celery_app.py       # Celery configuration & task definitions
 │   ├── wsgi.py             # Gunicorn entrypoint
 │   ├── backup.py           # mongodump with TTL pruning
-│   ├── routes/             # auth, bids, enquiries, admin, analytics, audit, twofa
-│   ├── ml/                 # prepare_and_train.py, retrain.py, model .pkl files
-│   └── tests/              # pytest test suite (9 files, 75 tests)
-├── data/                   # Raw CRM data + combined training dataset
+│   ├── conftest.py         # Pytest fixtures (app, client, auth_headers)
+│   ├── pytest.ini          # Test configuration
+│   ├── Dockerfile          # Python 3.12-slim + Gunicorn
+│   ├── .env.docker         # Docker environment template
+│   ├── routes/             # HTTP controllers (auth, bids, enquiries, etc.)
+│   ├── services/           # Business logic layer
+│   │   ├── bid_service.py
+│   │   ├── enquiry_service.py
+│   │   ├── auth_service.py
+│   │   ├── analytics_service.py
+│   │   ├── document_service.py
+│   │   └── notification_service.py
+│   ├── ml/                 # ML pipeline
+│   │   ├── prepare_and_train.py   # GridSearchCV training
+│   │   ├── retrain.py             # Live retraining endpoint
+│   │   ├── bid_model.pkl          # Trained XGBoost model
+│   │   ├── industry_encoder.pkl   # Label encoder
+│   │   ├── best_params.json       # Best hyperparameters
+│   │   └── feature_list.json      # Feature names (14)
+│   ├── templates/          # Jinja2 templates (quotation PDF)
+│   ├── tests/              # Pytest suite (9 files, 75 tests)
+│   └── utils/              # Helpers (email, auth, audit)
+├── data/                   # Raw CRM data + training datasets
 │   ├── sales_pipeline.csv  # 8800 CRM records
 │   ├── accounts.csv        # 85 accounts with sector/industry
 │   ├── products.csv        # 7 products with series/price
 │   ├── sales_teams.csv     # 35 sales agents with region
 │   └── combined_training_data.csv  # 6711 processed ML records
 ├── frontend/
-│   ── src/
-│       ├── pages/          # Bids, Enquiries, Calendar, Dashboard, Profile, etc.
-│       ├── components/     # Navbar, Sidebar, TagInput, shared UI
+│   ├── Dockerfile          # Multi-stage Node build → Nginx
+│   ├── nginx.conf          # Reverse proxy config
+│   └── src/
+│       ├── pages/          # 11 pages (Bids, Enquiries, Calendar, etc.)
+│       ├── components/     # AppLayout, Navbar, Sidebar, TagInput, ui/
 │       ├── contexts/       # AuthContext, ThemeContext
 │       ├── locales/        # i18n JSON (ar, de, en, es, fr, gu, hi)
 │       └── services/       # Axios API layer with auto-retry
-├── combine_datasets.py     # Merges data/ sources into combined_training_data.csv
-├── start.bat               # One-click launcher
-└── backup.bat              # Windows backup wrapper
+├── .github/workflows/      # CI/CD pipelines
+│   ├── ci.yml              # Test & build on PR
+│   └── cd.yml              # Build & push images on merge
+├── docker-compose.yml      # 4-service deployment
+├── combine_datasets.py     # Merges data/ sources into training data
+├── start.bat               # One-click launcher (Windows)
+└── backup.bat              # Backup wrapper (Windows)
 ```
 
 ---
 
-## ️ Technology Stack
+## Technology Stack
 
-**Frontend:** React 19, Vite, React Router v6, Axios, `react-i18next`, Chart.js, `lucide-react`, shadcn/ui, `react-hot-toast`
+**Frontend:** React 18, Vite, React Router v6, Axios, `react-i18next`, Chart.js, `lucide-react`, shadcn/ui, `react-hot-toast`
 
-**Backend:** Python 3.8+, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, XGBoost, SHAP, scikit-learn, imbalanced-learn (SMOTE), PyMongo, bcrypt, pyotp, bleach
+**Backend:** Python 3.12, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, Celery, XGBoost, SHAP, scikit-learn, imbalanced-learn (SMOTE), PyMongo, bcrypt, pyotp, bleach
 
 **Testing:** pytest, pytest-cov, pytest-env (75 tests, 75% route coverage)
 
-**Database:** MongoDB with TTL indexes
+**Database:** MongoDB 7 with JSON Schema validation & TTL indexes
 
-**Production:** Gunicorn + eventlet worker, nginx/Caddy reverse proxy
+**Production:** Docker Compose, Gunicorn + eventlet, Nginx, GitHub Actions CI/CD
 
 ---
 
-##  Environment Variables
+## Environment Variables
 
 | Variable | Purpose |
 |----------|---------|
@@ -210,10 +335,12 @@ bidflow/
 | `FLASK_ENV` | `development` or `production` |
 | `BACKUP_RETENTION_DAYS` | Auto-prune backups older than N days (default: 7) |
 | `SMTP_*` | Email verification (Mailtrap / Gmail App Password) |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID |
+| `CORS_ALLOWED_ORIGINS` | Allowed origins for CORS |
 
 ---
 
-## 💾 Automated Backups
+## Automated Backups
 
 ```bash
 cd backend && venv\Scripts\activate && python backup.py
@@ -229,7 +356,7 @@ Backups saved to `<project_root>/backups/YYYY-MM-DD_HH-MM-SS/`. Old dumps auto-p
 
 ---
 
-## 🧠 Machine Learning
+## Machine Learning
 
 ### Model Architecture
 - **Algorithm:** XGBoost with L1/L2 regularization
@@ -247,26 +374,29 @@ python combine_datasets.py
 # Initial training with GridSearchCV (2-5 minutes)
 cd backend/ml && python prepare_and_train.py
 
-# Live retraining (Admin only, requires ≥ 50 labeled bids)
+# Live retraining (Admin only, requires >= 50 labeled bids)
 POST /api/admin/retrain
 
 # Check model status
-GET  /api/admin/model-status
+GET  /api/analytics/model-stats
 ```
 
 ### Performance
 - **Balanced Accuracy:** 89.1%
-- **ROC-AUC:** 0.92
+- **ROC-AUC:** 0.96
 - **F1 (Lost):** 0.87
 - **F1 (Won):** 0.93
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ```bash
-# Run all pytest tests with coverage
-cd backend && venv\Scripts\activate && pytest --cov=routes
+# Run all pytest tests
+cd backend && venv\Scripts\activate && pytest
+
+# Run with coverage
+pytest --cov=routes
 
 # HTML coverage report
 pytest --cov=routes --cov-report=html
@@ -279,12 +409,13 @@ pytest tests/test_auth.py -v
 
 ---
 
-## 🚨 Production Checklist
+## Production Checklist
 
 - [ ] Generate strong `SECRET_KEY` and `JWT_SECRET_KEY`
 - [ ] Set `FLASK_ENV=production`
 - [ ] Enable MongoDB authentication
-- [ ] Use Gunicorn instead of `python app.py`
+- [ ] Use Docker Compose or Gunicorn instead of `python app.py`
 - [ ] Schedule daily backups
 - [ ] Enable HTTPS via nginx/Caddy
-- [ ] Switch rate limiter storage to Redis for high traffic
+- [ ] Configure `GOOGLE_CLIENT_ID` for OAuth
+- [ ] Set up GitHub Actions secrets for CD pipeline
