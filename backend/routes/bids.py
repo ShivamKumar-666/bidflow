@@ -74,7 +74,7 @@ def update_bid_status(id):
 
     assigned_name = bid.get("assignedEmployee")
     if assigned_name:
-        target_user = db.Users.find_one({"name": assigned_name}, {"_id": 1})
+        target_user = BidService.get_user_by_name(assigned_name)
         if target_user:
             target_user_id = str(target_user["_id"])
             notif = NotificationService.create(
@@ -102,12 +102,15 @@ def add_comment(id):
 
     user_id = get_jwt_identity()
     user = db.Users.find_one({"_id": ObjectId(user_id)})
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
 
     bid_oid = require_oid(id)
     if bid_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
 
     comment = {
+        "_id": ObjectId(),
         "text": text,
         "author": user.get("name", "Unknown"),
         "date": now_utc()
@@ -122,6 +125,7 @@ def add_comment(id):
     socketio.emit('new_comment', {
         'bid_id': id,
         'comment': {
+            '_id': str(comment['_id']),
             'text': comment['text'],
             'author': comment['author'],
             'date': comment['date'].isoformat()
@@ -132,7 +136,7 @@ def add_comment(id):
         assigned_name = bid.get("assignedEmployee")
         commenter_name = user.get("name", "") if user else ""
         if assigned_name and assigned_name != commenter_name:
-            target_user = db.Users.find_one({"name": assigned_name}, {"_id": 1})
+            target_user = BidService.get_user_by_name(assigned_name)
             if target_user:
                 target_user_id = str(target_user["_id"])
                 notif = NotificationService.create(
@@ -144,21 +148,23 @@ def add_comment(id):
                 )
                 socketio.emit('notification', notif, room=f"user_{target_user_id}")
 
-    return jsonify(comment), 201
+    return jsonify({
+        "_id": str(comment["_id"]),
+        "text": comment["text"],
+        "author": comment["author"],
+        "date": comment["date"].isoformat()
+    }), 201
 
 
 @bids_bp.route('/predict', methods=['POST'])
 @jwt_required()
 def predict_bid():
     data = request.get_json()
-    clf, encoder = BidService.get_model_and_encoder()
+    clf, _ = BidService.get_model_and_encoder()
     if not clf:
         return jsonify({"msg": "ML model not loaded"}), 503
 
     try:
-        amount = float(data.get("amount", 0))
-        days_to_deadline = float(data.get("days_to_deadline", 30))
-
         current_user_id = get_jwt_identity()
         current_user = db.Users.find_one({"_id": ObjectId(current_user_id)})
         current_name = current_user.get("name", "") if current_user else ""
@@ -197,8 +203,18 @@ def get_calendar_bids():
         role = get_jwt().get('role')
 
         bid_filter = BidService.get_calendar_filter(user_id, role)
+
+        # Filter by month at DB level if provided
+        if month_param:
+            bid_filter["submissionDate"] = {"$regex": f"^{month_param}"}
+
         bids = list(db.Bids.find(bid_filter))
-        enq_filter = {} if role == 'Admin' else ({"createdBy": user_id} if user_id else {"_id": {"$exists": False}})
+
+        # Only load enquiries referenced by the filtered bids
+        enquiry_ids = {bid.get('enquiryId') for bid in bids if bid.get('enquiryId')}
+        enq_filter = {"enquiryId": {"$in": list(enquiry_ids)}}
+        if role != 'Admin':
+            enq_filter["createdBy"] = user_id if user_id else {"$exists": False}
         enquiries = list(db.Enquiries.find(enq_filter))
         enq_map = {enq.get('enquiryId'): enq for enq in enquiries if enq.get('enquiryId')}
 
@@ -209,8 +225,6 @@ def get_calendar_bids():
                 continue
             if isinstance(sub_date, str) and "T" in sub_date:
                 sub_date = sub_date.split("T")[0]
-            if month_param and not sub_date.startswith(month_param):
-                continue
             enq = enq_map.get(bid.get('enquiryId'), {})
 
             events.append({
@@ -281,6 +295,8 @@ def get_quotation_pdf(id):
 
     try:
         bid = db.Bids.find_one({"_id": bid_oid})
+        if not bid:
+            return jsonify({"msg": "Bid not found"}), 404
         enquiry = db.Enquiries.find_one({"enquiryId": bid.get("enquiryId")}) or {}
 
         pdf_data = BidService.render_quotation_pdf(bid, enquiry)
@@ -306,6 +322,8 @@ def delete_bid(id):
 
     try:
         bid = db.Bids.find_one({"_id": bid_oid})
+        if not bid:
+            return jsonify({"msg": "Bid not found"}), 404
         bid_id_str = bid.get("bidId", id)
 
         db.Bids.delete_one({"_id": bid_oid})
@@ -318,12 +336,15 @@ def delete_bid(id):
         return jsonify({"msg": "Error deleting bid"}), 500
 
 
-@bids_bp.route('/<id>/comments/<date_str>', methods=['DELETE'])
+@bids_bp.route('/<id>/comments/<comment_id>', methods=['DELETE'])
 @jwt_required()
-def delete_comment(id, date_str):
+def delete_comment(id, comment_id):
     bid_oid = require_oid(id)
     if bid_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
+
+    if not ObjectId.is_valid(comment_id):
+        return jsonify({"msg": "Invalid comment id"}), 400
 
     try:
         user_id = get_jwt_identity()
@@ -335,33 +356,12 @@ def delete_comment(id, date_str):
         if not bid:
             return jsonify({"msg": "Bid not found"}), 404
 
-        target_date = None
-        try:
-            from email.utils import parsedate_to_datetime
-            target_date = parsedate_to_datetime(date_str)
-            if target_date.tzinfo:
-                target_date = target_date.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-        except Exception:
-            pass
-
-        if not target_date:
-            try:
-                target_date = datetime.datetime.fromisoformat(date_str)
-                if target_date.tzinfo:
-                    target_date = target_date.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-            except ValueError:
-                return jsonify({"msg": f"Invalid date format: {date_str}"}), 400
-
         comments = bid.get("comments", [])
         comment_to_delete = None
         for c in comments:
-            c_date = c.get("date")
-            if c_date:
-                if c_date.tzinfo:
-                    c_date = c_date.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-                if abs((c_date - target_date).total_seconds()) < 2.0:
-                    comment_to_delete = c
-                    break
+            if str(c.get("_id")) == comment_id:
+                comment_to_delete = c
+                break
 
         if not comment_to_delete:
             return jsonify({"msg": "Comment not found"}), 404
@@ -372,12 +372,12 @@ def delete_comment(id, date_str):
 
         db.Bids.update_one(
             {"_id": bid_oid},
-            {"$pull": {"comments": {"date": comment_to_delete["date"]}}}
+            {"$pull": {"comments": {"_id": ObjectId(comment_id)}}}
         )
 
         socketio.emit('delete_comment', {
             'bid_id': id,
-            'comment_date': comment_to_delete['date'].isoformat()
+            'comment_id': comment_id
         })
 
         log_audit("DELETE_COMMENT", f"Deleted comment from bid {bid.get('bidId', id)}")

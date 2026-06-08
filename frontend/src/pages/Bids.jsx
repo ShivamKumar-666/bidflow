@@ -230,7 +230,7 @@ export default function Bids() {
     socket.on("new_comment", (data) => {
       setBids((prev) => prev.map((b) => {
         if (b._id === data.bid_id) {
-          const exists = (b.comments || []).some((c) => c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date);
+          const exists = (b.comments || []).some((c) => c._id === data.comment._id);
           if (exists) return b;
           return { ...b, comments: [...(b.comments || []), data.comment] };
         }
@@ -238,7 +238,7 @@ export default function Bids() {
       }));
       setSelected((prev) => {
         if (prev && prev._id === data.bid_id) {
-          const exists = (prev.comments || []).some((c) => c.text === data.comment.text && c.author === data.comment.author && c.date === data.comment.date);
+          const exists = (prev.comments || []).some((c) => c._id === data.comment._id);
           if (exists) return prev;
           return { ...prev, comments: [...(prev.comments || []), data.comment] };
         }
@@ -248,12 +248,12 @@ export default function Bids() {
     socket.on("delete_comment", (data) => {
       setBids((prev) => prev.map((b) => {
         if (b._id === data.bid_id) {
-          return { ...b, comments: (b.comments || []).filter((c) => c.date !== data.comment_date) };
+          return { ...b, comments: (b.comments || []).filter((c) => c._id !== data.comment_id) };
         }
         return b;
       }));
       setSelected((prev) => prev && prev._id === data.bid_id
-        ? { ...prev, comments: (prev.comments || []).filter((c) => c.date !== data.comment_date) }
+        ? { ...prev, comments: (prev.comments || []).filter((c) => c._id !== data.comment_id) }
         : prev
       );
     });
@@ -322,12 +322,11 @@ export default function Bids() {
     }
   };
 
-  const handleDeleteComment = async (commentDate) => {
+  const handleDeleteComment = async (commentId) => {
     if (!selected) return;
     if (!window.confirm("Delete this comment?")) return;
     try {
-      const dateStr = encodeURIComponent(commentDate);
-      await api.delete(`/bids/${selected._id}/comments/${dateStr}`);
+      await api.delete(`/bids/${selected._id}/comments/${commentId}`);
       toast.success("Comment deleted");
       fetchAll();
     } catch {
@@ -803,7 +802,7 @@ export default function Bids() {
                               variant="ghost"
                               size="icon"
                               className="h-5 w-5 text-destructive"
-                              onClick={() => handleDeleteComment(c.date)}
+                              onClick={() => handleDeleteComment(c._id)}
                             >
                               <X className="h-3 w-3" />
                             </Button>

@@ -216,7 +216,7 @@ def retrain_from_db(db) -> dict:
 
     # Calculate scale_pos_weight
     counter = Counter(y_train)
-    scale_pos_weight = counter[0] / counter[1]
+    scale_pos_weight = counter[0] / counter[1] if counter[1] > 0 else 1.0
 
     # Train with best params
     clf = xgb.XGBClassifier(

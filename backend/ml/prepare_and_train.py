@@ -105,7 +105,7 @@ def main():
     
     # Calculate scale_pos_weight for class imbalance
     counter = Counter(y_train)
-    scale_pos_weight = counter[0] / counter[1]
+    scale_pos_weight = counter[0] / counter[1] if counter[1] > 0 else 1.0
     print(f"\nClass imbalance ratio (scale_pos_weight): {scale_pos_weight:.3f}")
     
     # Apply SMOTE if available (mild oversampling to avoid overfitting)
@@ -157,7 +157,7 @@ def main():
     grid_search.fit(X_train_res, y_train_res)
     
     print(f"\nBest params: {grid_search.best_params_}")
-    print(f"Best F1 score: {grid_search.best_score_:.4f}")
+    print(f"Best balanced accuracy: {grid_search.best_score_:.4f}")
     
     # Save best params
     best_params_path = os.path.join(ml_dir, 'best_params.json')

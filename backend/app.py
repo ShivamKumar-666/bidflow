@@ -64,6 +64,22 @@ def create_app():
         try:
             decoded = decode_token(token)
             user_id = decoded.get('sub')
+            jti = decoded.get('jti')
+
+            # Check if token is revoked (SEC-NEW-06 fix)
+            if jti:
+                revoked = db.RevokedTokens.find_one({"jti": jti})
+                if revoked:
+                    return
+
+            # Verify user still exists
+            from bson.objectid import ObjectId
+            if not ObjectId.is_valid(user_id):
+                return
+            user = db.Users.find_one({"_id": ObjectId(user_id)}, {"_id": 1})
+            if not user:
+                return
+
             # Only allow joining your own user room
             if room == f"user_{user_id}":
                 join_room(room)

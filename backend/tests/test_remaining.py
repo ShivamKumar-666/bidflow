@@ -166,15 +166,16 @@ class TestBidCommentDelete:
         comment_res = client.post(f'/api/bids/{bid_db_id}/comments', json={
             'text': 'Delete me'
         }, headers=headers)
-        comment_date = comment_res.get_json()['date']
-        res = client.delete(f'/api/bids/{bid_db_id}/comments/{comment_date}', headers=headers)
+        comment_id = comment_res.get_json()['_id']
+        res = client.delete(f'/api/bids/{bid_db_id}/comments/{comment_id}', headers=headers)
         assert res.status_code == 200
         assert 'deleted' in res.get_json()['msg'].lower()
 
     def test_delete_comment_bid_not_found(self, client, auth_headers):
         headers = auth_headers('ComDel NoBid', 'comdelnb@bidflow.com', 'ComDel1!')
         fake_id = str(ObjectId())
-        res = client.delete(f'/api/bids/{fake_id}/comments/2026-01-01T00:00:00', headers=headers)
+        fake_comment_id = str(ObjectId())
+        res = client.delete(f'/api/bids/{fake_id}/comments/{fake_comment_id}', headers=headers)
         assert res.status_code == 404
 
     def test_delete_comment_unauthorized(self, client, auth_headers, mock_socketio):
@@ -194,8 +195,8 @@ class TestBidCommentDelete:
         comment_res = client.post(f'/api/bids/{bid_db_id}/comments', json={
             'text': 'My comment'
         }, headers=headers1)
-        comment_date = comment_res.get_json()['date']
-        res = client.delete(f'/api/bids/{bid_db_id}/comments/{comment_date}', headers=headers2)
+        comment_id = comment_res.get_json()['_id']
+        res = client.delete(f'/api/bids/{bid_db_id}/comments/{comment_id}', headers=headers2)
         assert res.status_code in (200, 403)
 
 

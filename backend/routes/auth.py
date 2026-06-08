@@ -7,6 +7,7 @@ from database import db
 from extensions import limiter
 from datetime import timedelta
 from services import AuthService
+from utils.auth_helpers import now_utc
 from utils.email_tokens import generate_verification_token, confirm_verification_token
 from utils.email_sender import send_verification_email
 from itsdangerous import SignatureExpired, BadSignature
@@ -266,6 +267,14 @@ def google_login():
         user = db.Users.find_one({"email": email})
         if not user:
             user = AuthService.register_google_user(email, name)
+        else:
+            # Existing user found — if registered locally, mark as verified via Google
+            if not user.get("google_oauth"):
+                db.Users.update_one(
+                    {"email": email},
+                    {"$set": {"is_verified": True, "google_oauth": True, "verified_at": now_utc()}}
+                )
+                user = db.Users.find_one({"email": email})
 
         access_token, _ = AuthService.create_tokens(user)
 

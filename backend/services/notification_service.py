@@ -35,6 +35,8 @@ class NotificationService:
 
     @classmethod
     def mark_read(cls, notif_id: str, user_id: str) -> bool:
+        if not ObjectId.is_valid(notif_id):
+            return False
         result = db.Notifications.update_one(
             {"_id": ObjectId(notif_id), "userId": user_id},
             {"$set": {"isRead": True}}

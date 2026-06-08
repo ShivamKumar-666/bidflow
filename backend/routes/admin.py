@@ -170,9 +170,9 @@ def rollback_model_version():
         db.ModelVersions.update_many({}, {"$set": {"isActive": False}})
         db.ModelVersions.update_one({"version": int(version)}, {"$set": {"isActive": True}})
 
-        # Trigger hotswap in bids route
-        from routes.bids import get_model_and_encoder
-        get_model_and_encoder()
+        # Trigger hotswap in BidService
+        from services import BidService
+        BidService.get_model_and_encoder()
 
         log_audit("MODEL_ROLLBACK", f"Model rolled back to version {version}. Accuracy: {target.get('accuracy')}")
 
