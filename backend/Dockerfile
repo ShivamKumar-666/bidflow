@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p uploads
+# Create uploads directory for local dev; Render uses /tmp/bidflow_uploads
+RUN mkdir -p uploads /tmp/bidflow_uploads
 
 EXPOSE 5000
 

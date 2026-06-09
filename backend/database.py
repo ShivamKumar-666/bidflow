@@ -1,6 +1,7 @@
 """Database client + index initialization."""
 
 import logging
+import os
 import sys
 from urllib.parse import urlparse
 
@@ -25,6 +26,112 @@ def _redact_uri(uri: str) -> str:
         return "<unparseable mongo uri>"
 
 
+def _ensure_indexes(db):
+    """Create all indexes and schema validation. Called once on first deploy."""
+    # ── Ensure indexes ────────────────────────────────────────────────────
+    # TTL index: MongoDB automatically deletes revoked tokens after they
+    # expire (exp field stores the UNIX timestamp of the token's expiry).
+    db.RevokedTokens.create_index(
+        [("exp", ASCENDING)],
+        expireAfterSeconds=0,
+        background=True
+    )
+    # Unique index on jti for fast O(1) blocklist lookups
+    db.RevokedTokens.create_index(
+        [("jti", ASCENDING)],
+        unique=True,
+        background=True
+    )
+
+    # Unique index on user email
+    db.Users.create_index(
+        [("email", ASCENDING)],
+        unique=True,
+        background=True
+    )
+
+    # Index on user verification status
+    db.Users.create_index(
+        [("is_verified", ASCENDING)],
+        background=True
+    )
+
+    # ── Bid indexes (PERF-NEW-02) ─────────────────────────────────────────
+    db.Bids.create_index(
+        [("bidId", ASCENDING)],
+        unique=True,
+        background=True
+    )
+    db.Bids.create_index(
+        [("assignedEmployee", ASCENDING), ("status", ASCENDING)],
+        background=True
+    )
+    db.Bids.create_index(
+        [("createdBy", ASCENDING)],
+        background=True
+    )
+    db.Bids.create_index(
+        [("enquiryId", ASCENDING)],
+        background=True
+    )
+
+    # ── Enquiry indexes (PERF-NEW-02) ─────────────────────────────────────
+    db.Enquiries.create_index(
+        [("enquiryId", ASCENDING)],
+        unique=True,
+        background=True
+    )
+    db.Enquiries.create_index(
+        [("createdBy", ASCENDING)],
+        background=True
+    )
+    db.Enquiries.create_index(
+        [("shareToken", ASCENDING)],
+        unique=True,
+        sparse=True,
+        background=True
+    )
+
+    # ── Document indexes (PERF-NEW-02) ────────────────────────────────────
+    db.Documents.create_index(
+        [("bidId", ASCENDING)],
+        background=True
+    )
+
+    # ── Notification indexes (PERF-NEW-02) ────────────────────────────────
+    db.Notifications.create_index(
+        [("userId", ASCENDING), ("createdAt", -1)],
+        background=True
+    )
+
+    # ── Apply JSON Schema Validation ──────────────────────────────────────
+    # Enforces document structure at the database level (defense-in-depth).
+    # Uses moderate validation level to tolerate legacy data while enforcing
+    # schema on new inserts and updates to existing fields.
+    existing = db.list_collection_names()
+    for collection_name, schema in ALL_SCHEMAS.items():
+        try:
+            if collection_name in existing:
+                db.command(
+                    "collMod",
+                    collection_name,
+                    validator={"$jsonSchema": schema},
+                    validationLevel="moderate",
+                    validationAction="error"
+                )
+                logger.info(f"Schema validation applied to {collection_name}")
+            else:
+                db.create_collection(
+                    collection_name,
+                    validator={"$jsonSchema": schema},
+                    validationLevel="moderate",
+                    validationAction="error"
+                )
+                logger.info(f"Collection '{collection_name}' created with schema validation")
+        except Exception as e:
+            logger.warning(f"Could not apply schema to {collection_name}: {e}")
+
+
 def get_db():
     try:
         # Use a short timeout for the startup check to avoid blocking
@@ -34,108 +141,12 @@ def get_db():
         if db.name is None:
             db = client['bidflow']
 
-        # ── Ensure indexes ────────────────────────────────────────────────────
-        # TTL index: MongoDB automatically deletes revoked tokens after they
-        # expire (exp field stores the UNIX timestamp of the token's expiry).
-        db.RevokedTokens.create_index(
-            [("exp", ASCENDING)],
-            expireAfterSeconds=0,
-            background=True
-        )
-        # Unique index on jti for fast O(1) blocklist lookups
-        db.RevokedTokens.create_index(
-            [("jti", ASCENDING)],
-            unique=True,
-            background=True
-        )
-
-        # Unique index on user email
-        db.Users.create_index(
-            [("email", ASCENDING)],
-            unique=True,
-            background=True
-        )
-
-        # Index on user verification status
-        db.Users.create_index(
-            [("is_verified", ASCENDING)],
-            background=True
-        )
-
-        # ── Bid indexes (PERF-NEW-02) ─────────────────────────────────────────
-        db.Bids.create_index(
-            [("bidId", ASCENDING)],
-            unique=True,
-            background=True
-        )
-        db.Bids.create_index(
-            [("assignedEmployee", ASCENDING), ("status", ASCENDING)],
-            background=True
-        )
-        db.Bids.create_index(
-            [("createdBy", ASCENDING)],
-            background=True
-        )
-        db.Bids.create_index(
-            [("enquiryId", ASCENDING)],
-            background=True
-        )
-
-        # ── Enquiry indexes (PERF-NEW-02) ─────────────────────────────────────
-        db.Enquiries.create_index(
-            [("enquiryId", ASCENDING)],
-            unique=True,
-            background=True
-        )
-        db.Enquiries.create_index(
-            [("createdBy", ASCENDING)],
-            background=True
-        )
-        db.Enquiries.create_index(
-            [("shareToken", ASCENDING)],
-            unique=True,
-            sparse=True,
-            background=True
-        )
-
-        # ── Document indexes (PERF-NEW-02) ────────────────────────────────────
-        db.Documents.create_index(
-            [("bidId", ASCENDING)],
-            background=True
-        )
-
-        # ── Notification indexes (PERF-NEW-02) ────────────────────────────────
-        db.Notifications.create_index(
-            [("userId", ASCENDING), ("createdAt", -1)],
-            background=True
-        )
-
-        # ── Apply JSON Schema Validation ──────────────────────────────────────
-        # Enforces document structure at the database level (defense-in-depth).
-        # Uses moderate validation level to tolerate legacy data while enforcing
-        # schema on new inserts and updates to existing fields.
-        existing = db.list_collection_names()
-        for collection_name, schema in ALL_SCHEMAS.items():
-            try:
-                if collection_name in existing:
-                    db.command(
-                        "collMod",
-                        collection_name,
-                        validator={"$jsonSchema": schema},
-                        validationLevel="moderate",
-                        validationAction="error"
-                    )
-                    logger.info(f"Schema validation applied to {collection_name}")
-                else:
-                    db.create_collection(
-                        collection_name,
-                        validator={"$jsonSchema": schema},
-                        validationLevel="moderate",
-                        validationAction="error"
-                    )
-                    logger.info(f"Collection '{collection_name}' created with schema validation")
-            except Exception as e:
-                logger.warning(f"Could not apply schema to {collection_name}: {e}")
+        # ── Index creation (skip on serverless cold starts) ───────────────────
+        # On Render/serverless, cold starts are frequent. Index creation is
+        # expensive (12+ round-trips). Set SKIP_INDEX_CREATION=true to skip.
+        # Run indexes once manually or on first deploy.
+        if os.environ.get('SKIP_INDEX_CREATION', '').lower() != 'true':
+            _ensure_indexes(db)
 
         return db
 

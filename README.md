@@ -170,6 +170,33 @@ docker compose down
 
 ---
 
+## Cloud Deployment (Free Tier)
+
+BidFlow can be deployed for **$0/month** using Render + MongoDB Atlas.
+
+### Architecture
+
+```
+Render (Free Tier)              MongoDB Atlas (Free Tier)
+├── Frontend (Static Site)      └── M0 Sandbox (512MB)
+├── Backend (Web Service)
+└── Celery Worker (Background)
+```
+
+### Quick Deploy
+
+1. **MongoDB Atlas**: Create free cluster → Get connection string
+2. **Render**: Connect GitHub repo → Set env vars → Deploy
+3. See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step guide
+
+### Limitations (Free Tier)
+
+- Backend spins down after 15 min idle (30-60s cold start)
+- 512MB MongoDB storage limit
+- Ephemeral filesystem — uploaded files lost on redeploy
+
+---
+
 ## CI/CD Pipeline
 
 BidFlow uses GitHub Actions for continuous integration and deployment.

@@ -53,7 +53,7 @@ class Config:
     # "cookies" is preferred; "headers" is kept as fallback so existing
     # clients and testing tools still work with Authorization: Bearer.
     JWT_TOKEN_LOCATION      = ["cookies", "headers"]
-    JWT_COOKIE_SECURE       = False   # set True in prod (HTTPS)
+    JWT_COOKIE_SECURE       = os.environ.get('FLASK_ENV') == 'production'   # True on Render (HTTPS)
     JWT_COOKIE_SAMESITE     = "Lax"
     JWT_ACCESS_COOKIE_NAME  = "access_token_cookie"
 
@@ -67,8 +67,9 @@ class Config:
     # SEC-06: refresh token cookie name and settings
     JWT_REFRESH_COOKIE_NAME = "refresh_token_cookie"
 
-    # File uploads
-    UPLOAD_FOLDER       = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+    # File uploads — use /tmp on Render (serverless), local uploads/ otherwise
+    _default_upload = '/tmp/bidflow_uploads' if os.environ.get('RENDER') else os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+    UPLOAD_FOLDER       = os.environ.get('UPLOAD_FOLDER', _default_upload)
     MAX_CONTENT_LENGTH  = 16 * 1024 * 1024   # 16 MB
 
     # Flask env
