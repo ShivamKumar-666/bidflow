@@ -56,12 +56,10 @@ services:
         sync: false  # Same as backend
 
   # ── Frontend (Static Site) ──────────────────────────────────────────────────
-  - type: web
+  - type: static_site
     name: bidflow-frontend
-    env: static
     buildCommand: cd frontend && npm install && npm run build
     staticPublishPath: frontend/dist
-    plan: free
     routes:
       - type: rewrite
         source: /*
