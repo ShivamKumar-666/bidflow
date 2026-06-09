@@ -3,7 +3,6 @@
 ![Python](https://img.shields.io/badge/Python-3.12-blue)
 ![React](https://img.shields.io/badge/React-19-61dafb)
 ![MongoDB](https://img.shields.io/badge/MongoDB-7-green)
-![License](https://img.shields.io/badge/License-MIT-yellow)
 
 An enterprise-grade bid and proposal management platform that automates, analyzes, and optimizes business bidding processes. Built with Flask + React, it integrates ML predictions, real-time collaboration, role-based access, and audit logging.
 
@@ -14,7 +13,7 @@ An enterprise-grade bid and proposal management platform that automates, analyze
 In competitive B2B sales, companies lose millions due to disorganized bid tracking, missed deadlines, and gut-feel decisions. BidFlow centralizes the entire bid lifecycle — from customer enquiry to final outcome — into one intelligent platform.
 
 **Key Stats:**
-- **94 pytest tests** passing with 0 warnings in ~20 seconds
+- **75 pytest tests** passing with 0 warnings in ~20 seconds
 - **88.6% balanced accuracy** on ML predictions
 - **7 languages** supported (EN, HI, GU, ES, FR, DE, AR with RTL)
 - **14 engineered features** for bid win prediction
@@ -42,7 +41,7 @@ In competitive B2B sales, companies lose millions due to disorganized bid tracki
 |---------|-------------|
 | **Two-Factor Authentication** | Google Authenticator TOTP with QR code, 8 backup codes, temporary JWT sessions |
 | **Role-Based Access Control** | JWT auth, bcrypt hashing, server-side token revocation, admin-only audit logs |
-| **Rate Limiting** | Flask-Limiter: login 10/min, register 5/min, 2FA 5/min |
+| **Rate Limiting** | Flask-Limiter: login 10/min, register 5/min, 2FA 3/min |
 | **MongoDB JSON Schema** | Document structure enforced at DB level (moderate validation) |
 | **Model Integrity** | HMAC-SHA256 signature verification for ML models in MongoDB |
 | **Model Rollback** | Admin can rollback to previous model versions via dashboard |
@@ -77,7 +76,7 @@ In competitive B2B sales, companies lose millions due to disorganized bid tracki
 
 **Backend:** Python 3.12, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, Celery, XGBoost, SHAP, scikit-learn, imbalanced-learn (SMOTE), PyMongo, bcrypt, pyotp, bleach
 
-**Testing:** pytest, pytest-cov, pytest-env (94 tests, 0 warnings, ~20s)
+**Testing:** pytest, pytest-cov, pytest-env (75 tests, 0 warnings, ~20s)
 
 **Database:** MongoDB 7 with JSON Schema validation & TTL indexes
 
@@ -279,7 +278,7 @@ ML Pipeline (XGBoost + SHAP)
 | Rate Limiting | `Flask-Limiter`: login 10/min, register 5/min, 2FA 5/min |
 | JWT Revocation | Server-side JTI blacklist with MongoDB TTL auto-expiry |
 | MongoDB Auth | `MONGO_USERNAME` / `MONGO_PASSWORD` env-driven URI |
-| Non-Sequential IDs | `secrets.token_hex(4)` → `BID-3a7f9c2b` format |
+| Non-Sequential IDs | `secrets.token_hex(6)` → `BID-3a7f9c2b1d4e` format |
 | RBAC Enforcement | Ownership checks on bid delete/status; admin-only audit & retrain |
 | Mass Assignment | Field allowlists on all PUT endpoints |
 | Path Traversal | DB-ID-based document lookup; no filename exposure |
@@ -324,14 +323,21 @@ bidflow/
 │   │   ├── best_params.json       # Best hyperparameters
 │   │   └── feature_list.json      # Feature names (14)
 │   ├── templates/          # Jinja2 templates (quotation PDF)
-│   ├── tests/              # Pytest suite (9 files, 94 tests)
+│   ├── tests/              # Pytest suite (9 files, 75 tests)
 │   └── utils/              # Helpers (email, auth, audit)
 ├── data/                   # Raw CRM data + training datasets
+│   ├── Sales-Pipeline-Dataset.xlsx  # Original Excel workbook
 │   ├── sales_pipeline.csv  # 8800 CRM records
 │   ├── accounts.csv        # 85 accounts with sector/industry
 │   ├── products.csv        # 7 products with series/price
 │   ├── sales_teams.csv     # 35 sales agents with region
-│   └── combined_training_data.csv  # 6711 processed ML records
+│   ├── data_dictionary.csv # Schema documentation
+│   ├── combined_training_data.csv  # 6711 processed ML records
+│   ├── 1_quotations.csv    # Quotations data
+│   ├── 2_items.csv         # Line items data
+│   ├── 3_PO.csv            # Purchase orders data
+│   ├── 4_DO.csv            # Delivery orders data
+│   └── 5_Customers.csv     # Customers data
 ├── frontend/
 │   ├── Dockerfile          # Multi-stage Node build → Nginx
 │   ├── nginx.conf          # Reverse proxy config
@@ -368,7 +374,7 @@ pytest --cov=routes --cov-report=html
 pytest tests/test_auth.py -v
 ```
 
-**Coverage:** 94 tests across 9 test files, 0 warnings, ~20 seconds
+**Coverage:** 75 tests across 9 test files, 0 warnings, ~20 seconds
 
 ---
 
@@ -415,9 +421,3 @@ Backups saved to `<project_root>/backups/YYYY-MM-DD_HH-MM-SS/`. Old dumps auto-p
 - [ ] Enable HTTPS via nginx/Caddy
 - [ ] Configure `GOOGLE_CLIENT_ID` for OAuth
 - [ ] Set up GitHub Actions secrets for CD pipeline
-
----
-
-## License
-
-MIT License — see [LICENSE](LICENSE) file for details.
