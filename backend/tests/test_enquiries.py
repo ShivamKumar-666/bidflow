@@ -98,7 +98,7 @@ class TestCustomerPortalSharing:
             'bidId': bid_data['bidId'],
             'filename': 'proposal.pdf',
             'path': 'mock_file.pdf',
-            'uploadDate': datetime.datetime.utcnow(),
+            'uploadDate': datetime.datetime.now(datetime.UTC),
             'uploadedBy': 'test_user'
         }).inserted_id
 
@@ -111,7 +111,7 @@ class TestCustomerPortalSharing:
 
         db.Enquiries.update_one(
             {'enquiryId': enq_data['enquiryId']},
-            {'$set': {'shareTokenCreatedAt': datetime.datetime.utcnow() - datetime.timedelta(days=91)}}
+            {'$set': {'shareTokenCreatedAt': datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=91)}}
         )
         expired_res = client.get(f'/api/enquiries/public/share/{token}')
         assert expired_res.status_code == 403

@@ -4,10 +4,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 import datetime
 import numpy as np
 from database import db
-from routes.bids import get_model_and_encoder, get_computed_win_rate, compute_shap_explanations
+from services import BidService
 
 def migrate_bids():
-    clf, encoder = get_model_and_encoder()
+    clf, encoder = BidService.get_model_and_encoder()
     if not clf:
         print("[ERROR] ML model not loaded. Make sure train.py has run successfully.")
         return
@@ -19,7 +19,7 @@ def migrate_bids():
     for bid in bids:
         amount = float(bid.get("amount", 0))
         assigned_employee = bid.get("assignedEmployee")
-        employee_win_rate = get_computed_win_rate(assigned_employee)
+        employee_win_rate = BidService.get_computed_win_rate(assigned_employee)
         industry = bid.get("industry", "Other") or "Other"
 
         # Days to deadline: use submissionDate relative to history[0].date or now
@@ -51,7 +51,7 @@ def migrate_bids():
         
         prediction_prob = clf.predict_proba(features)[0][1]
         prediction = int(prediction_prob * 100)
-        explanations = compute_shap_explanations(clf, encoder, features)
+        explanations = BidService.compute_shap_explanations(clf, features)
 
         db.Bids.update_one(
             {"_id": bid["_id"]},

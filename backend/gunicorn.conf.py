@@ -6,7 +6,7 @@ Apply with:
 
 Environment overrides (set before running):
     PORT             — bind port (default 5000)
-    GUNICORN_WORKERS — number of worker processes (default: 1 for eventlet)
+    GUNICORN_WORKERS — number of worker processes (default: 1 for gevent)
 """
 import os
 
@@ -14,9 +14,9 @@ import os
 bind        = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 
 # ── Workers ───────────────────────────────────────────────────────────────────
-# eventlet/gevent workers are co-routine based — one process handles many
+# gevent workers are co-routine based — one process handles many
 # concurrent connections.  Keep worker count at 1 unless behind a load balancer.
-worker_class = "eventlet"
+worker_class = "gevent"
 workers      = int(os.environ.get("GUNICORN_WORKERS", "1"))
 
 # ── Timeouts ──────────────────────────────────────────────────────────────────

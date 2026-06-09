@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
     libgdk-pixbuf-2.0-0 \
+    libevent-dev \
     libxml2-dev \
     libxslt1-dev \
     && rm -rf /var/lib/apt/lists/*

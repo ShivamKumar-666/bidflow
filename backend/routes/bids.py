@@ -167,7 +167,9 @@ def predict_bid():
     try:
         current_user_id = get_jwt_identity()
         current_user = db.Users.find_one({"_id": ObjectId(current_user_id)})
-        current_name = current_user.get("name", "") if current_user else ""
+        if not current_user:
+            return jsonify({"msg": "User not found"}), 404
+        current_name = current_user.get("name", "")
 
         override_name = data.get("assignedEmployee", current_name)
 

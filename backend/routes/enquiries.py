@@ -64,7 +64,8 @@ def update_enquiry(id):
     data = request.get_json() or {}
     enq, error = EnquiryService.update_enquiry(enq_oid, data)
     if error:
-        return jsonify({"msg": error}), 400 if error == "No valid fields to update" else 404
+        status = 400 if error == "No valid fields to update" else 404
+        return jsonify({"msg": error}), status
 
     log_audit("UPDATE_ENQUIRY", f"Updated enquiry {enq['enquiryId']}")
     return jsonify({"msg": "Enquiry updated"}), 200

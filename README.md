@@ -1,24 +1,65 @@
 # BidFlow — Intelligent Bid Management System
 
-BidFlow is an enterprise-grade bid and proposal management platform that automates, analyzes, and optimizes business bidding processes. Built with a Python/Flask backend and React/Vite frontend, it integrates machine learning predictions, real-time collaboration, role-based access, and audit logging.
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![React](https://img.shields.io/badge/React-19-61dafb)
+![MongoDB](https://img.shields.io/badge/MongoDB-7-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+
+An enterprise-grade bid and proposal management platform that automates, analyzes, and optimizes business bidding processes. Built with Flask + React, it integrates ML predictions, real-time collaboration, role-based access, and audit logging.
 
 ---
 
-## About BidFlow
+## Overview
 
 In competitive B2B sales, companies lose millions due to disorganized bid tracking, missed deadlines, and gut-feel decisions. BidFlow centralizes the entire bid lifecycle — from customer enquiry to final outcome — into one intelligent platform.
 
-### What It Does
+**Key Stats:**
+- **94 pytest tests** passing with 0 warnings in ~20 seconds
+- **88.6% balanced accuracy** on ML predictions
+- **7 languages** supported (EN, HI, GU, ES, FR, DE, AR with RTL)
+- **14 engineered features** for bid win prediction
 
-- **Enquiry Management** — Capture and prioritize customer enquiries with tags and detailed requirements
-- **Bid Tracking** — Full lifecycle management: Quotation Prepared → Under Review → Negotiation → Order Received / Rejected
-- **Deadline Calendar** — Interactive monthly view with click-to-navigate month/year pickers; never miss a submission
-- **AI Win Predictions** — ML model predicts bid success probability from historical data so teams can prioritize high-value opportunities
-- **Team Collaboration** — Real-time comments via WebSockets, document attachments, and role-based dashboards
-- **KPI Analytics** — Live revenue, win rate, and pipeline metrics with Chart.js visualizations and CSV export
-- **Customer Portal** — Secure token-based links let customers check bid status without exposing internal data
+---
 
-### Real-World Industry Impact
+## Features
+
+### Core Functionality
+
+| Feature | Description |
+|---------|-------------|
+| **Enquiry Management** | Capture and prioritize customer enquiries with tags and detailed requirements |
+| **Bid Tracking** | Full lifecycle: Quotation Prepared → Under Review → Negotiation → Order Received / Rejected |
+| **Deadline Calendar** | Interactive monthly view with click-to-navigate pickers; never miss a submission |
+| **AI Win Predictions** | ML model predicts bid success probability from historical data |
+| **SHAP Explainability** | Per-feature impact visualization for every prediction |
+| **Team Collaboration** | Real-time comments via WebSockets, document attachments, role-based dashboards |
+| **KPI Analytics** | Live revenue, win rate, pipeline metrics with Chart.js visualizations and CSV export |
+| **Customer Portal** | Secure token-based links let customers check bid status without exposing internal data |
+
+### Security & Administration
+
+| Feature | Description |
+|---------|-------------|
+| **Two-Factor Authentication** | Google Authenticator TOTP with QR code, 8 backup codes, temporary JWT sessions |
+| **Role-Based Access Control** | JWT auth, bcrypt hashing, server-side token revocation, admin-only audit logs |
+| **Rate Limiting** | Flask-Limiter: login 10/min, register 5/min, 2FA 5/min |
+| **MongoDB JSON Schema** | Document structure enforced at DB level (moderate validation) |
+| **Model Integrity** | HMAC-SHA256 signature verification for ML models in MongoDB |
+| **Model Rollback** | Admin can rollback to previous model versions via dashboard |
+| **SLA Tracking** | Hourly breach detection via Celery beat, admin reports |
+| **Audit Logging** | Every action logged for governance and ISO audits |
+
+### User Experience
+
+| Feature | Description |
+|---------|-------------|
+| **Multi-Language (7 langs + RTL)** | Serve global teams and Arabic-speaking clients natively |
+| **Dark/Light Theme** | Glassmorphic design, persisted in localStorage, respects system preference |
+| **Real-Time Notifications** | SocketIO push for bid status changes and comments, unread badge in navbar |
+| **Interactive Calendar** | Monthly grid with deadline highlighting, upcoming deadline sidebar |
+| **Secure Document Management** | PDF/DOCX/image attachments, 16MB max, blocked extensions, path traversal protection |
+
+### Industry Use Cases
 
 | Industry | Use Case |
 |----------|----------|
@@ -28,30 +69,30 @@ In competitive B2B sales, companies lose millions due to disorganized bid tracki
 | **Healthcare** | Medical device procurement, pharma supply, clinical trial contracts |
 | **Retail & E-Commerce** | POS implementations, inventory systems, loyalty program proposals |
 
-### Key Advantages
+---
 
-| Advantage | Business Value |
-|-----------|---------------|
-| AI Win Predictions | Prioritize high-probability bids; stop wasting effort on low-value ones |
-| Real-Time Collaboration | Kill email chains; all discussions and documents in one place |
-| Deadline Management | Visual calendar with alerts prevents costly missed submissions |
-| Role-Based Security | Executives see only their bids; admins get full oversight |
-| Audit Compliance | Every action logged for governance and ISO audits |
-| Multi-Language (7 langs + RTL) | Serve global teams and Arabic-speaking clients natively |
-| Two-Factor Authentication | Protect sensitive bid data from unauthorized access |
-| Customer Self-Service | Reduce status-inquiry calls via secure portal links |
+## Tech Stack
+
+**Frontend:** React 19, Vite 8, React Router v7, Axios, `react-i18next`, Chart.js, `lucide-react`, shadcn/ui, Sonner
+
+**Backend:** Python 3.12, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, Celery, XGBoost, SHAP, scikit-learn, imbalanced-learn (SMOTE), PyMongo, bcrypt, pyotp, bleach
+
+**Testing:** pytest, pytest-cov, pytest-env (94 tests, 0 warnings, ~20s)
+
+**Database:** MongoDB 7 with JSON Schema validation & TTL indexes
+
+**Production:** Docker Compose, Gunicorn + gevent, Nginx, GitHub Actions CI/CD
 
 ---
 
-## Quick Setup
+## Quick Start
 
 ### Prerequisites
 
 - **Node.js** v18+ and **npm**
-- **Python** v3.8+
+- **Python** v3.12+
 - **MongoDB** running on port `27017`
 - **mongodump** (MongoDB Database Tools) for backups
-- **imbalanced-learn** (auto-installed via `pip install -r requirements.txt`)
 
 ### 1. Clone & Configure
 
@@ -107,7 +148,7 @@ docker compose up -d
 | Container | Port | Description |
 |-----------|------|-------------|
 | `bidflow-mongo` | 27017 | MongoDB 7 with health check |
-| `bidflow-backend` | 5000 | Flask API (Gunicorn + Eventlet) |
+| `bidflow-backend` | 5000 | Flask API (Gunicorn + gevent) |
 | `bidflow-celery` | — | Celery worker + beat scheduler |
 | `bidflow-frontend` | 80 | Nginx serving React SPA |
 
@@ -153,40 +194,42 @@ Triggered on push to `main` and version tags:
 
 ---
 
-## Key Features
+## Machine Learning
 
-### Two-Factor Authentication (Admins)
-Google Authenticator TOTP setup with QR code, 8 bcrypt-hashed backup codes, and temporary JWT sessions until 2FA is verified.
+### Model Architecture
 
-### Internationalization & RTL
-7 languages (EN, HI, GU, ES, FR, DE, AR) via `react-i18next`. Auto `dir="rtl"` for Arabic. Full ARIA accessibility.
+- **Algorithm:** XGBoost with L1/L2 regularization
+- **Features:** 14 engineered features (amount, log-amount, deadline urgency, employee/industry win rates, interaction terms)
+- **Class Imbalance:** SMOTE oversampling + `scale_pos_weight`
+- **Tuning:** GridSearchCV with `balanced_accuracy` scoring (target: 80-90%)
+- **Explainability:** SHAP values for per-feature impact visualization
+- **Data Sources:** `data/sales_pipeline.csv`, `data/accounts.csv`, `data/products.csv`, `data/sales_teams.csv` → `data/combined_training_data.csv`
 
-### Glassmorphic Theme Engine
-Light/dark mode persisted in `localStorage`, respects system preference.
+### Commands
 
-### RBAC & Audit Logs
-JWT auth via `Flask-JWT-Extended`, bcrypt hashing, server-side token revocation with MongoDB TTL cleanup, and admin-only audit log viewer.
+```bash
+# Combine raw data into training dataset
+python combine_datasets.py
 
-### AI Bid Success Prediction
-XGBoost classifier with 14 engineered features (amount, deadline urgency, employee/industry win rates, interaction features). SHAP explainability shows per-feature impact on every prediction. Real computed win rates from `db.Bids` (not user-controlled fields). SMOTE handles class imbalance. GridSearchCV with `balanced_accuracy` scoring targets 80-90% accuracy. Cold-start safety for new users. Live retraining via `POST /api/admin/retrain` (>= 50 labeled bids).
+# Initial training with GridSearchCV (2-5 minutes)
+cd backend/ml && python prepare_and_train.py
 
-### Real-Time Collaboration
-Flask-SocketIO pushes bid comments and notifications instantly to all connected clients.
+# Live retraining (Admin only, requires >= 50 labeled bids)
+POST /api/admin/retrain
 
-### Secure Document Management
-PDF/DOCX/image attachments linked to bids. 16MB max, blocked file extensions, path traversal protection.
+# Check model status
+GET  /api/analytics/model-stats
 
-### KPI Analytics
-Revenue, win rate, average bid size, active bids — with Chart.js charts and one-click CSV export.
+# Rollback to previous model version
+POST /api/admin/models/rollback
+```
 
-### Notification Centre
-Real-time push notifications for bid status changes and comments. Smart filtering prevents self-spam. Unread badge in navbar.
+### Performance
 
-### Interactive Calendar
-Monthly grid with deadline highlighting, month/year click-to-navigate pickers, and upcoming deadline sidebar.
-
-### Public Customer Portal
-Token-based secure sharing of enquiry details and bid statuses. ML predictions hidden; tokens expire after 90 days.
+- **Balanced Accuracy:** 88.6%
+- **ROC-AUC:** 0.91
+- **F1 (Lost):** 0.87
+- **F1 (Won):** 0.93
 
 ---
 
@@ -259,7 +302,7 @@ bidflow/
 │   ├── schemas.py          # JSON Schema validators for all 8 collections
 │   ├── extensions.py       # Limiter, SocketIO instances
 │   ├── celery_app.py       # Celery configuration & task definitions
-│   ├── wsgi.py             # Gunicorn entrypoint
+│   ├── wsgi.py             # Gunicorn entrypoint (gevent monkey-patching)
 │   ├── backup.py           # mongodump with TTL pruning
 │   ├── conftest.py         # Pytest fixtures (app, client, auth_headers)
 │   ├── pytest.ini          # Test configuration
@@ -281,7 +324,7 @@ bidflow/
 │   │   ├── best_params.json       # Best hyperparameters
 │   │   └── feature_list.json      # Feature names (14)
 │   ├── templates/          # Jinja2 templates (quotation PDF)
-│   ├── tests/              # Pytest suite (9 files, 75 tests)
+│   ├── tests/              # Pytest suite (9 files, 94 tests)
 │   └── utils/              # Helpers (email, auth, audit)
 ├── data/                   # Raw CRM data + training datasets
 │   ├── sales_pipeline.csv  # 8800 CRM records
@@ -295,7 +338,7 @@ bidflow/
 │   └── src/
 │       ├── pages/          # 11 pages (Bids, Enquiries, Calendar, etc.)
 │       ├── components/     # AppLayout, Navbar, Sidebar, TagInput, ui/
-│       ├── contexts/       # AuthContext, ThemeContext
+│       ├── contexts/       # AuthContext, ThemeContext, NotificationContext
 │       ├── locales/        # i18n JSON (ar, de, en, es, fr, gu, hi)
 │       └── services/       # Axios API layer with auto-retry
 ├── .github/workflows/      # CI/CD pipelines
@@ -309,17 +352,23 @@ bidflow/
 
 ---
 
-## Technology Stack
+## Testing
 
-**Frontend:** React 18, Vite, React Router v6, Axios, `react-i18next`, Chart.js, `lucide-react`, shadcn/ui, `react-hot-toast`
+```bash
+# Run all pytest tests
+cd backend && venv\Scripts\activate && pytest
 
-**Backend:** Python 3.12, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, Celery, XGBoost, SHAP, scikit-learn, imbalanced-learn (SMOTE), PyMongo, bcrypt, pyotp, bleach
+# Run with coverage
+pytest --cov=routes
 
-**Testing:** pytest, pytest-cov, pytest-env (75 tests, 75% route coverage)
+# HTML coverage report
+pytest --cov=routes --cov-report=html
 
-**Database:** MongoDB 7 with JSON Schema validation & TTL indexes
+# Run specific test file
+pytest tests/test_auth.py -v
+```
 
-**Production:** Docker Compose, Gunicorn + eventlet, Nginx, GitHub Actions CI/CD
+**Coverage:** 94 tests across 9 test files, 0 warnings, ~20 seconds
 
 ---
 
@@ -356,59 +405,6 @@ Backups saved to `<project_root>/backups/YYYY-MM-DD_HH-MM-SS/`. Old dumps auto-p
 
 ---
 
-## Machine Learning
-
-### Model Architecture
-- **Algorithm:** XGBoost with L1/L2 regularization
-- **Features:** 14 engineered features (amount, log-amount, deadline urgency, employee/industry win rates, interaction terms)
-- **Class Imbalance:** SMOTE oversampling + `scale_pos_weight`
-- **Tuning:** GridSearchCV with `balanced_accuracy` scoring (target: 80-90%)
-- **Explainability:** SHAP values for per-feature impact visualization
-- **Data Sources:** `data/sales_pipeline.csv`, `data/accounts.csv`, `data/products.csv`, `data/sales_teams.csv` → `data/combined_training_data.csv`
-
-### Commands
-```bash
-# Combine raw data into training dataset
-python combine_datasets.py
-
-# Initial training with GridSearchCV (2-5 minutes)
-cd backend/ml && python prepare_and_train.py
-
-# Live retraining (Admin only, requires >= 50 labeled bids)
-POST /api/admin/retrain
-
-# Check model status
-GET  /api/analytics/model-stats
-```
-
-### Performance
-- **Balanced Accuracy:** 89.1%
-- **ROC-AUC:** 0.96
-- **F1 (Lost):** 0.87
-- **F1 (Won):** 0.93
-
----
-
-## Testing
-
-```bash
-# Run all pytest tests
-cd backend && venv\Scripts\activate && pytest
-
-# Run with coverage
-pytest --cov=routes
-
-# HTML coverage report
-pytest --cov=routes --cov-report=html
-
-# Run specific test file
-pytest tests/test_auth.py -v
-```
-
-**Coverage:** 75% of routes (75 tests across 9 test files)
-
----
-
 ## Production Checklist
 
 - [ ] Generate strong `SECRET_KEY` and `JWT_SECRET_KEY`
@@ -419,3 +415,9 @@ pytest tests/test_auth.py -v
 - [ ] Enable HTTPS via nginx/Caddy
 - [ ] Configure `GOOGLE_CLIENT_ID` for OAuth
 - [ ] Set up GitHub Actions secrets for CD pipeline
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) file for details.

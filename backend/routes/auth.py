@@ -258,7 +258,10 @@ def google_login():
     try:
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), client_id)
 
-        email = idinfo.get('email').strip().lower()
+        email = idinfo.get('email')
+        if not email:
+            return jsonify({"msg": "Google account has no email address."}), 400
+        email = email.strip().lower()
         name = idinfo.get('name')
 
         if not idinfo.get('email_verified'):

@@ -20,7 +20,7 @@ class TestNotifications:
             'message': 'This is a test',
             'type': 'system',
             'isRead': False,
-            'createdAt': datetime.datetime.utcnow()
+            'createdAt': datetime.datetime.now(datetime.UTC)
         })
         res = client.get('/api/notifications/', headers=headers)
         assert res.status_code == 200
@@ -38,7 +38,7 @@ class TestNotifications:
             'message': 'Mark as read',
             'type': 'system',
             'isRead': False,
-            'createdAt': datetime.datetime.utcnow()
+            'createdAt': datetime.datetime.now(datetime.UTC)
         }).inserted_id
         res = client.post(f'/api/notifications/{notif_id}/read', headers=headers)
         assert res.status_code == 200
@@ -57,7 +57,7 @@ class TestNotifications:
                 'message': f'Message {i}',
                 'type': 'system',
                 'isRead': False,
-                'createdAt': datetime.datetime.utcnow()
+                'createdAt': datetime.datetime.now(datetime.UTC)
             })
         res = client.post('/api/notifications/read-all', headers=headers)
         assert res.status_code == 200

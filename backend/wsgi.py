@@ -7,8 +7,9 @@ Usage (Linux/macOS):
 Windows dev (Gunicorn is not supported on Windows natively):
     python app.py
 """
-import eventlet
-eventlet.monkey_patch()          # MUST be first — patches stdlib for async I/O
+import gevent
+import gevent.monkey
+gevent.monkey.patch_all()
 
 from app import create_app
 from extensions import socketio  # noqa: F401 — needed so socketio is bound

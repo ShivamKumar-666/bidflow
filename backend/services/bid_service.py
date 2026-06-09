@@ -32,8 +32,9 @@ class BidService:
     _loaded_model_version = None
     _shap_explainer_cache = {"id": None, "explainer": None}
     _experience_cache = {}  # {employee_name: (count, timestamp)}
-    _user_cache = {}  # {employee_name: user_doc} — fixes N+1 user lookups
+    _user_cache = {}  # {employee_name: (user_doc, timestamp)} — fixes N+1 user lookups
     _EXPERIENCE_CACHE_TTL = 60  # seconds
+    _USER_CACHE_TTL = 60  # seconds
 
     FEATURE_NAMES = [
         'amount', 'amount_log', 'days_to_deadline', 'deadline_urgency',
@@ -168,15 +169,17 @@ class BidService:
 
     @classmethod
     def get_user_by_name(cls, employee_name: str):
-        """Get user document by name with in-memory cache (fixes N+1 queries)."""
+        """Get user document by name with TTL cache (fixes N+1 queries)."""
+        import time
         if not employee_name:
             return None
+        now = time.time()
         cached = cls._user_cache.get(employee_name)
-        if cached:
-            return cached
+        if cached and (now - cached[1]) < cls._USER_CACHE_TTL:
+            return cached[0]
         user = db.Users.find_one({"name": employee_name}, {"_id": 1, "name": 1})
         if user:
-            cls._user_cache[employee_name] = user
+            cls._user_cache[employee_name] = (user, now)
         return user
 
     @classmethod
@@ -346,7 +349,7 @@ class BidService:
         return explanations
 
     @classmethod
-    def compute_shap_explanations(cls, clf, encoder, features_array):
+    def compute_shap_explanations(cls, clf, features_array):
         try:
             explainer = cls._get_shap_explainer(clf)
             shap_out = explainer.shap_values(features_array)
@@ -375,7 +378,7 @@ class BidService:
         features = cls._compute_features(data, employee_name, industry, encoder)
         prediction_prob = clf.predict_proba(features)[0][1]
         prediction = int(prediction_prob * 100)
-        explanations = cls.compute_shap_explanations(clf, encoder, features)
+        explanations = cls.compute_shap_explanations(clf, features)
         return prediction, explanations
 
     @classmethod
@@ -386,7 +389,7 @@ class BidService:
 
         features = cls._compute_features(data, employee_name, industry, encoder)
         probability = clf.predict_proba(features)[0][1]
-        explanations = cls.compute_shap_explanations(clf, encoder, features)
+        explanations = cls.compute_shap_explanations(clf, features)
         employee_win_rate = cls.get_computed_win_rate(employee_name)
         return float(probability) * 100, float(employee_win_rate) * 100, explanations
 

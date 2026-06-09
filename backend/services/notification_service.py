@@ -1,5 +1,6 @@
 import datetime
 
+from bson.objectid import ObjectId
 from database import db
 from utils.auth_helpers import now_utc
 
@@ -61,6 +62,3 @@ class NotificationService:
         if isinstance(n.get("createdAt"), datetime.datetime):
             n["createdAt"] = n["createdAt"].isoformat()
         return n
-
-
-from bson.objectid import ObjectId

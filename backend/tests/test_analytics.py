@@ -193,7 +193,7 @@ class TestSLATracking:
         }, headers=headers)
         bid_data = bid_res.get_json()
 
-        six_days_ago = datetime.datetime.utcnow() - datetime.timedelta(days=6)
+        six_days_ago = datetime.datetime.now(datetime.UTC) - datetime.timedelta(days=6)
         db.Bids.update_one(
             {'_id': ObjectId(bid_data['_id'])},
             {'$set': {'history.0.date': six_days_ago}}
