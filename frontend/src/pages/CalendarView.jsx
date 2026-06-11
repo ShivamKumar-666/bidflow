@@ -61,7 +61,7 @@ export default function CalendarView() {
     api.get("/bids/calendar", { signal: controller.signal })
       .then((r) => {
         const sorted = (r.data || [])
-          .filter((b) => b.status !== "Order Received" && b.status !== "Rejected")
+          .filter((b) => !["Order Received", "Rejected", "Completed"].includes(b.status))
           .sort((a, b) => new Date(a.submissionDate) - new Date(b.submissionDate));
         setUpcoming(sorted.slice(0, 10));
       })
@@ -248,7 +248,7 @@ export default function CalendarView() {
                             priorityColors[e.priority]
                           )}
                         >
-                          {e.customerName}: ${Number(e.amount).toLocaleString()}
+                          {e.customerName}: ${(Number(e.amount) || 0).toLocaleString()}
                         </button>
                       ))}
                       {dayEvents.length > 2 && (
@@ -290,7 +290,7 @@ export default function CalendarView() {
                     <p className="text-xs text-muted-foreground truncate">{bid.productServiceRequired}</p>
                     <div className="flex items-center justify-between mt-1.5 text-xs">
                       <span className="text-muted-foreground">{bid.submissionDate}</span>
-                      <span className="font-semibold">${Number(bid.amount).toLocaleString()}</span>
+                      <span className="font-semibold">${(Number(bid.amount) || 0).toLocaleString()}</span>
                     </div>
                   </button>
                 ))}
@@ -314,7 +314,7 @@ export default function CalendarView() {
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Amount</div>
-              <div className="font-bold text-lg">${Number(selected?.amount).toLocaleString()}</div>
+              <div className="font-bold text-lg">${(Number(selected?.amount) || 0).toLocaleString()}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Due</div>

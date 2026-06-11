@@ -30,6 +30,8 @@ class BidService:
 
     _model = None
     _industry_encoder = None
+    _series_encoder = None
+    _region_encoder = None
     _loaded_model_version = None
     _shap_explainer_cache = {"id": None, "explainer": None}
     _experience_cache = {}  # {employee_name: (count, timestamp)}
@@ -100,6 +102,8 @@ class BidService:
                 encoder_path = os.path.join(ml_dir, 'industry_encoder.pkl')
                 model_sig_path = os.path.join(ml_dir, 'bid_model.sig')
                 encoder_sig_path = os.path.join(ml_dir, 'industry_encoder.sig')
+                series_encoder_path = os.path.join(ml_dir, 'series_encoder.pkl')
+                region_encoder_path = os.path.join(ml_dir, 'region_encoder.pkl')
 
                 if os.path.exists(model_path) and os.path.exists(encoder_path):
                     model_verified = False
@@ -143,9 +147,17 @@ class BidService:
 
                     if not model_verified or not encoder_verified:
                         current_app.logger.warning(
-                            "Local model/encoder files lack valid signatures. "
-                            "Retrain the model to generate signature files."
+                            "Loading model without signature verification (no .sig files found)"
                         )
+                        if cls._model is None:
+                            cls._model = joblib.load(model_path)
+                        if cls._industry_encoder is None:
+                            cls._industry_encoder = joblib.load(encoder_path)
+
+                    if os.path.exists(series_encoder_path) and cls._series_encoder is None:
+                        cls._series_encoder = joblib.load(series_encoder_path)
+                    if os.path.exists(region_encoder_path) and cls._region_encoder is None:
+                        cls._region_encoder = joblib.load(region_encoder_path)
         except Exception as e:
             current_app.logger.warning("Could not load ML model or encoder: %s", e)
         return cls._model, cls._industry_encoder
@@ -251,12 +263,17 @@ class BidService:
     @classmethod
     def _compute_features(cls, data: dict, employee_name: str, industry: str, encoder) -> np.ndarray:
         amount = float(data.get("amount", 0))
-        days_to_deadline = 30
-        try:
-            sub_date = datetime.datetime.strptime(data.get("submissionDate", ""), "%Y-%m-%d")
-            days_to_deadline = max(1, (sub_date - now_utc().replace(tzinfo=None)).days)
-        except Exception:
-            pass
+
+        days_to_deadline = data.get("days_to_deadline")
+        if days_to_deadline is None:
+            days_to_deadline = 30
+            try:
+                sub_date = datetime.datetime.strptime(data.get("submissionDate", ""), "%Y-%m-%d")
+                days_to_deadline = max(1, (sub_date - now_utc().replace(tzinfo=None)).days)
+            except Exception:
+                pass
+        else:
+            days_to_deadline = max(1, int(days_to_deadline))
 
         if days_to_deadline < 7:
             deadline_urgency = 2
@@ -265,7 +282,7 @@ class BidService:
         else:
             deadline_urgency = 0
 
-        priority_encoded = 1
+        priority_encoded = int(data.get("priority_encoded", 1))
 
         industry_encoded = 0
         if encoder:
@@ -286,8 +303,24 @@ class BidService:
         amount_x_win_rate = amount_log * employee_win_rate
 
         product_series_encoded = 0
+        if cls._series_encoder is not None:
+            try:
+                product_series = data.get("productSeries", "")
+                if product_series:
+                    product_series_encoded = cls._series_encoder.transform([product_series])[0]
+            except Exception:
+                pass
+
         regional_office_encoded = 0
-        sales_price = 0.0
+        if cls._region_encoder is not None:
+            try:
+                region = data.get("regionalOffice", "")
+                if region:
+                    regional_office_encoded = cls._region_encoder.transform([region])[0]
+            except Exception:
+                pass
+
+        sales_price = float(data.get("salesPrice", 0.0))
 
         return np.array([[
             amount, amount_log, days_to_deadline, deadline_urgency,
@@ -463,10 +496,11 @@ class BidService:
         user = db.Users.find_one({"_id": ObjectId(user_id)}, {"name": 1}) if ObjectId.is_valid(user_id) else None
         employee_name = user.get('name') if user else None
         if not employee_name:
-            return {}
+            return {"_id": {"$exists": False}}
         return {"$or": [
             {"assignedEmployee": {"$regex": f"^{re.escape(employee_name)}$", "$options": "i"}},
-            {"assignedEmployee": str(user_id)}
+            {"assignedEmployee": str(user_id)},
+            {"createdBy": user_id},
         ]}
 
     @classmethod

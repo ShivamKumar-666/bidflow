@@ -1,10 +1,12 @@
 import html as _html
-import threading
+from concurrent.futures import ThreadPoolExecutor
 
 from flask import current_app
 from flask_mail import Message
 from extensions import mail
 from config import Config
+
+_email_executor = ThreadPoolExecutor(max_workers=3)
 
 
 def send_verification_email(user_name: str, user_email: str, token: str):
@@ -78,7 +80,7 @@ If you did not create this account, you can safely ignore this email.
         body=text_body,
         html=html_body
     )
-    threading.Thread(target=_send_async, args=(msg, current_app._get_current_object()), daemon=True).start()
+    _email_executor.submit(_send_async, msg, current_app._get_current_object())
 
 
 def send_already_verified_email(user_email: str):
@@ -88,7 +90,7 @@ def send_already_verified_email(user_email: str):
         recipients=[user_email],
         body="Your BidFlow account is already verified. You can log in at any time."
     )
-    threading.Thread(target=_send_async, args=(msg, current_app._get_current_object()), daemon=True).start()
+    _email_executor.submit(_send_async, msg, current_app._get_current_object())
 
 
 def _send_async(msg, app):

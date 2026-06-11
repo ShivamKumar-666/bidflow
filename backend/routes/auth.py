@@ -47,6 +47,12 @@ def register():
     if error:
         return jsonify({"msg": error}), 400
 
+    if current_app.config.get('FLASK_ENV') == 'development':
+        AuthService.verify_email(email)
+        return jsonify({
+            "msg": "Account created successfully. You can now log in."
+        }), 201
+
     try:
         token = generate_verification_token(email)
         send_verification_email(name, email, token)
@@ -284,11 +290,12 @@ def google_login():
         if not user:
             user = AuthService.register_google_user(email, name)
         else:
-            # Existing user found — if registered locally, mark as verified via Google
+            if not user.get("google_oauth") and not user.get("is_verified"):
+                return jsonify({"msg": "Please verify your email first before using Google login."}), 403
             if not user.get("google_oauth"):
                 db.Users.update_one(
                     {"email": email},
-                    {"$set": {"is_verified": True, "google_oauth": True, "verified_at": now_utc()}}
+                    {"$set": {"google_oauth": True, "verified_at": now_utc()}}
                 )
                 user = db.Users.find_one({"email": email})
 

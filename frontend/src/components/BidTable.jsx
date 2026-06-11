@@ -1,4 +1,4 @@
-import React, { memo } from "react";
+import React, { memo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Tag, MessageSquare, FileDown, Trash2, Brain, TrendingUp, TrendingDown,
@@ -32,7 +32,6 @@ const statusVariants = {
 };
 
 const STATUSES = ["Quotation Prepared", "Under Review", "Negotiation", "Order Received", "Rejected"];
-
 function PredictionPill({ value, explanations, onExplain }) {
   if (value == null) return <span className="text-muted-foreground text-xs">N/A</span>;
   const tone = value >= 70 ? "success" : value >= 40 ? "warning" : "destructive";
@@ -277,7 +276,7 @@ const BidTable = memo(function BidTable({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {STATUSES.map((s) => (
+                            {STATUSES.filter((s) => s !== "Negotiation" || bid.negotiable !== false).map((s) => (
                               <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
                             ))}
                           </SelectContent>

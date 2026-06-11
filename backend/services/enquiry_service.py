@@ -69,19 +69,25 @@ class EnquiryService:
             "notes": data.get("notes", ""),
             "tags": tags,
             "status": "Under Review",
+            "negotiable": data.get("negotiable", True),
             "createdBy": user_id,
         }
         db.Enquiries.insert_one(new_enquiry)
         return new_enquiry
 
+    VALID_STATUSES = {"Under Review", "Shortlisted", "Negotiation", "Rejected", "Order Received", "Quotation Prepared"}
+
     @classmethod
     def update_enquiry(cls, enq_oid: ObjectId, data: dict) -> tuple:
         ALLOWED_FIELDS = {"customerName", "contactInformation", "productServiceRequired",
-                          "priority", "notes", "tags", "status"}
+                          "priority", "notes", "tags", "status", "negotiable"}
         update_data = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
 
         if not update_data:
             return None, "No valid fields to update"
+
+        if "status" in update_data and update_data["status"] not in cls.VALID_STATUSES:
+            return None, f"Invalid status. Must be one of: {', '.join(sorted(cls.VALID_STATUSES))}"
 
         if "tags" in update_data:
             update_data["tags"] = [t.strip().lower() for t in update_data["tags"] if isinstance(t, str) and t.strip()]
@@ -174,6 +180,7 @@ class EnquiryService:
                 "productServiceRequired": enq.get("productServiceRequired"),
                 "date": enq.get("date").isoformat() if isinstance(enq.get("date"), datetime.datetime) else enq.get("date"),
                 "status": enq.get("status"),
+                "negotiable": enq.get("negotiable", True),
             },
             "bid": bid_data,
             "documents": docs,

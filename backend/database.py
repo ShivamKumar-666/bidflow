@@ -74,6 +74,10 @@ def _ensure_indexes(db):
         [("enquiryId", ASCENDING)],
         background=True
     )
+    db.Bids.create_index(
+        [("status", ASCENDING)],
+        background=True
+    )
 
     # ── Enquiry indexes (PERF-NEW-02) ─────────────────────────────────────
     db.Enquiries.create_index(
@@ -101,6 +105,21 @@ def _ensure_indexes(db):
     # ── Notification indexes (PERF-NEW-02) ────────────────────────────────
     db.Notifications.create_index(
         [("userId", ASCENDING), ("createdAt", -1)],
+        background=True
+    )
+    db.Notifications.create_index(
+        [("createdAt", 1)],
+        expireAfterSeconds=7776000,
+        background=True
+    )
+
+    # ── Audit log indexes ─────────────────────────────────────────────────
+    db.AuditLogs.create_index(
+        [("timestamp", -1)],
+        background=True
+    )
+    db.AuditLogs.create_index(
+        [("user", ASCENDING)],
         background=True
     )
 

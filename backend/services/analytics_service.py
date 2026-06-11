@@ -128,7 +128,7 @@ class AnalyticsService:
             {"$group": {"_id": None, "avgConfidence": {"$avg": "$aiPrediction"}}}
         ]
         avg_result = list(db.Bids.aggregate(avg_pipeline))
-        avg_confidence = round(avg_result[0]["avgConfidence"], 1) if avg_result else 0
+        avg_confidence = round(avg_result[0]["avgConfidence"], 1) if avg_result and avg_result[0].get("avgConfidence") is not None else 0
 
         terminal_count = db.Bids.count_documents({"status": {"$in": ["Order Received", "Rejected"]}})
 

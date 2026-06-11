@@ -8,6 +8,8 @@ from flask import current_app
 from flask_jwt_extended import create_access_token, create_refresh_token
 from utils.auth_helpers import now_utc
 
+_DUMMY_HASH = bcrypt.hashpw(b"timing-attack-dummy", bcrypt.gensalt(rounds=12)).decode()
+
 
 class AuthService:
     """Business logic for authentication, user management, and token handling."""
@@ -50,11 +52,19 @@ class AuthService:
         if db.Users.find_one({"email": email}):
             return None, "Email already exists"
 
+        counter = db.client.bidflow.Counters.find_one_and_update(
+            {"_id": "user_count"},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=True
+        )
+        role = "Admin" if counter.get("seq", 1) == 1 else "Sales Executive"
+
         user = {
             "name": name,
             "email": email,
             "password": cls.hash_password(password),
-            "role": 'Sales Executive',
+            "role": role,
             "is_verified": False,
             "created_at": now_utc()
         }
@@ -66,7 +76,7 @@ class AuthService:
         email = email.strip().lower()
         user = db.Users.find_one({"email": email})
         if not user:
-            cls.verify_password(password, "$2b$12$dummyhashdummyhashdummyhashdummyhashdummyhashdummyhashdum")
+            cls.verify_password(password, _DUMMY_HASH)
             return None, "Bad email or password"
         if not cls.verify_password(password, user['password']):
             return None, "Bad email or password"
@@ -177,6 +187,8 @@ class AuthService:
             "winRate": 1, "targetBidValue": 1, "bio": 1,
             "totp_enabled": 1
         })
+        if not user:
+            return None, "User not found"
         return user, None
 
     @classmethod
@@ -184,11 +196,19 @@ class AuthService:
         random_pw = secrets.token_urlsafe(16)
         hashed_password = cls.hash_password(random_pw)
 
+        counter = db.client.bidflow.Counters.find_one_and_update(
+            {"_id": "user_count"},
+            {"$inc": {"seq": 1}},
+            upsert=True,
+            return_document=True
+        )
+        role = "Admin" if counter.get("seq", 1) == 1 else "Sales Executive"
+
         user = {
             "name": name,
             "email": email,
             "password": hashed_password,
-            "role": 'Sales Executive',
+            "role": role,
             "is_verified": True,
             "google_oauth": True,
             "created_at": now_utc()

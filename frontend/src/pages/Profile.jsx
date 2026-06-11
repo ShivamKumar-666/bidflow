@@ -134,6 +134,8 @@ export default function Profile() {
     a.href = url;
     a.download = "bidflow-backup-codes.txt";
     a.click();
+    URL.revokeObjectURL(url);
+    a.remove();
   };
 
   const initials = (user?.name || "U").split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -75,6 +75,30 @@ const Reports = () => {
     }
   }, [isAdmin]);
 
+  const fetchModelVersions = useCallback(async () => {
+    setLoadingVersions(true);
+    try {
+      const res = await api.get("/admin/models");
+      setModelVersions(res.data);
+    } catch (err) {
+      console.error("Failed to load model versions", err);
+    } finally {
+      setLoadingVersions(false);
+    }
+  }, []);
+
+  const fetchModelStatus = useCallback(async () => {
+    setLoadingModel(true);
+    try {
+      const res = await api.get("/admin/model-status");
+      setModelStatus(res.data);
+    } catch (err) {
+      console.error("Failed to load model status", err);
+    } finally {
+      setLoadingModel(false);
+    }
+  }, []);
+
   const handleScanSla = async () => {
     setScanningSla(true);
     try {
@@ -112,18 +136,6 @@ const Reports = () => {
     return () => controller.abort();
   }, [t, isAdmin, fetchSlaReport, fetchModelStatus, fetchModelVersions]);
 
-  const fetchModelVersions = useCallback(async () => {
-    setLoadingVersions(true);
-    try {
-      const res = await api.get("/admin/models");
-      setModelVersions(res.data);
-    } catch (err) {
-      console.error("Failed to load model versions", err);
-    } finally {
-      setLoadingVersions(false);
-    }
-  }, []);
-
   const handleRollback = async (version) => {
     setRollingBack(version);
     try {
@@ -137,18 +149,6 @@ const Reports = () => {
       setRollingBack(null);
     }
   };
-
-  const fetchModelStatus = useCallback(async () => {
-    setLoadingModel(true);
-    try {
-      const res = await api.get("/admin/model-status");
-      setModelStatus(res.data);
-    } catch (err) {
-      console.error("Failed to load model status", err);
-    } finally {
-      setLoadingModel(false);
-    }
-  }, []);
 
   const handleRetrainModel = async () => {
     setRetraining(true);

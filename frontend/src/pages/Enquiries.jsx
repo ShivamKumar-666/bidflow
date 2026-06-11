@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
@@ -52,6 +53,7 @@ export default function Enquiries() {
   const [form, setForm] = useState({
     customerName: "", contactInformation: "",
     productServiceRequired: "", priority: "Medium", notes: "", tags: [],
+    negotiable: true,
   });
 
   const fetch = useCallback(async () => {
@@ -78,7 +80,7 @@ export default function Enquiries() {
       await api.post("/enquiries/", form);
       toast.success(t("enquiries.createSuccess"));
       setShowModal(false);
-      setForm({ customerName: "", contactInformation: "", productServiceRequired: "", priority: "Medium", notes: "", tags: [] });
+      setForm({ customerName: "", contactInformation: "", productServiceRequired: "", priority: "Medium", notes: "", tags: [], negotiable: true });
       fetch();
     } catch (err) {
       toast.error(err.response?.data?.msg || t("enquiries.createFailed"));
@@ -204,6 +206,13 @@ export default function Enquiries() {
                     <SelectItem value="High">{t("enquiries.high")}</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">Allow Negotiation</Label>
+                  <p className="text-xs text-muted-foreground">Bids on this enquiry can be negotiated</p>
+                </div>
+                <Switch checked={form.negotiable} onCheckedChange={(v) => setForm({ ...form, negotiable: v })} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t("common.tags")}</Label>

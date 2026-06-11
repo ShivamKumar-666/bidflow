@@ -7,7 +7,7 @@ from database import db
 from extensions import socketio, limiter
 from flask import Blueprint, current_app, jsonify, make_response, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
-from services import BidService, NotificationService
+from services import BidService, DocumentService, NotificationService
 from utils import log_audit
 from utils.auth_helpers import now_utc, require_oid, bid_access_required
 
@@ -29,8 +29,18 @@ def get_bids():
 
     cursor = db.Bids.find(filter_query).sort("submissionDate", -1).skip((page - 1) * size).limit(size)
     bids = list(cursor)
+
+    # Enrich bids with enquiry negotiable field
+    enquiry_ids = {bid.get('enquiryId') for bid in bids if bid.get('enquiryId')}
+    enq_map = {}
+    if enquiry_ids:
+        for enq in db.Enquiries.find({"enquiryId": {"$in": list(enquiry_ids)}}, {"enquiryId": 1, "negotiable": 1}):
+            enq_map[enq.get("enquiryId")] = enq.get("negotiable", True)
+
     for bid in bids:
         bid['_id'] = str(bid['_id'])
+        bid['negotiable'] = enq_map.get(bid.get('enquiryId'), True)
+
     return jsonify({
         "items": bids,
         "page": page,
@@ -62,8 +72,9 @@ def create_bid():
 
 @bids_bp.route('/<id>/status', methods=['PUT'])
 @bid_access_required
+@limiter.limit("30 per minute")
 def update_bid_status(id):
-    data = request.get_json()
+    data = request.get_json() or {}
     new_status = data.get("status")
     note = data.get("note", "Status updated")
 
@@ -133,7 +144,7 @@ def add_comment(id):
             'author': comment['author'],
             'date': comment['date'].isoformat()
         }
-    })
+    }, room=f"bid_{id}")
 
     if bid:
         assigned_name = bid.get("assignedEmployee")
@@ -205,6 +216,7 @@ def predict_bid():
 
 @bids_bp.route('/calendar', methods=['GET'])
 @jwt_required()
+@limiter.limit("30 per minute")
 def get_calendar_bids():
     try:
         month_param = request.args.get('month')
@@ -217,7 +229,7 @@ def get_calendar_bids():
         if month_param:
             bid_filter["submissionDate"] = {"$regex": f"^{re.escape(month_param)}"}
 
-        bids = list(db.Bids.find(bid_filter))
+        bids = list(db.Bids.find(bid_filter).limit(500))
 
         # Only load enquiries referenced by the filtered bids
         enquiry_ids = {bid.get('enquiryId') for bid in bids if bid.get('enquiryId')}
@@ -338,6 +350,7 @@ def delete_bid(id):
         bid_id_str = bid.get("bidId", id)
 
         db.Bids.delete_one({"_id": bid_oid})
+        DocumentService.delete_bid_documents(str(bid_oid))
         NotificationService.delete_by_ref(id)
 
         log_audit("DELETE_BID", f"Deleted bid {bid_id_str}")
@@ -390,7 +403,7 @@ def delete_comment(id, comment_id):
         socketio.emit('delete_comment', {
             'bid_id': id,
             'comment_id': comment_id
-        })
+        }, room=f"bid_{id}")
 
         log_audit("DELETE_COMMENT", f"Deleted comment from bid {bid.get('bidId', id)}")
         return jsonify({"msg": "Comment deleted"}), 200

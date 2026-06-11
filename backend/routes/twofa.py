@@ -94,7 +94,7 @@ def enable_2fa():
     On success: save the secret permanently, generate backup codes.
     """
     user_id = get_jwt_identity()
-    data = request.get_json()
+    data = request.get_json() or {}
     code = data.get('code', '').strip()
 
     user = db.Users.find_one({'_id': ObjectId(user_id)})
@@ -139,7 +139,7 @@ def verify_2fa():
     Returns a full-access JWT on success.
     """
     from flask_jwt_extended import decode_token
-    data = request.get_json()
+    data = request.get_json() or {}
     temp_token = data.get('temp_token', '').strip()
     code = data.get('code', '').strip()
 
@@ -229,7 +229,7 @@ def verify_2fa():
 def disable_2fa():
     """Disable 2FA. Requires current password for security."""
     user_id = get_jwt_identity()
-    data = request.get_json()
+    data = request.get_json() or {}
     password = data.get('password', '')
 
     user = db.Users.find_one({'_id': ObjectId(user_id)})
@@ -275,7 +275,7 @@ def get_backup_codes_count():
 def regenerate_backup_codes():
     """Regenerate all backup codes. Requires TOTP code for security."""
     user_id = get_jwt_identity()
-    data = request.get_json()
+    data = request.get_json() or {}
     totp_code = data.get('code', '').strip()
 
     user = db.Users.find_one({'_id': ObjectId(user_id)})

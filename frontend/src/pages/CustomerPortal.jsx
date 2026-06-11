@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import {
   FileText, Download, AlertTriangle, Clock, User, Briefcase, Calendar,
-  Hash, FileDown, Activity, ShieldCheck,
+  Hash, FileDown, Activity, ShieldCheck, Handshake, Ban,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -140,6 +140,12 @@ const CustomerPortal = () => {
                   label={t("enquiries.id", "Enquiry ID")}
                   value={enquiry?.enquiryId}
                   mono
+                />
+                <InfoRow
+                  icon={enquiry?.negotiable !== false ? Handshake : Ban}
+                  label={t("portal.negotiable", "Negotiation")}
+                  value={enquiry?.negotiable !== false ? "Open to negotiation" : "Non-negotiable"}
+                  badge={enquiry?.negotiable !== false ? "success" : "secondary"}
                 />
                 <InfoRow
                   icon={Calendar}
@@ -281,15 +287,19 @@ const CustomerPortal = () => {
   );
 };
 
-const InfoRow = ({ icon: Icon, label, value, mono = false }) => (
+const InfoRow = ({ icon: Icon, label, value, mono = false, badge }) => (
   <div className="flex items-start justify-between gap-3">
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       <Icon className="h-3.5 w-3.5" />
       {label}
     </div>
-    <span className={cn("text-sm font-medium text-right truncate max-w-[60%]", mono && "font-mono")}>
-      {value || "—"}
-    </span>
+    {badge ? (
+      <Badge variant={badge} className="text-xs">{value || "—"}</Badge>
+    ) : (
+      <span className={cn("text-sm font-medium text-right truncate max-w-[60%]", mono && "font-mono")}>
+        {value || "—"}
+      </span>
+    )}
   </div>
 );
 

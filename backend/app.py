@@ -85,6 +85,19 @@ def create_app():
         except Exception:
             pass  # Invalid token — silently reject
 
+    # ── 2FA temp token guard (C-01) ──────────────────────────────────────────
+    @app.before_request
+    def reject_2fa_pending_tokens():
+        from flask_jwt_extended import verify_jwt_in_request, get_jwt
+        try:
+            verify_jwt_in_request(optional=True)
+            claims = get_jwt()
+            if claims and claims.get('sub_type') == '2fa_pending':
+                if not request.path.startswith('/api/2fa/verify'):
+                    return jsonify({"msg": "2FA verification required"}), 403
+        except Exception:
+            pass
+
     # ── JWT Blocklist (revocation) ────────────────────────────────────────────
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(jwt_header, jwt_payload):
@@ -140,6 +153,8 @@ def create_app():
         response.headers['X-Frame-Options'] = 'DENY'
         response.headers['X-XSS-Protection'] = '1; mode=block'
         response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://*.googleapis.com https://*.gstatic.com"
+        response.headers['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=()'
         if Config.FLASK_ENV == 'production':
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response

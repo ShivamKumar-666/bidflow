@@ -184,17 +184,17 @@ def rollback_model_version():
         if not target:
             return jsonify({"msg": f"Model version {version} not found"}), 404
 
+        db.ModelVersions.update_many(
+            {"version": {"$ne": int(version)}, "isActive": True},
+            {"$set": {"isActive": False}}
+        )
+
         result = db.ModelVersions.update_one(
             {"version": int(version)},
             {"$set": {"isActive": True}}
         )
         if result.matched_count == 0:
             return jsonify({"msg": "Failed to activate version"}), 500
-
-        db.ModelVersions.update_many(
-            {"version": {"$ne": int(version)}},
-            {"$set": {"isActive": False}}
-        )
 
         # Trigger hotswap in BidService
         from services import BidService

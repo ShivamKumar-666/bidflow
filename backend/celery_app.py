@@ -34,82 +34,82 @@ def now_utc_naive():
     return now_utc().replace(tzinfo=None)
 
 
-@celery.task
-def check_sla_breaches():
+@celery.task(bind=True, max_retries=3)
+def check_sla_breaches(self):
     """Checks all active bids and flags SLA breaches in MongoDB."""
     from database import db
     from bson.objectid import ObjectId
 
-    terminal_statuses = ["Order Received", "Rejected", "Completed", "Approved / Rejected"]
+    try:
+        terminal_statuses = ["Order Received", "Rejected"]
 
-    active_bids = list(db.Bids.find({"status": {"$nin": terminal_statuses}}))
-    breach_count  = 0
-    checked_count = len(active_bids)
-    now           = now_utc_naive()
+        active_bids = list(db.Bids.find({"status": {"$nin": terminal_statuses}}).limit(1000))
+        breach_count  = 0
+        checked_count = len(active_bids)
+        now           = now_utc_naive()
 
-    for bid in active_bids:
-        current_status  = bid.get("status")
-        threshold_days  = SLA_CONFIG.get(current_status)
+        for bid in active_bids:
+            current_status  = bid.get("status")
+            threshold_days  = SLA_CONFIG.get(current_status)
 
-        if not threshold_days:
-            # No SLA configured for this stage — make sure flag is cleared.
-            db.Bids.update_one({"_id": bid["_id"]}, {"$set": {"slaBreached": False}})
-            continue
+            if not threshold_days:
+                db.Bids.update_one({"_id": bid["_id"]}, {"$set": {"slaBreached": False}})
+                continue
 
-        history = bid.get("history", [])
-        matching_entries = [h for h in history if h.get("status") == current_status]
+            history = bid.get("history", [])
+            matching_entries = [h for h in history if h.get("status") == current_status]
 
-        if not matching_entries:
-            transition_date = history[-1].get("date") if history else now
-        else:
-            transition_date = matching_entries[-1].get("date")
+            if not matching_entries:
+                transition_date = history[-1].get("date") if history else now
+            else:
+                transition_date = matching_entries[-1].get("date")
 
-        # Standardize date parsing — narrow except so we don't swallow SystemExit etc.
-        if isinstance(transition_date, str):
-            try:
-                transition_date = datetime.datetime.fromisoformat(transition_date)
-            except (TypeError, ValueError):
-                logger.warning("malformed transition_date, defaulting to now")
+            if isinstance(transition_date, str):
+                try:
+                    transition_date = datetime.datetime.fromisoformat(transition_date)
+                except (TypeError, ValueError):
+                    logger.warning("malformed transition_date, defaulting to now")
+                    transition_date = now
+            elif not isinstance(transition_date, datetime.datetime):
                 transition_date = now
-        elif not isinstance(transition_date, datetime.datetime):
-            transition_date = now
 
-        # If we have a tz-aware date, normalize to naive UTC for arithmetic
-        if isinstance(transition_date, datetime.datetime) and transition_date.tzinfo is not None:
-            transition_date = transition_date.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+            if isinstance(transition_date, datetime.datetime) and transition_date.tzinfo is not None:
+                transition_date = transition_date.astimezone(datetime.timezone.utc).replace(tzinfo=None)
 
-        time_elapsed = now - transition_date
-        # Guard against negative durations from clock skew / future-dated rows
-        elapsed_days = max(time_elapsed.days, 0)
+            time_elapsed = now - transition_date
+            elapsed_days = max(time_elapsed.days, 0)
 
-        is_breached = elapsed_days >= threshold_days
+            is_breached = elapsed_days >= threshold_days
 
-        if is_breached:
-            db.Bids.update_one(
-                {"_id": bid["_id"]},
-                {"$set": {
-                    "slaBreached":       True,
-                    "slaBreachedAt":     now,
-                    "slaElapsedDays":    elapsed_days,
-                    "slaThresholdDays":  threshold_days,
-                }}
-            )
-            breach_count += 1
-        else:
-            db.Bids.update_one(
-                {"_id": bid["_id"]},
-                {"$set": {"slaBreached": False}}
-            )
+            if is_breached:
+                db.Bids.update_one(
+                    {"_id": bid["_id"]},
+                    {"$set": {
+                        "slaBreached":       True,
+                        "slaBreachedAt":     now,
+                        "slaElapsedDays":    elapsed_days,
+                        "slaThresholdDays":  threshold_days,
+                    }}
+                )
+                breach_count += 1
+            else:
+                db.Bids.update_one(
+                    {"_id": bid["_id"]},
+                    {"$set": {"slaBreached": False}}
+                )
 
-    return {
-        "checked":   checked_count,
-        "breaches":  breach_count,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-    }
+        return {
+            "checked":   checked_count,
+            "breaches":  breach_count,
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }
+    except Exception as exc:
+        logger.exception("check_sla_breaches failed")
+        raise self.retry(exc=exc, countdown=300)
 
 
-@celery.task
-def monthly_model_retraining():
+@celery.task(bind=True, max_retries=1)
+def monthly_model_retraining(self):
     """Monthly Celery task to retrain the XGBoost model from closed bids."""
     from database import db
     from ml.retrain import retrain_from_db
@@ -119,7 +119,7 @@ def monthly_model_retraining():
         return results
     except Exception as e:
         logger.exception("monthly_model_retraining failed")
-        return {"status": "error", "msg": str(e)}
+        raise self.retry(exc=e, countdown=3600)
 
 
 # Schedule Celery beat cron tasks

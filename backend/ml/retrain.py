@@ -83,10 +83,22 @@ def retrain_from_db(db) -> dict:
             "min_required": MIN_TRAINING_RECORDS,
         }
 
-    # Build agent win-rate map
+    # ── STRATIFIED TRAIN/TEST SPLIT FIRST (prevents data leakage) ──────────
+    labels_all = [1 if b["status"] == "Order Received" else 0 for b in terminal_bids]
+    test_size = 0.2 if len(terminal_bids) >= 100 else 0.1
+    indices = list(range(len(terminal_bids)))
+    train_idx, test_idx = train_test_split(
+        indices, test_size=test_size, random_state=42,
+        stratify=labels_all if sum(labels_all) > 1 else None
+    )
+    train_bids = [terminal_bids[i] for i in train_idx]
+    test_bids = [terminal_bids[i] for i in test_idx]
+
+    # ── AGGREGATE STATS FROM TRAINING DATA ONLY ────────────────────────────
+    # Agent win-rate map
     agent_wins = {}
     agent_total = {}
-    for bid in terminal_bids:
+    for bid in train_bids:
         name = bid.get("assignedEmployee", "")
         if name:
             agent_total[name] = agent_total.get(name, 0) + 1
@@ -99,10 +111,10 @@ def retrain_from_db(db) -> dict:
             return 0.5
         return agent_wins.get(name, 0) / total
 
-    # Build industry win-rate map
+    # Industry win-rate map
     industry_wins = {}
     industry_total = {}
-    for bid in terminal_bids:
+    for bid in train_bids:
         ind = bid.get("industry", "Other") or "Other"
         industry_total[ind] = industry_total.get(ind, 0) + 1
         if bid["status"] == "Order Received":
@@ -114,9 +126,9 @@ def retrain_from_db(db) -> dict:
             return 0.5
         return industry_wins.get(ind, 0) / total
 
-    # Build industry avg amount
+    # Industry avg amount
     industry_amounts = {}
-    for bid in terminal_bids:
+    for bid in train_bids:
         ind = bid.get("industry", "Other") or "Other"
         amount = float(bid.get("amount") or 0)
         if ind not in industry_amounts:
@@ -124,95 +136,86 @@ def retrain_from_db(db) -> dict:
         industry_amounts[ind].append(amount)
 
     industry_avg = {ind: np.mean(amts) for ind, amts in industry_amounts.items()}
-    global_avg_amount = np.mean([float(b.get("amount") or 0) for b in terminal_bids])
+    global_avg_amount = np.mean([float(b.get("amount") or 0) for b in train_bids]) if train_bids else 0.0
 
-    # Fix target leak: sample amounts for Lost deals
-    won_amounts = [float(b.get("amount") or 0) for b in terminal_bids if b["status"] == "Order Received"]
+    # Won amounts for target leak fix
+    won_amounts = [float(b.get("amount") or 0) for b in train_bids if b["status"] == "Order Received"]
     np.random.seed(42)
 
-    # Build employee experience map
+    # Employee experience map
     emp_counts = {}
-    for bid in terminal_bids:
+    for bid in train_bids:
         name = bid.get("assignedEmployee", "")
         if name:
             emp_counts[name] = emp_counts.get(name, 0) + 1
 
-    # Feature engineering
-    rows = []
-    labels = []
-
-    for bid in terminal_bids:
-        amount = float(bid.get("amount") or 0)
-
-        # Fix target leak for Lost deals
-        if bid["status"] == "Rejected" and amount == 0:
-            if won_amounts:
-                amount = np.random.choice(won_amounts)
-
-        # Days to deadline
-        days_to_deadline = 30
-        try:
-            created = bid.get("history", [{}])[0].get("date")
-            sub_str = bid.get("submissionDate", "")
-            if created and sub_str:
-                sub_dt = datetime.datetime.strptime(sub_str, "%Y-%m-%d")
-                if isinstance(created, datetime.datetime) and created.tzinfo is not None:
-                    created = created.astimezone(datetime.timezone.utc).replace(tzinfo=None)
-                days_to_deadline = max(1, (sub_dt - created).days)
-        except Exception:
-            pass
-
-        # Deadline urgency
-        if days_to_deadline < 7:
-            deadline_urgency = 2
-        elif days_to_deadline < 30:
-            deadline_urgency = 1
-        else:
-            deadline_urgency = 0
-
-        priority_encoded = 1
-        industry = bid.get("industry", "Other") or "Other"
-        employee_win_rate = real_win_rate(bid.get("assignedEmployee", ""))
-        employee_experience = emp_counts.get(bid.get("assignedEmployee", ""), 1)
-        ind_wr = industry_win_rate(industry)
-        ind_avg = industry_avg.get(industry, global_avg_amount)
-        amount_vs_industry_avg = amount / ind_avg if ind_avg > 0 else 1.0
-        amount_log = float(np.log1p(amount))
-        amount_x_win_rate = amount_log * employee_win_rate
-
-        # For product_series and regional_office, use defaults since we don't have this data in bids
-        product_series_encoded = 0
-        regional_office_encoded = 0
-        sales_price = 0.0
-
-        rows.append([
-            amount, amount_log, days_to_deadline, deadline_urgency,
-            priority_encoded, employee_win_rate, employee_experience,
-            ind_wr, amount_vs_industry_avg, amount_x_win_rate,
-            0,  # industry_encoded placeholder
-            product_series_encoded, regional_office_encoded, sales_price,
-            industry,  # for encoding
-        ])
-        labels.append(1 if bid["status"] == "Order Received" else 0)
-
-    # Encode industry
-    industries = [r[14] for r in rows]
+    # ── LABEL ENCODER FITTED ON TRAINING INDUSTRIES ONLY ───────────────────
+    train_industries = [bid.get("industry", "Other") or "Other" for bid in train_bids]
     le = LabelEncoder()
-    le.fit(industries)
+    le.fit(train_industries)
 
-    # Build feature matrix
-    X = np.array([r[:14] for r in rows], dtype=float)
-    # Update industry_encoded column
-    for i, r in enumerate(rows):
-        X[i, 10] = le.transform([r[14]])[0]
+    # ── FEATURE ENGINEERING FUNCTION ───────────────────────────────────────
+    def build_features(bids):
+        rows = []
+        labels = []
+        for bid in bids:
+            amount = float(bid.get("amount") or 0)
 
-    y = np.array(labels)
+            if bid["status"] == "Rejected" and amount == 0:
+                if won_amounts:
+                    amount = np.random.choice(won_amounts)
 
-    # Train/test split
-    test_size = 0.2 if len(y) >= 100 else 0.1
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=42, stratify=y if y.sum() > 1 else None
-    )
+            days_to_deadline = 30
+            try:
+                created = bid.get("history", [{}])[0].get("date")
+                sub_str = bid.get("submissionDate", "")
+                if created and sub_str:
+                    sub_dt = datetime.datetime.strptime(sub_str, "%Y-%m-%d")
+                    if isinstance(created, datetime.datetime) and created.tzinfo is not None:
+                        created = created.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+                    days_to_deadline = max(1, (sub_dt - created).days)
+            except Exception:
+                pass
+
+            if days_to_deadline < 7:
+                deadline_urgency = 2
+            elif days_to_deadline < 30:
+                deadline_urgency = 1
+            else:
+                deadline_urgency = 0
+
+            priority_encoded = 1
+            industry = bid.get("industry", "Other") or "Other"
+            employee_win_rate = real_win_rate(bid.get("assignedEmployee", ""))
+            employee_experience = emp_counts.get(bid.get("assignedEmployee", ""), 1)
+            ind_wr = industry_win_rate(industry)
+            ind_avg = industry_avg.get(industry, global_avg_amount)
+            amount_vs_industry_avg = amount / ind_avg if ind_avg > 0 else 1.0
+            amount_log = float(np.log1p(amount))
+            amount_x_win_rate = amount_log * employee_win_rate
+
+            product_series_encoded = 0
+            regional_office_encoded = 0
+            sales_price = 0.0
+
+            # Encode industry (unseen → len(le.classes_) as fallback)
+            if industry in le.classes_:
+                industry_encoded = int(le.transform([industry])[0])
+            else:
+                industry_encoded = len(le.classes_)
+
+            rows.append([
+                amount, amount_log, days_to_deadline, deadline_urgency,
+                priority_encoded, employee_win_rate, employee_experience,
+                ind_wr, amount_vs_industry_avg, amount_x_win_rate,
+                industry_encoded,
+                product_series_encoded, regional_office_encoded, sales_price,
+            ])
+            labels.append(1 if bid["status"] == "Order Received" else 0)
+        return np.array(rows, dtype=float), np.array(labels)
+
+    X_train, y_train = build_features(train_bids)
+    X_test, y_test = build_features(test_bids)
 
     # Calculate scale_pos_weight
     counter = Counter(y_train)

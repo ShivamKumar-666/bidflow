@@ -132,8 +132,12 @@ ENQUIRIES_SCHEMA = {
         },
         "status": {
             "bsonType": "string",
-            "enum": ["Under Review", "Shortlisted", "Rejected", "Order Received", "Quotation Prepared"],
+            "enum": ["Under Review", "Shortlisted", "Negotiation", "Rejected", "Order Received", "Quotation Prepared"],
             "description": "Enquiry status"
+        },
+        "negotiable": {
+            "bsonType": "bool",
+            "description": "Whether this enquiry allows bid negotiation"
         },
         "createdBy": {
             "bsonType": "string",
@@ -170,9 +174,7 @@ BIDS_SCHEMA = {
                 "Under Review",
                 "Negotiation",
                 "Order Received",
-                "Rejected",
-                "Completed",
-                "Approved / Rejected"
+                "Rejected"
             ],
             "description": "Bid status"
         },

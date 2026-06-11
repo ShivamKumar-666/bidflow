@@ -39,10 +39,10 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
         const res = await api.post("/bids/predict", {
           amount: Number(data.amount),
           days_to_deadline: days,
+          submissionDate: data.submissionDate,
           industry: data.industry,
           assignedEmployee: data.assignedEmployee,
           priority_encoded: 1,
-          is_repeat_customer: 1,
         });
         setLivePredict(res.data);
       } catch {
