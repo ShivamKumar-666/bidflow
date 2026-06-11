@@ -11,15 +11,12 @@ import os
 from celery import Celery
 from celery.schedules import crontab
 from config import Config
-
-# Build broker/backend URIs from the same env var as Flask so deploys
-# don't break when the MongoDB host is non-localhost (SEC-23 fix).
-_MONGO_BASE = Config.MONGO_URI.rsplit('/', 1)[0] + '/bidflow_celery'
+from utils.auth_helpers import now_utc
 
 celery = Celery(
     'bidflow_tasks',
-    broker=os.environ.get('CELERY_BROKER', _MONGO_BASE),
-    backend=os.environ.get('CELERY_BACKEND', _MONGO_BASE),
+    broker=os.environ.get('CELERY_BROKER', Config.REDIS_URL),
+    backend=os.environ.get('CELERY_BACKEND', Config.REDIS_URL),
 )
 
 logger = logging.getLogger(__name__)
@@ -28,14 +25,13 @@ logger = logging.getLogger(__name__)
 SLA_CONFIG = {
     "Under Review":       3,
     "Quotation Prepared": 5,
-    "Submitted":          7,
     "Negotiation":        10,
 }
 
 
 def now_utc_naive():
     """Naive UTC datetime for legacy Mongo BSON compatibility."""
-    return datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    return now_utc().replace(tzinfo=None)
 
 
 @celery.task
@@ -44,7 +40,7 @@ def check_sla_breaches():
     from database import db
     from bson.objectid import ObjectId
 
-    terminal_statuses = ["Order Received", "Completed", "Rejected", "Lost"]
+    terminal_statuses = ["Order Received", "Rejected", "Completed", "Approved / Rejected"]
 
     active_bids = list(db.Bids.find({"status": {"$nin": terminal_statuses}}))
     breach_count  = 0

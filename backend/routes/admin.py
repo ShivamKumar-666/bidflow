@@ -14,6 +14,7 @@ from flask_jwt_extended import jwt_required
 from database import db
 from utils import log_audit
 from utils.auth_helpers import admin_required, now_utc
+from extensions import limiter
 import os
 import datetime
 
@@ -27,11 +28,16 @@ ENCODER_PATH = os.path.join(ML_DIR, 'industry_encoder.pkl')
 @admin_bp.route('/retrain', methods=['POST'])
 @jwt_required()
 @admin_required
+@limiter.limit("3 per hour")
 def retrain_model():
     """Trigger a live model retrain from real MongoDB bid outcomes.
     Requires Admin role. Returns a JSON summary (status, records, accuracy, timestamp)."""
-    from ml.retrain import retrain_from_db
-    result = retrain_from_db(db)
+    try:
+        from ml.retrain import retrain_from_db
+        result = retrain_from_db(db)
+    except Exception:
+        current_app.logger.exception("retrain_model failed")
+        return jsonify({"status": "error", "msg": "Retraining failed"}), 500
 
     if result['status'] == 'success':
         log_audit(
@@ -51,6 +57,7 @@ def retrain_model():
 @admin_bp.route('/model-status', methods=['GET'])
 @jwt_required()
 @admin_required
+@limiter.limit("30 per minute")
 def model_status():
     """Return metadata about the currently deployed model files."""
 
@@ -81,21 +88,29 @@ def model_status():
 @admin_bp.route('/sla/check', methods=['POST'])
 @jwt_required()
 @admin_required
+@limiter.limit("5 per minute")
 def trigger_sla_check():
     """Manually run the SLA breach checker. Requires Admin role."""
     from celery_app import check_sla_breaches
     try:
-        results = check_sla_breaches()
+        result = check_sla_breaches.delay()
+        results = result.get(timeout=30)
         log_audit("SLA_CHECK_TRIGGERED", f"SLA check run manually. Checked {results['checked']} bids, found {results['breaches']} breaches.")
         return jsonify(results), 200
     except Exception:
-        current_app.logger.exception("trigger_sla_check failed")
-        return jsonify({"msg": "Failed to run SLA check"}), 500
+        try:
+            results = check_sla_breaches()
+            log_audit("SLA_CHECK_TRIGGERED", f"SLA check run manually (fallback). Checked {results['checked']} bids, found {results['breaches']} breaches.")
+            return jsonify(results), 200
+        except Exception:
+            current_app.logger.exception("trigger_sla_check failed")
+            return jsonify({"msg": "Failed to run SLA check"}), 500
 
 
 @admin_bp.route('/sla/report', methods=['GET'])
 @jwt_required()
 @admin_required
+@limiter.limit("30 per minute")
 def get_sla_report():
     """Retrieve SLA breach reports grouped by stage and employee. Requires Admin role."""
     try:
@@ -133,6 +148,7 @@ def get_sla_report():
 @admin_bp.route('/models', methods=['GET'])
 @jwt_required()
 @admin_required
+@limiter.limit("30 per minute")
 def get_model_versions():
     """Retrieve list of all model versions. Requires Admin role."""
     try:
@@ -155,6 +171,7 @@ def get_model_versions():
 @admin_bp.route('/models/rollback', methods=['POST'])
 @jwt_required()
 @admin_required
+@limiter.limit("5 per minute")
 def rollback_model_version():
     """Roll back active model to a specific version. Requires Admin role."""
     data = request.get_json() or {}
@@ -167,8 +184,17 @@ def rollback_model_version():
         if not target:
             return jsonify({"msg": f"Model version {version} not found"}), 404
 
-        db.ModelVersions.update_many({}, {"$set": {"isActive": False}})
-        db.ModelVersions.update_one({"version": int(version)}, {"$set": {"isActive": True}})
+        result = db.ModelVersions.update_one(
+            {"version": int(version)},
+            {"$set": {"isActive": True}}
+        )
+        if result.matched_count == 0:
+            return jsonify({"msg": "Failed to activate version"}), 500
+
+        db.ModelVersions.update_many(
+            {"version": {"$ne": int(version)}},
+            {"$set": {"isActive": False}}
+        )
 
         # Trigger hotswap in BidService
         from services import BidService

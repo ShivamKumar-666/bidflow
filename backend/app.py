@@ -15,7 +15,6 @@ from routes.tags import tags_bp
 from routes.notifications import notifications_bp
 from extensions import socketio, limiter, mail, get_allowed_origins
 from database import db
-import datetime
 import os
 import logging
 

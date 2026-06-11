@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
@@ -18,16 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TwoFASetup from "./TwoFASetup";
-
-const languages = [
-  { code: "en", name: "English" },
-  { code: "hi", name: "हिन्दी" },
-  { code: "gu", name: "ગુજરાતી" },
-  { code: "es", name: "Español" },
-  { code: "fr", name: "Français" },
-  { code: "de", name: "Deutsch" },
-  { code: "ar", name: "العربية" },
-];
+import { LANGUAGES } from "@/lib/utils";
 
 const industries = ["Technology", "Healthcare", "Construction", "Energy", "Finance", "Banking", "Manufacturing", "Retail", "Other"];
 
@@ -47,6 +38,11 @@ export default function Profile() {
   const [regenerating, setRegenerating] = useState(false);
   const [newBackupCodes, setNewBackupCodes] = useState([]);
   const [copiedAll, setCopiedAll] = useState(false);
+  const copiedTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current); };
+  }, []);
 
   const [form, setForm] = useState({
     name: "", industry: "Other", winRate: 50, targetBidValue: 10000, bio: "",
@@ -126,7 +122,8 @@ export default function Profile() {
     navigator.clipboard.writeText(newBackupCodes.join("\n"));
     setCopiedAll(true);
     toast.success("Copied");
-    setTimeout(() => setCopiedAll(false), 2000);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopiedAll(false), 2000);
   };
 
   const downloadCodes = () => {
@@ -212,14 +209,14 @@ export default function Profile() {
                 </Label>
                 <Tabs value={i18n.language?.slice(0, 2)} onValueChange={(v) => i18n.changeLanguage(v)}>
                   <TabsList className="grid grid-cols-4 w-full h-8">
-                    {languages.slice(0, 4).map((l) => (
+                    {LANGUAGES.slice(0, 4).map((l) => (
                       <TabsTrigger key={l.code} value={l.code} className="text-xs">
                         {l.code.toUpperCase()}
                       </TabsTrigger>
                     ))}
                   </TabsList>
                 </Tabs>
-                <p className="text-[10px] text-muted-foreground">Selected: {languages.find((l) => l.code === i18n.language?.slice(0, 2))?.name}</p>
+                <p className="text-[10px] text-muted-foreground">Selected: {LANGUAGES.find((l) => l.code === i18n.language?.slice(0, 2))?.name}</p>
               </div>
 
               <Separator />
@@ -282,11 +279,11 @@ export default function Profile() {
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("profile.winRate")} (%)</Label>
+                    <Label>{t("profile.winRate")}</Label>
                     <Input type="number" min="0" max="100" value={form.winRate} onChange={(e) => setForm({ ...form, winRate: parseInt(e.target.value) || 0 })} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("profile.targetBidValue")} ($)</Label>
+                    <Label>{t("profile.targetBidValue")}</Label>
                     <Input type="number" min="0" value={form.targetBidValue} onChange={(e) => setForm({ ...form, targetBidValue: parseFloat(e.target.value) || 0 })} />
                   </div>
                 </div>

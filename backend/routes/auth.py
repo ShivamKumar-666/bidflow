@@ -5,7 +5,6 @@ from flask_jwt_extended import (
 )
 from database import db
 from extensions import limiter
-from datetime import timedelta
 from services import AuthService
 from utils.auth_helpers import now_utc
 from utils.email_tokens import generate_verification_token, confirm_verification_token
@@ -26,7 +25,7 @@ def _issue_tokens(user, response):
 @auth_bp.route('/register', methods=['POST'])
 @limiter.limit("5 per minute")
 def register():
-    data = request.get_json()
+    data = request.get_json() or {}
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
@@ -62,7 +61,7 @@ def register():
 @auth_bp.route('/login', methods=['POST'])
 @limiter.limit("10 per minute; 50 per hour")
 def login():
-    data = request.get_json()
+    data = request.get_json() or {}
     email = data.get('email')
     password = data.get('password')
 
@@ -132,14 +131,28 @@ def logout():
 @jwt_required(refresh=True)
 def refresh():
     from bson.objectid import ObjectId
+    from datetime import timezone, datetime as dt
     user_id = get_jwt_identity()
+    jwt_payload = get_jwt()
+    old_jti = jwt_payload.get("jti")
+    old_exp = jwt_payload.get("exp")
+
     user = db.Users.find_one({"_id": ObjectId(user_id)})
     if not user:
         return jsonify({"msg": "User not found"}), 404
 
-    new_access_token, _ = AuthService.create_tokens(user)
+    if old_jti:
+        expiry_dt = dt.fromtimestamp(old_exp, tz=timezone.utc)
+        db.RevokedTokens.update_one(
+            {"jti": old_jti},
+            {"$setOnInsert": {"jti": old_jti, "exp": expiry_dt}},
+            upsert=True
+        )
+
+    new_access_token, new_refresh_token = AuthService.create_tokens(user)
     resp = jsonify({"msg": "Token refreshed"})
     set_access_cookies(resp, new_access_token)
+    set_refresh_cookies(resp, new_refresh_token)
     return resp, 200
 
 
@@ -163,7 +176,7 @@ def me():
 @jwt_required()
 def update_profile():
     current_user_id = get_jwt_identity()
-    data = request.get_json()
+    data = request.get_json() or {}
 
     user, error = AuthService.update_profile(current_user_id, data)
     if error:
@@ -206,7 +219,7 @@ def verify_email():
 @auth_bp.route('/resend-verification', methods=['POST'])
 @limiter.limit("3 per hour")
 def resend_verification():
-    data = request.get_json()
+    data = request.get_json() or {}
     email = data.get('email', '').strip().lower()
 
     if not email:
@@ -242,7 +255,7 @@ def get_google_client_id():
 @auth_bp.route('/google-login', methods=['POST'])
 @limiter.limit("15 per minute")
 def google_login():
-    data = request.get_json()
+    data = request.get_json() or {}
     token = data.get('credential')
     if not token:
         return jsonify({"msg": "Missing Google credential"}), 400

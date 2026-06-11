@@ -4,6 +4,7 @@ import {
 } from "react-router-dom";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, AuthContext } from "@/contexts/AuthContext";
+import { SocketProvider } from "@/contexts/SocketContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import AppLayout from "@/components/AppLayout";
@@ -138,11 +139,13 @@ function App() {
     <ErrorBoundary>
       <AuthProvider>
         <Router>
-          <NotificationProvider>
-            <TooltipProvider delayDuration={200}>
-              <AppRoutes />
-            </TooltipProvider>
-          </NotificationProvider>
+          <SocketProvider>
+            <NotificationProvider>
+              <TooltipProvider delayDuration={200}>
+                <AppRoutes />
+              </TooltipProvider>
+            </NotificationProvider>
+          </SocketProvider>
         </Router>
       </AuthProvider>
     </ErrorBoundary>

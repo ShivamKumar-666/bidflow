@@ -1,4 +1,4 @@
-import React, { useState, useContext, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { Shield, ArrowLeft, AlertCircle, Eye, EyeOff, Sparkles, Mail, Lock, UserPlus, LogIn, Check, X } from "lucide-react";
@@ -97,6 +97,7 @@ export default function Login() {
   const [googleInitialized, setGoogleInitialized] = useState(false);
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
   const otpRefs = useRef([]);
+  const googleCallbackRef = useRef(null);
 
   const isRegistering = mode === "register";
 
@@ -131,6 +132,7 @@ export default function Login() {
       setLoading(false);
     }
   };
+  googleCallbackRef.current = handleGoogleCredentialResponse;
 
   useEffect(() => {
     const initGoogle = async () => {
@@ -139,7 +141,7 @@ export default function Login() {
         if (clientId && window.google) {
           window.google.accounts.id.initialize({
             client_id: clientId,
-            callback: handleGoogleCredentialResponse,
+            callback: (resp) => googleCallbackRef.current?.(resp),
           });
           setGoogleInitialized(true);
           setTimeout(() => {
@@ -176,6 +178,9 @@ export default function Login() {
         const result = await register(name.trim(), email.trim().toLowerCase(), password);
         toast.success(result?.msg || "Account created. Please check your email to verify your account.");
         setMode("login");
+        setName("");
+        setEmail("");
+        setPassword("");
       } else {
         const result = await login(email.trim().toLowerCase(), password);
         if (result?.step === "setup") {

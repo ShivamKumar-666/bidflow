@@ -275,5 +275,22 @@
   "errors": {
     "tooManyAttempts": "Trop de tentatives. Veuillez patienter un instant avant de réessayer.",
     "cannotReachServer": "Impossible de contacter le serveur. Assurez-vous que le serveur est démarré (python app.py) et réessayez."
+  },
+  "calendar": {
+    "title": "Calendrier et Échéances",
+    "upcomingDeadlines": "Prochaines Échéances",
+    "noDeadlines": "Aucune échéance à venir",
+    "todayBtn": "Aujourd'hui",
+    "dueDate": "Date d'Échéance",
+    "serviceRequired": "Service/Produit Requis",
+    "remarks": "Remarques",
+    "days": { "sun": "Dim", "mon": "Lun", "tue": "Mar", "wed": "Mer", "thu": "Jeu", "fri": "Ven", "sat": "Sam" },
+    "months": { "january": "Janvier", "february": "Février", "march": "Mars", "april": "Avril", "may": "Mai", "june": "Juin", "july": "Juillet", "august": "Août", "september": "Septembre", "october": "Octobre", "november": "Novembre", "december": "Décembre" },
+    "priority": "Priorité", "amount": "Montant", "status": "Statut", "prediction": "Prédiction IA", "assignedTo": "Assigné À", "viewDetails": "Gérer l'Offre", "close": "Fermer"
+  },
+  "search": {
+    "noResults": "Aucun résultat trouvé pour",
+    "initialHelp": "Tapez pour rechercher des demandes, offres ou documents",
+    "documents": "Documents", "navigate": "Naviguer", "select": "Sélectionner"
   }
 }

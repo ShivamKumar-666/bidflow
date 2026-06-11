@@ -1,9 +1,10 @@
 import datetime
+import re
 
 import bleach
 from bson.objectid import ObjectId
 from database import db
-from extensions import socketio
+from extensions import socketio, limiter
 from flask import Blueprint, current_app, jsonify, make_response, request
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 from services import BidService, NotificationService
@@ -40,6 +41,7 @@ def get_bids():
 
 @bids_bp.route('/', methods=['POST'])
 @jwt_required()
+@limiter.limit("20 per minute")
 def create_bid():
     data = request.get_json() or {}
 
@@ -90,7 +92,8 @@ def update_bid_status(id):
 
 
 @bids_bp.route('/<id>/comments', methods=['POST'])
-@jwt_required()
+@bid_access_required
+@limiter.limit("30 per minute")
 def add_comment(id):
     data = request.get_json() or {}
     text = (data.get("text") or "").strip()
@@ -158,8 +161,9 @@ def add_comment(id):
 
 @bids_bp.route('/predict', methods=['POST'])
 @jwt_required()
+@limiter.limit("30 per minute")
 def predict_bid():
-    data = request.get_json()
+    data = request.get_json() or {}
     clf, _ = BidService.get_model_and_encoder()
     if not clf:
         return jsonify({"msg": "ML model not loaded"}), 503
@@ -170,8 +174,11 @@ def predict_bid():
         if not current_user:
             return jsonify({"msg": "User not found"}), 404
         current_name = current_user.get("name", "")
+        role = get_jwt().get('role')
 
         override_name = data.get("assignedEmployee", current_name)
+        if role != 'Admin' and override_name != current_name:
+            override_name = current_name
 
         req_industry = data.get("industry")
         if not req_industry or req_industry == "Other":
@@ -208,7 +215,7 @@ def get_calendar_bids():
 
         # Filter by month at DB level if provided
         if month_param:
-            bid_filter["submissionDate"] = {"$regex": f"^{month_param}"}
+            bid_filter["submissionDate"] = {"$regex": f"^{re.escape(month_param)}"}
 
         bids = list(db.Bids.find(bid_filter))
 
@@ -253,6 +260,7 @@ def get_calendar_bids():
 
 @bids_bp.route('/<id>', methods=['PUT'])
 @bid_access_required
+@limiter.limit("60 per minute")
 def update_bid(id):
     bid_oid = require_oid(id)
 
@@ -319,6 +327,7 @@ def get_quotation_pdf(id):
 
 @bids_bp.route('/<id>', methods=['DELETE'])
 @bid_access_required
+@limiter.limit("10 per minute")
 def delete_bid(id):
     bid_oid = require_oid(id)
 
@@ -339,7 +348,8 @@ def delete_bid(id):
 
 
 @bids_bp.route('/<id>/comments/<comment_id>', methods=['DELETE'])
-@jwt_required()
+@bid_access_required
+@limiter.limit("20 per minute")
 def delete_comment(id, comment_id):
     bid_oid = require_oid(id)
     if bid_oid is None:

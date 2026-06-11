@@ -275,5 +275,22 @@
   "errors": {
     "tooManyAttempts": "محاولات كثيرة جداً. يرجى الانتظار لحظة قبل المحاولة مرة أخرى.",
     "cannotReachServer": "لا يمكن الوصول إلى الخادم. تأكد من تشغيل الخادم الخلفي (python app.py) وحاول مرة أخرى."
+  },
+  "calendar": {
+    "title": "التقويم والمواعيد النهائية",
+    "upcomingDeadlines": "المواعيد النهائية القادمة",
+    "noDeadlines": "لا توجد مواعيد نهائية قادمة",
+    "todayBtn": "اليوم",
+    "dueDate": "تاريخ الاستحقاق",
+    "serviceRequired": "الخدمة/المنتج المطلوب",
+    "remarks": "ملاحظات",
+    "days": { "sun": "أحد", "mon": "اثنين", "tue": "ثلاثاء", "wed": "أربعاء", "thu": "خميس", "fri": "جمعة", "sat": "سبت" },
+    "months": { "january": "يناير", "february": "فبراير", "march": "مارس", "april": "أبريل", "may": "مايو", "june": "يونيو", "july": "يوليو", "august": "أغسطس", "september": "سبتمبر", "october": "أكتوبر", "november": "نوفمبر", "december": "ديسمبر" },
+    "priority": "الأولوية", "amount": "المبلغ", "status": "الحالة", "prediction": "توقعات الذكاء الاصطناعي", "assignedTo": "مسند إلى", "viewDetails": "إدارة العرض", "close": "إغلاق"
+  },
+  "search": {
+    "noResults": "لم يتم العثور على نتائج لـ",
+    "initialHelp": "اكتب للبحث في الاستفسارات والعروض والمستندات",
+    "documents": "المستندات", "navigate": "تنقل", "select": "اختر"
   }
 }

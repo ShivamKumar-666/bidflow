@@ -4,6 +4,7 @@ import hmac
 import io
 import os
 import random
+import re
 import secrets
 
 import joblib
@@ -35,6 +36,7 @@ class BidService:
     _user_cache = {}  # {employee_name: (user_doc, timestamp)} — fixes N+1 user lookups
     _EXPERIENCE_CACHE_TTL = 60  # seconds
     _USER_CACHE_TTL = 60  # seconds
+    _CACHE_MAX_SIZE = 500
 
     FEATURE_NAMES = [
         'amount', 'amount_log', 'days_to_deadline', 'deadline_urgency',
@@ -53,7 +55,7 @@ class BidService:
                 "Model loaded from MongoDB without an integrity signature — "
                 "this is a legacy record. Retrain the model to add a signature."
             )
-            return True
+            return False
         expected = hmac.new(
             current_app.config['SECRET_KEY'].encode(),
             binary_data,
@@ -96,10 +98,54 @@ class BidService:
                 ml_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ml')
                 model_path = os.path.join(ml_dir, 'bid_model.pkl')
                 encoder_path = os.path.join(ml_dir, 'industry_encoder.pkl')
-                if os.path.exists(model_path):
-                    cls._model = joblib.load(model_path)
-                if os.path.exists(encoder_path):
-                    cls._industry_encoder = joblib.load(encoder_path)
+                model_sig_path = os.path.join(ml_dir, 'bid_model.sig')
+                encoder_sig_path = os.path.join(ml_dir, 'industry_encoder.sig')
+
+                if os.path.exists(model_path) and os.path.exists(encoder_path):
+                    model_verified = False
+                    encoder_verified = False
+
+                    if os.path.exists(model_sig_path):
+                        with open(model_path, 'rb') as f:
+                            model_bin = f.read()
+                        with open(model_sig_path, 'r') as f:
+                            stored_sig = f.read().strip()
+                        expected_sig = hmac.new(
+                            current_app.config['SECRET_KEY'].encode(),
+                            model_bin,
+                            hashlib.sha256
+                        ).hexdigest()
+                        if hmac.compare_digest(expected_sig, stored_sig):
+                            cls._model = joblib.load(io.BytesIO(model_bin))
+                            model_verified = True
+                        else:
+                            current_app.logger.critical(
+                                "Local model file signature mismatch — possible tampering"
+                            )
+
+                    if os.path.exists(encoder_sig_path):
+                        with open(encoder_path, 'rb') as f:
+                            encoder_bin = f.read()
+                        with open(encoder_sig_path, 'r') as f:
+                            stored_sig = f.read().strip()
+                        expected_sig = hmac.new(
+                            current_app.config['SECRET_KEY'].encode(),
+                            encoder_bin,
+                            hashlib.sha256
+                        ).hexdigest()
+                        if hmac.compare_digest(expected_sig, stored_sig):
+                            cls._industry_encoder = joblib.load(io.BytesIO(encoder_bin))
+                            encoder_verified = True
+                        else:
+                            current_app.logger.critical(
+                                "Local encoder file signature mismatch — possible tampering"
+                            )
+
+                    if not model_verified or not encoder_verified:
+                        current_app.logger.warning(
+                            "Local model/encoder files lack valid signatures. "
+                            "Retrain the model to generate signature files."
+                        )
         except Exception as e:
             current_app.logger.warning("Could not load ML model or encoder: %s", e)
         return cls._model, cls._industry_encoder
@@ -164,6 +210,9 @@ class BidService:
             return cached[0]
 
         count = db.Bids.count_documents({"assignedEmployee": employee_name})
+        if len(cls._experience_cache) >= cls._CACHE_MAX_SIZE:
+            oldest_key = min(cls._experience_cache, key=lambda k: cls._experience_cache[k][1])
+            del cls._experience_cache[oldest_key]
         cls._experience_cache[employee_name] = (count, now)
         return count
 
@@ -179,6 +228,9 @@ class BidService:
             return cached[0]
         user = db.Users.find_one({"name": employee_name}, {"_id": 1, "name": 1})
         if user:
+            if len(cls._user_cache) >= cls._CACHE_MAX_SIZE:
+                oldest_key = min(cls._user_cache, key=lambda k: cls._user_cache[k][1])
+                del cls._user_cache[oldest_key]
             cls._user_cache[employee_name] = (user, now)
         return user
 
@@ -413,7 +465,7 @@ class BidService:
         if not employee_name:
             return {}
         return {"$or": [
-            {"assignedEmployee": {"$regex": f"^{employee_name}$", "$options": "i"}},
+            {"assignedEmployee": {"$regex": f"^{re.escape(employee_name)}$", "$options": "i"}},
             {"assignedEmployee": str(user_id)}
         ]}
 

@@ -275,5 +275,22 @@
   "errors": {
     "tooManyAttempts": "Demasiados intentos. Por favor, espere un momento antes de volver a intentarlo.",
     "cannotReachServer": "No se puede establecer conexión con el servidor. Asegúrese de que el backend se esté ejecutando (python app.py) e inténtelo de nuevo."
+  },
+  "calendar": {
+    "title": "Calendario y Plazos",
+    "upcomingDeadlines": "Próximos Plazos",
+    "noDeadlines": "No hay plazos próximos",
+    "todayBtn": "Hoy",
+    "dueDate": "Fecha Límite",
+    "serviceRequired": "Servicio/Producto Requerido",
+    "remarks": "Observaciones",
+    "days": { "sun": "Dom", "mon": "Lun", "tue": "Mar", "wed": "Mié", "thu": "Jue", "fri": "Vie", "sat": "Sáb" },
+    "months": { "january": "Enero", "february": "Febrero", "march": "Marzo", "april": "Abril", "may": "Mayo", "june": "Junio", "july": "Julio", "august": "Agosto", "september": "Septiembre", "october": "Octubre", "november": "Noviembre", "december": "Diciembre" },
+    "priority": "Prioridad", "amount": "Monto", "status": "Estado", "prediction": "Predicción IA", "assignedTo": "Asignado A", "viewDetails": "Gestionar Oferta", "close": "Cerrar"
+  },
+  "search": {
+    "noResults": "No se encontraron resultados para",
+    "initialHelp": "Escriba para buscar consultas, ofertas o documentos",
+    "documents": "Documentos", "navigate": "Navegar", "select": "Seleccionar"
   }
 }

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon, ExternalLink, Inbox } from "lucide-react";
+import { toast } from "sonner";
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -41,18 +42,23 @@ export default function CalendarView() {
   const currentMonth = currentDate.getMonth();
 
   useEffect(() => {
+    const controller = new AbortController();
     const monthStr = `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}`;
-    api.get(`/bids/calendar?month=${monthStr}`)
+    api.get(`/bids/calendar?month=${monthStr}`, { signal: controller.signal })
       .then((r) => {
         setEvents(r.data || []);
       })
       .catch((err) => {
+        if (err?.name === 'CanceledError') return;
         console.error("Calendar API error:", err);
+        toast.error("Failed to load calendar data");
       });
+    return () => controller.abort();
   }, [currentYear, currentMonth]);
 
   useEffect(() => {
-    api.get("/bids/calendar")
+    const controller = new AbortController();
+    api.get("/bids/calendar", { signal: controller.signal })
       .then((r) => {
         const sorted = (r.data || [])
           .filter((b) => b.status !== "Order Received" && b.status !== "Rejected")
@@ -60,8 +66,11 @@ export default function CalendarView() {
         setUpcoming(sorted.slice(0, 10));
       })
       .catch((err) => {
+        if (err?.name === 'CanceledError') return;
         console.error("Upcoming deadlines API error:", err);
+        toast.error("Failed to load upcoming deadlines");
       });
+    return () => controller.abort();
   }, []);
 
   useEffect(() => {
@@ -81,16 +90,19 @@ export default function CalendarView() {
   const firstDay = new Date(currentYear, currentMonth, 1).getDay();
   const daysInPrev = new Date(currentYear, currentMonth, 0).getDate();
 
-  const cells = [];
-  for (let i = firstDay - 1; i >= 0; i--) {
-    cells.push({ day: daysInPrev - i, current: false, key: `p${i}` });
-  }
-  for (let i = 1; i <= daysInMonth; i++) {
-    cells.push({ day: i, current: true, key: `c${i}` });
-  }
-  while (cells.length < 42) {
-    cells.push({ day: cells.length - daysInMonth - firstDay + 1, current: false, key: `n${cells.length}` });
-  }
+  const cells = useMemo(() => {
+    const result = [];
+    for (let i = firstDay - 1; i >= 0; i--) {
+      result.push({ day: daysInPrev - i, current: false, key: `p${i}` });
+    }
+    for (let i = 1; i <= daysInMonth; i++) {
+      result.push({ day: i, current: true, key: `c${i}` });
+    }
+    while (result.length < 42) {
+      result.push({ day: result.length - daysInMonth - firstDay + 1, current: false, key: `n${result.length}` });
+    }
+    return result;
+  }, [firstDay, daysInPrev, daysInMonth]);
 
   const today = new Date();
   const isToday = (day, current) => {
@@ -103,18 +115,17 @@ export default function CalendarView() {
     return `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
   };
 
-  const eventsByDate = events.reduce((acc, e) => {
+  const eventsByDate = useMemo(() => events.reduce((acc, e) => {
     let dateKey = e.submissionDate;
-    if (dateKey && dateKey.includes("T")) {
+    if (!dateKey) return acc;
+    if (dateKey.includes("T")) {
       dateKey = dateKey.split("T")[0];
     }
-    if (dateKey) {
-      (acc[dateKey] = acc[dateKey] || []).push(e);
-    }
+    (acc[dateKey] = acc[dateKey] || []).push(e);
     return acc;
-  }, {});
+  }, {}), [events]);
 
-  const years = Array.from({ length: 11 }, (_, i) => currentYear - 5 + i);
+  const years = useMemo(() => Array.from({ length: 11 }, (_, i) => currentYear - 5 + i), [currentYear]);
 
   return (
     <div className="space-y-6">

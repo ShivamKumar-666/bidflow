@@ -28,6 +28,9 @@ dist/
 uploads/
 *.pdf
 
+# Data files (may contain PII)
+data/
+
 # IDE
 .vscode/
 .idea/

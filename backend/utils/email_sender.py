@@ -1,3 +1,7 @@
+import html as _html
+import threading
+
+from flask import current_app
 from flask_mail import Message
 from extensions import mail
 from config import Config
@@ -6,9 +10,10 @@ from config import Config
 def send_verification_email(user_name: str, user_email: str, token: str):
     """Send the account verification email."""
     verify_url = f"{Config.FRONTEND_URL}/verify-email?token={token}"
+    safe_name = _html.escape(user_name)
 
     # Plain-text fallback
-    text_body = f"""Hi {user_name},
+    text_body = f"""Hi {safe_name},
 
 Welcome to BidFlow! Please verify your email address by clicking the link below:
 
@@ -52,7 +57,7 @@ If you did not create this account, you can safely ignore this email.
     </div>
     <div class="body">
       <p class="title">Verify your email address</p>
-      <p class="text">Hi {user_name},<br><br>
+      <p class="text">Hi {safe_name},<br><br>
         Welcome to BidFlow! Click the button below to verify your email address
         and activate your account.
       </p>
@@ -73,7 +78,7 @@ If you did not create this account, you can safely ignore this email.
         body=text_body,
         html=html_body
     )
-    mail.send(msg)
+    threading.Thread(target=_send_async, args=(msg, current_app._get_current_object()), daemon=True).start()
 
 
 def send_already_verified_email(user_email: str):
@@ -83,4 +88,13 @@ def send_already_verified_email(user_email: str):
         recipients=[user_email],
         body="Your BidFlow account is already verified. You can log in at any time."
     )
-    mail.send(msg)
+    threading.Thread(target=_send_async, args=(msg, current_app._get_current_object()), daemon=True).start()
+
+
+def _send_async(msg, app):
+    with app.app_context():
+        try:
+            mail.send(msg)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error("Async email send failed: %s", e)

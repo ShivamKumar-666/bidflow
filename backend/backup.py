@@ -87,12 +87,21 @@ def run_backup():
     else:
         cmd += [f'--host={MONGO_HOST}', f'--port={MONGO_PORT}', f'--db={MONGO_DB}']
         if MONGO_USERNAME:
+            import tempfile
+            pw_file = tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt')
+            pw_file.write(MONGO_PASSWORD)
+            pw_file.close()
             cmd += [f'--username={MONGO_USERNAME}',
-                    f'--password={MONGO_PASSWORD}',
+                    f'--password={pw_file.name}',
                     '--authenticationDatabase=admin']
 
     print(f"[{timestamp}] Starting backup → {dump_dir}")
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    finally:
+        if MONGO_USERNAME and 'pw_file' in dir():
+            import os
+            os.unlink(pw_file.name)
 
     if result.returncode != 0:
         print(f"ERROR: mongodump failed:\n{result.stderr}", file=sys.stderr)

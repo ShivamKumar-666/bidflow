@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useContext } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import {
   Search, Bell, Sun, Moon, Globe, LogOut, Command, X, GitBranch, MessageSquare, Info,
 } from "lucide-react";
@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
+import { cn, LANGUAGES } from "@/lib/utils";
 
 function timeAgo(isoString) {
   const diff = Date.now() - new Date(isoString).getTime();
@@ -159,11 +159,11 @@ function GlobalSearch() {
     return () => clearTimeout(t);
   }, [query]);
 
-  const flat = [
+  const flat = useMemo(() => [
     ...results.enquiries.map((d) => ({ type: "enquiry", data: d })),
     ...results.bids.map((d) => ({ type: "bid", data: d })),
     ...results.documents.map((d) => ({ type: "document", data: d })),
-  ];
+  ], [results]);
 
   const handleSelect = (item) => {
     setOpen(false);
@@ -305,16 +305,6 @@ function GlobalSearch() {
   );
 }
 
-const languages = [
-  { code: "en", name: "English" },
-  { code: "hi", name: "हिन्दी" },
-  { code: "gu", name: "ગુજરાતી" },
-  { code: "es", name: "Español" },
-  { code: "fr", name: "Français" },
-  { code: "de", name: "Deutsch" },
-  { code: "ar", name: "العربية" },
-];
-
 export function Navbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -340,7 +330,7 @@ export function Navbar() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Language</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {languages.map((l) => (
+              {LANGUAGES.map((l) => (
                 <DropdownMenuItem
                   key={l.code}
                   onClick={() => i18n.changeLanguage(l.code)}

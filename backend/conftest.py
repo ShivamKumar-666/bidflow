@@ -1,7 +1,7 @@
 import os
 os.environ['MONGO_URI'] = 'mongodb://localhost:27017/bidflow_test'
-os.environ['SECRET_KEY'] = 'test-secret-key-123'
-os.environ['JWT_SECRET_KEY'] = 'test-jwt-secret-key-123'
+os.environ['SECRET_KEY'] = 'test-secret-key-1234567890abcdefghij'
+os.environ['JWT_SECRET_KEY'] = 'test-jwt-secret-key-1234567890abcdefghij'
 os.environ['FLASK_ENV'] = 'testing'
 
 import pytest

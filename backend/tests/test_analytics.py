@@ -74,7 +74,7 @@ class TestKPIAnalytics:
             'status': 'Order Received', 'note': 'Won'
         }, headers=headers)
 
-        export_res = client.get('/api/analytics/export/excel', headers=headers)
+        export_res = client.get('/api/analytics/export/csv', headers=headers)
         assert export_res.status_code == 200
         assert export_res.mimetype == 'text/csv'
         csv_data = export_res.get_data(as_text=True)

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
@@ -62,7 +62,7 @@ const Reports = () => {
 
   const isAdmin = user?.role === "Admin";
 
-  const fetchSlaReport = async () => {
+  const fetchSlaReport = useCallback(async () => {
     if (!isAdmin) return;
     setLoadingSla(true);
     try {
@@ -73,7 +73,7 @@ const Reports = () => {
     } finally {
       setLoadingSla(false);
     }
-  };
+  }, [isAdmin]);
 
   const handleScanSla = async () => {
     setScanningSla(true);
@@ -91,11 +91,13 @@ const Reports = () => {
   };
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchMetrics = async () => {
       try {
-        const res = await api.get("/analytics/dashboard");
+        const res = await api.get("/analytics/dashboard", { signal: controller.signal });
         setMetrics(res.data);
       } catch (err) {
+        if (err?.name === 'CanceledError') return;
         toast.error(t("dashboard.failedLoad"));
       } finally {
         setLoadingMetrics(false);
@@ -107,9 +109,10 @@ const Reports = () => {
       fetchSlaReport();
       fetchModelVersions();
     }
-  }, [t, isAdmin]);
+    return () => controller.abort();
+  }, [t, isAdmin, fetchSlaReport, fetchModelStatus, fetchModelVersions]);
 
-  const fetchModelVersions = async () => {
+  const fetchModelVersions = useCallback(async () => {
     setLoadingVersions(true);
     try {
       const res = await api.get("/admin/models");
@@ -119,7 +122,7 @@ const Reports = () => {
     } finally {
       setLoadingVersions(false);
     }
-  };
+  }, []);
 
   const handleRollback = async (version) => {
     setRollingBack(version);
@@ -135,7 +138,7 @@ const Reports = () => {
     }
   };
 
-  const fetchModelStatus = async () => {
+  const fetchModelStatus = useCallback(async () => {
     setLoadingModel(true);
     try {
       const res = await api.get("/admin/model-status");
@@ -145,7 +148,7 @@ const Reports = () => {
     } finally {
       setLoadingModel(false);
     }
-  };
+  }, []);
 
   const handleRetrainModel = async () => {
     setRetraining(true);
@@ -165,9 +168,10 @@ const Reports = () => {
   };
 
   const handleExport = async () => {
+    let url;
     try {
-      const response = await api.get("/analytics/export/excel", { responseType: "blob" });
-      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const response = await api.get("/analytics/export/csv", { responseType: "blob" });
+      url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute("download", "bids_export.csv");
@@ -177,6 +181,8 @@ const Reports = () => {
       toast.success(t("reports.csvSuccess"));
     } catch (err) {
       toast.error(t("reports.csvFailed"));
+    } finally {
+      if (url) window.URL.revokeObjectURL(url);
     }
   };
 
@@ -294,19 +300,19 @@ const Reports = () => {
           />
           <MetricCard
             title={t("reports.avgBidSize")}
-            value={`$${Math.round(metrics.avgBidSize).toLocaleString()}`}
+            value={`$${Math.round(metrics.avgBidSize || 0).toLocaleString()}`}
             icon={Activity}
             tone="info"
           />
           <MetricCard
             title={t("reports.totalRevenue")}
-            value={`$${metrics.revenueGenerated.toLocaleString()}`}
+            value={`$${(metrics.revenueGenerated || 0).toLocaleString()}`}
             icon={Wallet}
             tone="default"
           />
           <MetricCard
             title={t("reports.pendingApprovals")}
-            value={metrics.pendingApprovals}
+            value={metrics.pendingApprovals ?? 0}
             icon={Clock}
             tone="warning"
           />

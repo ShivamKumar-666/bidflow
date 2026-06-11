@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from database import db
 from services import EnquiryService
 from utils import log_audit
-from utils.auth_helpers import require_oid
+from utils.auth_helpers import require_oid, admin_required
 from extensions import limiter
 
 enquiries_bp = Blueprint('enquiries', __name__)
@@ -11,6 +11,7 @@ enquiries_bp = Blueprint('enquiries', __name__)
 
 @enquiries_bp.route('/', methods=['GET'])
 @jwt_required()
+@limiter.limit("60 per minute")
 def get_enquiries():
     user_id = get_jwt_identity()
     role = get_jwt().get('role')
@@ -41,6 +42,7 @@ def get_enquiries():
 
 @enquiries_bp.route('/', methods=['POST'])
 @jwt_required()
+@limiter.limit("30 per minute")
 def create_enquiry():
     data = request.get_json() or {}
 
@@ -56,10 +58,19 @@ def create_enquiry():
 
 @enquiries_bp.route('/<id>', methods=['PUT'])
 @jwt_required()
+@limiter.limit("30 per minute")
 def update_enquiry(id):
+    user_id = get_jwt_identity()
+    role = get_jwt().get('role')
     enq_oid = require_oid(id)
     if enq_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
+
+    enq = db.Enquiries.find_one({"_id": enq_oid})
+    if not enq:
+        return jsonify({"msg": "Enquiry not found"}), 404
+    if role != 'Admin' and enq.get("createdBy") != user_id:
+        return jsonify({"msg": "Forbidden"}), 403
 
     data = request.get_json() or {}
     enq, error = EnquiryService.update_enquiry(enq_oid, data)
@@ -73,10 +84,9 @@ def update_enquiry(id):
 
 @enquiries_bp.route('/<id>', methods=['DELETE'])
 @jwt_required()
+@admin_required
+@limiter.limit("10 per minute")
 def delete_enquiry(id):
-    if get_jwt().get('role') != 'Admin':
-        return jsonify({"msg": "Admin access required"}), 403
-
     enq_oid = require_oid(id)
     if enq_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
@@ -91,10 +101,19 @@ def delete_enquiry(id):
 
 @enquiries_bp.route('/<id>/share', methods=['POST'])
 @jwt_required()
+@limiter.limit("10 per minute")
 def generate_share_token(id):
+    user_id = get_jwt_identity()
+    role = get_jwt().get('role')
     enq_oid = require_oid(id)
     if enq_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
+
+    enq = db.Enquiries.find_one({"_id": enq_oid})
+    if not enq:
+        return jsonify({"msg": "Enquiry not found"}), 404
+    if role != 'Admin' and enq.get("createdBy") != user_id:
+        return jsonify({"msg": "Forbidden"}), 403
 
     try:
         result, error = EnquiryService.generate_share_token(enq_oid)

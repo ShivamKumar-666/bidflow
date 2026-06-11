@@ -275,5 +275,22 @@
   "errors": {
     "tooManyAttempts": "बहुत सारे प्रयास। कृपया पुनः प्रयास करने से पहले कुछ समय प्रतीक्षा करें।",
     "cannotReachServer": "सर्वर तक नहीं पहुँचा जा सकता। सुनिश्चित करें कि बैकएंड चल रहा है (python app.py) और पुनः प्रयास करें।"
+  },
+  "calendar": {
+    "title": "कैलेंडर और समय सीमा",
+    "upcomingDeadlines": "आगामी समय सीमा",
+    "noDeadlines": "कोई आगामी समय सीमा नहीं",
+    "todayBtn": "आज",
+    "dueDate": "नियत तारीख",
+    "serviceRequired": "सेवा/उत्पाद आवश्यक",
+    "remarks": "टिप्पणी",
+    "days": { "sun": "रवि", "mon": "सोम", "tue": "मंगल", "wed": "बुध", "thu": "गुरु", "fri": "शुक्र", "sat": "शनि" },
+    "months": { "january": "जनवरी", "february": "फरवरी", "march": "मार्च", "april": "अप्रैल", "may": "मई", "june": "जून", "july": "जुलाई", "august": "अगस्त", "september": "सितंबर", "october": "अक्टूबर", "november": "नवंबर", "december": "दिसंबर" },
+    "priority": "प्राथमिकता", "amount": "राशि", "status": "स्थिति", "prediction": "AI पूर्वानुमान", "assignedTo": "सौंपा गया", "viewDetails": "बिड प्रबंधित करें", "close": "बंद करें"
+  },
+  "search": {
+    "noResults": "कोई परिणाम नहीं मिला",
+    "initialHelp": "पूछताछ, बिड या दस्तावेज़ खोजने के लिए टाइप करें",
+    "documents": "दस्तावेज़", "navigate": "नेविगेट", "select": "चुनें"
   }
 }

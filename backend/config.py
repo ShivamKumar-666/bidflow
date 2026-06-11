@@ -89,6 +89,8 @@ class Config:
     FRONTEND_URL       = os.environ.get('FRONTEND_URL', 'http://localhost:5173')
     GOOGLE_CLIENT_ID   = os.environ.get('GOOGLE_CLIENT_ID')
 
+    REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
+
     # Production-only fail-fast guard (SEC-02)
     @classmethod
     def validate_secrets(cls):

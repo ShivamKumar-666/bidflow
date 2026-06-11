@@ -58,15 +58,6 @@ def main():
     
     df = pd.read_csv(csv_path)
     
-    # Fix target leak
-    np.random.seed(42)
-    won_amounts = df[df['won'] == 1]['amount'].values
-    if len(won_amounts) > 0:
-        lost_mask = (df['won'] == 0)
-        df.loc[lost_mask, 'amount'] = np.random.choice(won_amounts, size=lost_mask.sum())
-        if 'amount_log' in df.columns:
-            df.loc[lost_mask, 'amount_log'] = np.log1p(df.loc[lost_mask, 'amount'])
-    
     X = df[FEATURES]
     y = df['won']
     

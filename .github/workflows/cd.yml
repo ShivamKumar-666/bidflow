@@ -11,8 +11,13 @@ env:
   FRONTEND_IMAGE: ${{ github.repository }}/frontend
 
 jobs:
+  ci-gate:
+    name: CI Gate
+    uses: ./.github/workflows/ci.yml
+
   build-and-push:
     name: Build & Push Docker Images
+    needs: [ci-gate]
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -65,7 +65,10 @@ class AuthService:
     def authenticate(cls, email: str, password: str) -> tuple:
         email = email.strip().lower()
         user = db.Users.find_one({"email": email})
-        if not user or not cls.verify_password(password, user['password']):
+        if not user:
+            cls.verify_password(password, "$2b$12$dummyhashdummyhashdummyhashdummyhashdummyhashdummyhashdum")
+            return None, "Bad email or password"
+        if not cls.verify_password(password, user['password']):
             return None, "Bad email or password"
         return user, None
 

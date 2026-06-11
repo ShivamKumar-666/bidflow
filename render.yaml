@@ -54,6 +54,14 @@ services:
         value: production
       - key: MONGO_URI
         sync: false  # Same as backend
+      - key: REDIS_URL
+        sync: false  # Set to your Redis URL (e.g., Upstash free tier)
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: EMAIL_TOKEN_SECRET
+        generateValue: true
 
   # ── Frontend (Static Site) ──────────────────────────────────────────────────
   - type: static_site
@@ -67,3 +75,7 @@ services:
     envVars:
       - key: VITE_API_BASE_URL
         sync: false  # Set to your backend URL after deployment
+      - key: VITE_SOCKET_URL
+        sync: false  # Set to your backend URL after deployment
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false  # Set to your Google OAuth Client ID (optional)

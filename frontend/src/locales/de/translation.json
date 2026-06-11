@@ -275,5 +275,22 @@
   "errors": {
     "tooManyAttempts": "Zu viele Versuche. Bitte warten Sie einen Moment, bevor Sie es erneut versuchen.",
     "cannotReachServer": "Der Server kann nicht erreicht werden. Stellen Sie sicher, dass das Backend läuft (python app.py) und versuchen Sie es erneut."
+  },
+  "calendar": {
+    "title": "Kalender & Fristen",
+    "upcomingDeadlines": "Kommende Fristen",
+    "noDeadlines": "Keine kommenden Fristen",
+    "todayBtn": "Heute",
+    "dueDate": "Fälligkeitsdatum",
+    "serviceRequired": "Benötigter Service/Produkt",
+    "remarks": "Bemerkungen",
+    "days": { "sun": "So", "mon": "Mo", "tue": "Di", "wed": "Mi", "thu": "Do", "fri": "Fr", "sat": "Sa" },
+    "months": { "january": "Januar", "february": "Februar", "march": "März", "april": "April", "may": "Mai", "june": "Juni", "july": "Juli", "august": "August", "september": "September", "october": "Oktober", "november": "November", "december": "Dezember" },
+    "priority": "Priorität", "amount": "Betrag", "status": "Status", "prediction": "KI-Vorhersage", "assignedTo": "Zugewiesen An", "viewDetails": "Angebot Verwalten", "close": "Schließen"
+  },
+  "search": {
+    "noResults": "Keine Ergebnisse gefunden für",
+    "initialHelp": "Tippen Sie, um Anfragen, Angebote oder Dokumente zu suchen",
+    "documents": "Dokumente", "navigate": "Navigieren", "select": "Auswählen"
   }
 }

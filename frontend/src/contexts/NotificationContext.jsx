@@ -1,15 +1,15 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
-import { io } from "socket.io-client";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "@/services/api";
 import { useAuth } from "./AuthContext";
+import { useSocket } from "./SocketContext";
 
 const NotificationContext = createContext(null);
 
 export function NotificationProvider({ children }) {
   const { user } = useAuth();
+  const socketRef = useSocket();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
-  const socketRef = useRef(null);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -34,27 +34,17 @@ export function NotificationProvider({ children }) {
   }, [user]);
 
   useEffect(() => {
-    if (!user?._id) return;
-    // SEC-01: httpOnly cookie is sent automatically by the browser
-    // during the Socket.IO handshake — no need to pass a token.
-    const socket = io(import.meta.env.VITE_SOCKET_URL, {
-      transports: ["websocket", "polling"],
-    });
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      socket.emit("join", { room: `user_${user._id}` });
-    });
+    const socket = socketRef.current;
+    if (!socket) return;
 
     socket.on("notification", (newNotif) => {
       setNotifications((prev) => [newNotif, ...prev]);
     });
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      socket.off("notification");
     };
-  }, [user?._id]);
+  }, [socketRef]);
 
   const markAsRead = async (id) => {
     try {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -32,20 +32,23 @@ const AuditLogs = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    const controller = new AbortController();
     const fetchLogs = async () => {
       try {
-        const res = await api.get("/audit/");
+        const res = await api.get("/audit/", { signal: controller.signal });
         setLogs(res.data);
       } catch (err) {
+        if (err?.name === 'CanceledError') return;
         toast.error(t("audit.failedFetch"));
       } finally {
         setLoading(false);
       }
     };
     fetchLogs();
+    return () => controller.abort();
   }, [t]);
 
-  const filtered = logs.filter((log) => {
+  const filtered = useMemo(() => logs.filter((log) => {
     if (!search.trim()) return true;
     const q = search.toLowerCase();
     return (
@@ -53,7 +56,7 @@ const AuditLogs = () => {
       (log.action || "").toLowerCase().includes(q) ||
       (log.details || "").toLowerCase().includes(q)
     );
-  });
+  }), [logs, search]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">

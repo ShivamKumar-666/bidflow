@@ -11,6 +11,7 @@ Complete guide to deploy BidFlow on Render (free tier) with MongoDB Atlas (free 
 - GitHub account with BidFlow repository
 - Render account (free): https://render.com
 - MongoDB Atlas account (free): https://www.mongodb.com/atlas
+- Redis account (free): https://upstash.com (for Celery task queue)
 
 ---
 
@@ -58,6 +59,28 @@ Complete guide to deploy BidFlow on Render (free tier) with MongoDB Atlas (free 
 
 ---
 
+## Step 1.5: Redis Setup (Free Tier — Upstash)
+
+Redis is required for Celery (background task queue for SLA checks and ML retraining).
+
+### 1.5.1 Create Upstash Redis
+
+1. Go to [Upstash](https://upstash.com)
+2. Sign up / Log in (free tier: 10,000 commands/day)
+3. Click **"Create Database"**
+4. Choose:
+   - **Name**: `bidflow-redis`
+   - **Region**: Same as your MongoDB Atlas region
+   - **Max. Write**: 10,000 commands/day (free tier)
+5. Click **"Create"**
+6. Copy the **REST URL** (looks like):
+   ```
+   redis://default:xxxxxx@xxxxx.upstash.io:6379
+   ```
+7. Save this URL — you'll need it for the Celery worker
+
+---
+
 ## Step 2: Push Code to GitHub
 
 Ensure your BidFlow code is pushed to GitHub:
@@ -101,6 +124,7 @@ Render will prompt you to set the following **secret** environment variables (va
 | Variable | Value |
 |----------|-------|
 | `MONGO_URI` | Same as backend |
+| `REDIS_URL` | Your Upstash Redis URL (from Step 1.5.6) |
 
 #### Frontend (`bidflow-frontend`):
 
@@ -230,6 +254,16 @@ You should see the BidFlow login page.
 2. For Gmail, use an **App Password** (not your regular password)
 3. Check Render logs for SMTP errors
 
+### Celery worker can't connect to Redis
+
+**Error**: "ConnectionError: Error connecting to ..."
+
+**Solution**:
+1. Verify `REDIS_URL` is set correctly in Render dashboard
+2. For Upstash, ensure the URL format is `redis://default:password@host:port`
+3. Check Upstash dashboard — free tier has 10,000 commands/day limit
+4. If using Docker Compose locally, ensure Redis container is running: `docker compose up -d redis`
+
 ---
 
 ## Cost Breakdown
@@ -240,6 +274,7 @@ You should see the BidFlow login page.
 | Render Celery | Free | $0 |
 | Render Frontend | Free | $0 |
 | MongoDB Atlas | M0 Sandbox (512MB) | $0 |
+| Upstash Redis | Free (10K cmds/day) | $0 |
 | **Total** | | **$0/month** |
 
 ---
@@ -262,6 +297,7 @@ If you need to upgrade for production use:
 |---------|------|---------|
 | Render Starter Plan | $7/month | Always-on backend, 512MB RAM |
 | MongoDB Atlas M10 | $57/month | 10GB storage, backups, monitoring |
+| Upstash Redis Pro | $10/month | 100K commands/day, persistence |
 | Cloudflare R2 | Free tier | Persistent file storage |
 | Custom Domain | ~$10/year | Professional URL |
 

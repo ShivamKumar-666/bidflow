@@ -146,7 +146,7 @@ class TestBidDelete:
         headers = auth_headers('Bid Del NotFound', 'biddelnf@bidflow.com', 'BidDel1!')
         fake_id = str(ObjectId())
         res = client.delete(f'/api/bids/{fake_id}', headers=headers)
-        assert res.status_code in (404, 500)
+        assert res.status_code == 404
 
 
 class TestBidCommentDelete:
@@ -197,7 +197,7 @@ class TestBidCommentDelete:
         }, headers=headers1)
         comment_id = comment_res.get_json()['_id']
         res = client.delete(f'/api/bids/{bid_db_id}/comments/{comment_id}', headers=headers2)
-        assert res.status_code in (200, 403)
+        assert res.status_code == 403
 
 
 class TestDocuments:
@@ -315,7 +315,7 @@ class TestTwoFA:
         res = client.get('/api/2fa/setup', headers=headers)
         assert res.status_code == 200
         data = res.get_json()
-        assert 'secret' in data
+        assert 'secret' not in data
         assert 'qr_code' in data
 
     @patch('routes.twofa.pyotp.TOTP')

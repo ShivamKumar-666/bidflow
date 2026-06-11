@@ -14,14 +14,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxslt1-dev \
     && rm -rf /var/lib/apt/lists/*
 
+RUN useradd -r -s /bin/false appuser
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Create uploads directory for local dev; Render uses /tmp/bidflow_uploads
-RUN mkdir -p uploads /tmp/bidflow_uploads
+RUN mkdir -p uploads /tmp/bidflow_uploads && \
+    chown -R appuser:appuser /app
 
 EXPOSE 5000
+
+USER appuser
 
 CMD ["gunicorn", "-c", "gunicorn.conf.py", "wsgi:app"]

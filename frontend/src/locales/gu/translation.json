@@ -275,5 +275,22 @@
   "errors": {
     "tooManyAttempts": "ઘણા બધા પ્રયાસો. કૃપા કરીને ફરી પ્રયાસ કરતા પહેલા થોડી ક્ષણ રાહ જુઓ.",
     "cannotReachServer": "સર્વર સુધી પહોંચી શકાતું નથી. ખાતરી કરો કે બેકએન્ડ ચાલુ છે (python app.py) અને ફરી પ્રયાસ કરો."
+  },
+  "calendar": {
+    "title": "કેલેન્ડર અને સમયમર્યાદા",
+    "upcomingDeadlines": "આગામી સમયમર્યાદા",
+    "noDeadlines": "કોઈ આગામી સમયમર્યાદા નથી",
+    "todayBtn": "આજે",
+    "dueDate": "નિયત તારીખ",
+    "serviceRequired": "સેવા/ઉત્પાદન જરૂરી",
+    "remarks": "ટિપ્પણી",
+    "days": { "sun": "રવિ", "mon": "સોમ", "tue": "મંગળ", "wed": "બુધ", "thu": "ગુરુ", "fri": "શુક્ર", "sat": "શનિ" },
+    "months": { "january": "જાન્યુઆરી", "february": "ફેબ્રુઆરી", "march": "માર્ચ", "april": "એપ્રિલ", "may": "મે", "june": "જૂન", "july": "જુલાઈ", "august": "ઓગસ્ટ", "september": "સપ્ટેમ્બર", "october": "ઓક્ટોબર", "november": "નવેમ્બર", "december": "ડિસેમ્બર" },
+    "priority": "પ્રાથમિકતા", "amount": "રકમ", "status": "સ્થિતિ", "prediction": "AI અનુમાન", "assignedTo": "સોંપાયેલ", "viewDetails": "બિડ સંચાલિત કરો", "close": "બંધ કરો"
+  },
+  "search": {
+    "noResults": "કોઈ પરિણામ મળ્યું નથી",
+    "initialHelp": "પૂછપરછ, બિડ અથવા દસ્તાવેજો શોધવા માટે ટાઇપ કરો",
+    "documents": "દસ્તાવેજો", "navigate": "નેવિગેટ", "select": "પસંદ કરો"
   }
 }

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "@/contexts/ThemeContext";
+import { cn } from "@/lib/utils";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
@@ -42,7 +43,7 @@ function MetricCard({ label, value, icon: Icon, trend, accent = "default", loadi
           <Skeleton className="h-9 w-24" />
         ) : (
           <div className="flex items-end justify-between">
-            <div className={cn(value, "text-3xl font-bold tracking-tight", accents[accent])}>
+            <div className={cn("text-3xl font-bold tracking-tight", accents[accent])}>
               {value}
             </div>
             {trend && (
@@ -56,10 +57,6 @@ function MetricCard({ label, value, icon: Icon, trend, accent = "default", loadi
       </CardContent>
     </Card>
   );
-}
-
-function cn(...args) {
-  return args.filter(Boolean).join(" ");
 }
 
 export default function Dashboard() {
@@ -88,9 +85,9 @@ export default function Dashboard() {
     fetch();
   }, [t]);
 
-  const fmt = (n) => "$" + Number(n || 0).toLocaleString();
+  const fmt = useCallback((n) => "$" + Number(n || 0).toLocaleString(), []);
 
-  const barData = {
+  const barData = useMemo(() => ({
     labels: [
       t("dashboard.wonBids"),
       t("dashboard.lostBids", "Lost Bids"),
@@ -109,9 +106,9 @@ export default function Dashboard() {
       borderRadius: 8,
       borderSkipped: false,
     }],
-  };
+  }), [metrics, t]);
 
-  const barOpts = {
+  const barOpts = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: { legend: { display: false } },
@@ -126,7 +123,7 @@ export default function Dashboard() {
         ticks: { color: chartDefaults(isDark).color },
       },
     },
-  };
+  }), [isDark]);
 
   return (
     <div className="space-y-6">

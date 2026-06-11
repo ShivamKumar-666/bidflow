@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from bson.objectid import ObjectId
 from database import db
+from extensions import limiter
 import re
 
 search_bp = Blueprint('search', __name__)
@@ -10,6 +11,7 @@ search_bp = Blueprint('search', __name__)
 @search_bp.route('/', methods=['GET'])
 @search_bp.route('', methods=['GET'])
 @jwt_required()
+@limiter.limit("30 per minute")
 def global_search():
     """Global search across Enquiries, Bids, and Documents. Bids are scoped
     to the caller's tenant view; Enquiries are scoped by createdBy (or
@@ -18,6 +20,9 @@ def global_search():
         query = request.args.get('q', '').strip()
         if not query:
             return jsonify({"enquiries": [], "bids": [], "documents": []}), 200
+
+        if len(query) > 200:
+            return jsonify({"msg": "Query too long (max 200 characters)"}), 400
 
         user_id = get_jwt_identity()
         role    = get_jwt().get('role')
@@ -71,20 +76,16 @@ def global_search():
             bids.append(bid)
 
         # 3. Search Documents — restricted to documents on bids the caller can see
-        visible_bid_ids = [b.get("bidId") for b in db.Bids.find(bid_filter, {"bidId": 1}) if b.get("bidId")]
-        doc_or = [
-            {"filename": regex_query},
-            {"bidId":    regex_query if not visible_bid_ids else {"$in": visible_bid_ids + [query]}},
-        ]
+        visible_bid_ids = [str(b["_id"]) for b in db.Bids.find(bid_filter, {"_id": 1}).limit(500)]
         if visible_bid_ids:
-            doc_or = [
+            doc_filter = {"$and": [
                 {"filename": regex_query},
-                {"bidId":    {"$in": visible_bid_ids}},
-            ]
+                {"bidId": {"$in": visible_bid_ids}},
+            ]}
         else:
-            doc_or = [{"_id": {"$exists": False}}]
+            doc_filter = {"_id": {"$exists": False}}
 
-        docs_cursor = db.Documents.find({"$or": doc_or}).limit(10)
+        docs_cursor = db.Documents.find(doc_filter).limit(10)
 
         documents = []
         for doc in docs_cursor:

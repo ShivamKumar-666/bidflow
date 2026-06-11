@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -54,7 +54,7 @@ export default function Enquiries() {
     productServiceRequired: "", priority: "Medium", notes: "", tags: [],
   });
 
-  const fetch = async () => {
+  const fetch = useCallback(async () => {
     setLoading(true);
     try {
       const [enq, tg] = await Promise.all([
@@ -68,9 +68,9 @@ export default function Enquiries() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t]);
 
-  useEffect(() => { fetch(); }, []);
+  useEffect(() => { fetch(); }, [fetch]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -98,7 +98,7 @@ export default function Enquiries() {
     }
   };
 
-  const share = async (id) => {
+  const share = useCallback(async (id) => {
     try {
       const res = await api.post(`/enquiries/${id}/share`);
       const url = `${window.location.origin}/share/${res.data.shareToken}`;
@@ -107,7 +107,7 @@ export default function Enquiries() {
     } catch {
       toast.error(t("enquiries.shareFailed", "Failed to generate share link"));
     }
-  };
+  }, [t]);
 
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {

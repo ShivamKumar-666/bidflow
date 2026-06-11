@@ -3,12 +3,14 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from database import db
 from services import DocumentService
 from utils.auth_helpers import require_oid
+from extensions import limiter
 
 documents_bp = Blueprint('documents', __name__)
 
 
 @documents_bp.route('/upload', methods=['POST'])
 @jwt_required()
+@limiter.limit("30 per minute")
 def upload_file():
     if 'file' not in request.files:
         return jsonify({"msg": "No file part"}), 400
@@ -46,6 +48,7 @@ def upload_file():
 
 @documents_bp.route('/download/<doc_id>', methods=['GET'])
 @jwt_required()
+@limiter.limit("30 per minute")
 def download_file(doc_id):
     doc_oid = require_oid(doc_id)
     if doc_oid is None:

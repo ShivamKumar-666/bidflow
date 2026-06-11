@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useRef } from "react";
 import { AuthContext } from "@/contexts/AuthContext";
 import api from "@/services/api";
 import { toast } from "sonner";
@@ -29,6 +29,11 @@ const TwoFASetup = ({ onClose }) => {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [copiedAll, setCopiedAll] = useState(false);
+  const copiedTimerRef = useRef(null);
+
+  useEffect(() => {
+    return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current); };
+  }, []);
 
   useEffect(() => {
     fetchSetup();
@@ -90,7 +95,8 @@ const TwoFASetup = ({ onClose }) => {
     navigator.clipboard.writeText(backupCodes.join("\n"));
     setCopiedAll(true);
     toast.success("Backup codes copied!");
-    setTimeout(() => setCopiedAll(false), 2000);
+    if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+    copiedTimerRef.current = setTimeout(() => setCopiedAll(false), 2000);
   };
 
   const downloadBackupCodes = () => {

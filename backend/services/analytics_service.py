@@ -35,28 +35,43 @@ class AnalyticsService:
         enq_filter = cls.get_enquiry_scope(user_id, role)
 
         total_enquiries = db.Enquiries.count_documents(enq_filter)
-        active_bids = db.Bids.count_documents({**bid_filter, "status": {"$nin": ["Completed", "Approved / Rejected", "Order Received", "Rejected"]}})
-        won_bids = db.Bids.count_documents({**bid_filter, "status": "Order Received"})
-        lost_bids = db.Bids.count_documents({**bid_filter, "status": "Rejected"})
 
-        revenue_pipeline = [
-            {"$match": {**bid_filter, "status": "Order Received"}},
-            {"$group": {"_id": None, "totalRevenue": {"$sum": "$amount"}}}
+        pipeline = [
+            {"$match": bid_filter},
+            {"$facet": {
+                "status_counts": [
+                    {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+                ],
+                "revenue": [
+                    {"$match": {"status": "Order Received"}},
+                    {"$group": {"_id": None, "totalRevenue": {"$sum": "$amount"}}}
+                ],
+                "avg_size": [
+                    {"$group": {"_id": None, "avgSize": {"$avg": "$amount"}}}
+                ],
+            }}
         ]
-        revenue_result = list(db.Bids.aggregate(revenue_pipeline))
+        result = list(db.Bids.aggregate(pipeline))
+        facet = result[0] if result else {}
+
+        status_map = {}
+        for item in facet.get("status_counts", []):
+            status_map[item["_id"]] = item["count"]
+
+        active_statuses = {"Quotation Prepared", "Under Review", "Negotiation"}
+        active_bids = sum(c for s, c in status_map.items() if s in active_statuses)
+        won_bids = status_map.get("Order Received", 0)
+        lost_bids = status_map.get("Rejected", 0)
+        pending_approvals = status_map.get("Under Review", 0)
+
+        revenue_result = facet.get("revenue", [])
         revenue_generated = revenue_result[0]['totalRevenue'] if revenue_result else 0
+
+        avg_result = facet.get("avg_size", [])
+        avg_bid_size = avg_result[0]['avgSize'] if avg_result else 0
 
         total_bids_for_rate = won_bids + lost_bids
         win_rate = round((won_bids / total_bids_for_rate * 100) if total_bids_for_rate > 0 else 0, 1)
-
-        avg_pipeline = [
-            {"$match": bid_filter},
-            {"$group": {"_id": None, "avgSize": {"$avg": "$amount"}}}
-        ]
-        avg_result = list(db.Bids.aggregate(avg_pipeline))
-        avg_bid_size = avg_result[0]['avgSize'] if avg_result else 0
-
-        pending_approvals = db.Bids.count_documents({**bid_filter, "status": "Under Review"})
 
         return {
             "totalEnquiries": total_enquiries,

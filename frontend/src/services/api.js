@@ -88,7 +88,8 @@ api.interceptors.response.use(
       config.__retryCount = config.__retryCount || 0;
       if (config.__retryCount < 3) {
         config.__retryCount += 1;
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        const delay = 500 * Math.pow(2, config.__retryCount - 1);
+        await new Promise((resolve) => setTimeout(resolve, delay));
         return api(config);
       }
     }

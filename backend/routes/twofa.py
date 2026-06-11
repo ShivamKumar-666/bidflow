@@ -15,7 +15,7 @@ import string
 import bcrypt
 from database import db
 from bson.objectid import ObjectId
-from datetime import timedelta
+from utils.auth_helpers import admin_required
 
 twofa_bp = Blueprint('twofa', __name__)
 
@@ -44,6 +44,7 @@ def _check_backup_code(entered_code, hashed_codes):
 
 @twofa_bp.route('/setup', methods=['GET'])
 @jwt_required()
+@admin_required
 @limiter.limit("3 per minute")
 def setup_2fa():
     """
@@ -51,10 +52,6 @@ def setup_2fa():
     The secret is stored temporarily (not yet 'enabled') until /enable is called.
     Only Admins may call this.
     """
-    claims = get_jwt()
-    if claims.get('role') != 'Admin':
-        return jsonify({'msg': 'Admin access required'}), 403
-
     user_id = get_jwt_identity()
     user = db.Users.find_one({'_id': ObjectId(user_id)})
     if not user:
@@ -83,24 +80,19 @@ def setup_2fa():
     qr_b64 = base64.b64encode(buf.getvalue()).decode()
 
     return jsonify({
-        'secret': secret,
         'qr_code': f'data:image/png;base64,{qr_b64}',
-        'otp_uri': otp_uri
     }), 200
 
 
 @twofa_bp.route('/enable', methods=['POST'])
 @jwt_required()
+@admin_required
 @limiter.limit("3 per minute")
 def enable_2fa():
     """
     Verify the user's first TOTP code to confirm setup.
     On success: save the secret permanently, generate backup codes.
     """
-    claims = get_jwt()
-    if claims.get('role') != 'Admin':
-        return jsonify({'msg': 'Admin access required'}), 403
-
     user_id = get_jwt_identity()
     data = request.get_json()
     code = data.get('code', '').strip()
@@ -232,12 +224,10 @@ def verify_2fa():
 
 @twofa_bp.route('/disable', methods=['POST'])
 @jwt_required()
+@admin_required
+@limiter.limit("5 per minute")
 def disable_2fa():
     """Disable 2FA. Requires current password for security."""
-    claims = get_jwt()
-    if claims.get('role') != 'Admin':
-        return jsonify({'msg': 'Admin access required'}), 403
-
     user_id = get_jwt_identity()
     data = request.get_json()
     password = data.get('password', '')
@@ -246,7 +236,11 @@ def disable_2fa():
     if not user:
         return jsonify({'msg': 'User not found'}), 404
 
-    if not bcrypt.checkpw(password.encode(), user['password'].encode()):
+    stored_pw = user.get('password')
+    if not stored_pw:
+        return jsonify({'msg': 'Password-based authentication not available for this account'}), 401
+
+    if not bcrypt.checkpw(password.encode(), stored_pw.encode()):
         return jsonify({'msg': 'Incorrect password'}), 401
 
     db.Users.update_one(
@@ -262,6 +256,7 @@ def disable_2fa():
 
 @twofa_bp.route('/backup-codes', methods=['GET'])
 @jwt_required()
+@limiter.limit("10 per minute")
 def get_backup_codes_count():
     """Returns how many backup codes remain (not the codes themselves)."""
     user_id = get_jwt_identity()
@@ -275,12 +270,10 @@ def get_backup_codes_count():
 
 @twofa_bp.route('/regenerate-backup-codes', methods=['POST'])
 @jwt_required()
+@admin_required
+@limiter.limit("3 per minute")
 def regenerate_backup_codes():
     """Regenerate all backup codes. Requires TOTP code for security."""
-    claims = get_jwt()
-    if claims.get('role') != 'Admin':
-        return jsonify({'msg': 'Admin access required'}), 403
-
     user_id = get_jwt_identity()
     data = request.get_json()
     totp_code = data.get('code', '').strip()
