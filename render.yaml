@@ -35,10 +35,11 @@ services:
         value: "587"
       - key: MAIL_USE_TLS
         value: "true"
+      - key: MAIL_DEFAULT_SENDER
+        sync: false  # Set to your sender email in Render dashboard
       # Set these in Render dashboard:
       # MAIL_USERNAME
       # MAIL_PASSWORD
-      # MAIL_DEFAULT_SENDER
       # GOOGLE_CLIENT_ID (optional)
 
   # ── Celery Worker (Background Tasks) ────────────────────────────────────────

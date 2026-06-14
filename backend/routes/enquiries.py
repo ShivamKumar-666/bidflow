@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify, current_app, send_from_directory
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from database import db
-from services import EnquiryService
+from services import EnquiryService, DocumentService
 from utils import log_audit
 from utils.auth_helpers import require_oid, admin_required
 from extensions import limiter
@@ -15,6 +15,8 @@ enquiries_bp = Blueprint('enquiries', __name__)
 def get_enquiries():
     user_id = get_jwt_identity()
     role = get_jwt().get('role')
+    if role == 'Bidder':
+        return jsonify({"msg": "Bidders must use the marketplace"}), 403
     filter_query = EnquiryService.get_visibility_filter(user_id, role)
 
     try:
@@ -44,6 +46,9 @@ def get_enquiries():
 @jwt_required()
 @limiter.limit("30 per minute")
 def create_enquiry():
+    role = get_jwt().get('role')
+    if role == 'Bidder':
+        return jsonify({"msg": "Bidders must use the marketplace"}), 403
     data = request.get_json() or {}
 
     error = EnquiryService.validate_fields(data)
@@ -62,6 +67,8 @@ def create_enquiry():
 def update_enquiry(id):
     user_id = get_jwt_identity()
     role = get_jwt().get('role')
+    if role == 'Bidder':
+        return jsonify({"msg": "Bidders must use the marketplace"}), 403
     enq_oid = require_oid(id)
     if enq_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
@@ -84,12 +91,20 @@ def update_enquiry(id):
 
 @enquiries_bp.route('/<id>', methods=['DELETE'])
 @jwt_required()
-@admin_required
 @limiter.limit("10 per minute")
 def delete_enquiry(id):
+    user_id = get_jwt_identity()
+    role = get_jwt().get('role')
     enq_oid = require_oid(id)
     if enq_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
+
+    enq = db.Enquiries.find_one({"_id": enq_oid})
+    if not enq:
+        return jsonify({"msg": "Enquiry not found"}), 404
+
+    if role != 'Admin' and enq.get("createdBy") != user_id:
+        return jsonify({"msg": "Forbidden"}), 403
 
     enq, error = EnquiryService.delete_enquiry(enq_oid)
     if error:
@@ -153,16 +168,15 @@ def download_public_share_file(token, doc_id):
         if error:
             return jsonify({"msg": error}), 403 if "expired" in error else 404
 
-        bid = EnquiryService.get_shared_bid(enq)
-        if not bid:
-            return jsonify({"msg": "Associated bid not found"}), 404
-
         doc_oid = require_oid(doc_id)
         if doc_oid is None:
             return jsonify({"msg": "Invalid document id"}), 400
 
-        doc = db.Documents.find_one({"_id": doc_oid, "bidId": bid.get("bidId")})
+        doc = db.Documents.find_one({"_id": doc_oid})
         if not doc:
+            return jsonify({"msg": "Document not found"}), 404
+
+        if doc.get("enquiryId") != enq.get("enquiryId"):
             return jsonify({"msg": "Document not found or unauthorized access"}), 404
 
         return send_from_directory(
@@ -174,3 +188,65 @@ def download_public_share_file(token, doc_id):
     except Exception:
         current_app.logger.exception("download_public_share_file failed")
         return jsonify({"msg": "Failed to download document"}), 500
+
+
+@enquiries_bp.route('/public/share/<token>/upload', methods=['POST'])
+@limiter.limit("10 per minute")
+def upload_public_share_file(token):
+    try:
+        enq, error = EnquiryService.validate_share_token(token)
+        if error:
+            return jsonify({"msg": error}), 403 if "expired" in error else 404
+
+        if 'file' not in request.files:
+            return jsonify({"msg": "No file part"}), 400
+
+        file = request.files['file']
+        file, error = DocumentService.validate_file(file)
+        if error:
+            status = 413 if "too large" in error else 400
+            return jsonify({"msg": error}), status
+
+        document, error = DocumentService.upload_enquiry_document(file, enq.get("enquiryId"), "portal")
+        if error:
+            return jsonify({"msg": error}), 400
+
+        document['_id'] = str(document['_id'])
+        return jsonify(document), 201
+    except Exception:
+        current_app.logger.exception("upload_public_share_file failed")
+        return jsonify({"msg": "Failed to upload document"}), 500
+
+
+@enquiries_bp.route('/<id>/upload', methods=['POST'])
+@jwt_required()
+@limiter.limit("30 per minute")
+def upload_enquiry_file(id):
+    user_id = get_jwt_identity()
+    role = get_jwt().get('role')
+    enq_oid = require_oid(id)
+    if enq_oid is None:
+        return jsonify({"msg": "Invalid id"}), 400
+
+    enq = db.Enquiries.find_one({"_id": enq_oid})
+    if not enq:
+        return jsonify({"msg": "Enquiry not found"}), 404
+
+    if role != 'Admin' and enq.get("createdBy") != user_id:
+        return jsonify({"msg": "Forbidden"}), 403
+
+    if 'file' not in request.files:
+        return jsonify({"msg": "No file part"}), 400
+
+    file = request.files['file']
+    file, error = DocumentService.validate_file(file)
+    if error:
+        status = 413 if "too large" in error else 400
+        return jsonify({"msg": error}), status
+
+    document, error = DocumentService.upload_enquiry_document(file, enq.get("enquiryId"), user_id)
+    if error:
+        return jsonify({"msg": error}), 400
+
+    document['_id'] = str(document['_id'])
+    return jsonify(document), 201

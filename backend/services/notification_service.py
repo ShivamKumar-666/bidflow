@@ -57,6 +57,13 @@ class NotificationService:
         return result.deleted_count
 
     @classmethod
+    def delete_notification(cls, user_id: str, notif_id: str) -> bool:
+        if not ObjectId.is_valid(notif_id):
+            return False
+        result = db.Notifications.delete_one({"_id": ObjectId(notif_id), "userId": user_id})
+        return result.deleted_count > 0
+
+    @classmethod
     def _serialize(cls, n: dict) -> dict:
         n["_id"] = str(n["_id"])
         if isinstance(n.get("createdAt"), datetime.datetime):

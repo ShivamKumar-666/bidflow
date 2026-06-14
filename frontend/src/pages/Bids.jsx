@@ -54,6 +54,8 @@ export default function Bids() {
     search, setSearch,
     sortBy, setSortBy,
     industryFilters, setIndustryFilters,
+    dateFilter, setDateFilter,
+    groupByProject, setGroupByProject,
     filtered,
     fetchAll,
     handleSearchKeyDown,
@@ -179,9 +181,11 @@ export default function Bids() {
             {filtered.length} of {bids.length} bids
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)}>
-          {t("bids.createBid")}
-        </Button>
+        {user?.role !== "Bidder" && (
+          <Button onClick={() => setShowCreate(true)}>
+            {t("bids.createBid")}
+          </Button>
+        )}
       </div>
 
       <BidTable
@@ -195,6 +199,10 @@ export default function Bids() {
         setSortBy={setSortBy}
         industryFilters={industryFilters}
         setIndustryFilters={setIndustryFilters}
+        dateFilter={dateFilter}
+        setDateFilter={setDateFilter}
+        groupByProject={groupByProject}
+        setGroupByProject={setGroupByProject}
         handleSearchKeyDown={handleSearchKeyDown}
         removeIndustryFilter={removeIndustryFilter}
         clearFilters={clearFilters}
@@ -204,6 +212,7 @@ export default function Bids() {
         onOpenComments={handleOpenComments}
         onOpenTags={handleOpenTags}
         onExplain={handleExplain}
+        userRole={user?.role}
       />
 
       <CreateBidDialog
@@ -236,7 +245,7 @@ export default function Bids() {
             <div className="flex items-center gap-2 mb-1">
               <Brain className="h-5 w-5 text-primary" />
               <DialogTitle className="flex items-center gap-2">
-                AI Prediction Breakdown
+                Constraint Analysis
                 <Badge variant={shapModal.value >= 70 ? "success" : shapModal.value >= 40 ? "warning" : "destructive"} className="font-mono">
                   {shapModal.value}%
                 </Badge>

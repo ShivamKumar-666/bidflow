@@ -213,7 +213,7 @@ const TwoFASetup = ({ onClose }) => {
               <Label className="text-xs">{t("security.manualKey")}</Label>
               <div className="flex items-center gap-2 p-3 rounded-lg border bg-muted/30 font-mono text-sm">
                 <code className="flex-1 break-all tracking-wider">
-                  {secret.match(/.{1,4}/g)?.join(" ")}
+                  {secret?.match(/.{1,4}/g)?.join(" ")}
                 </code>
                 <Button
                   type="button"

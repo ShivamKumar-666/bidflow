@@ -4,17 +4,20 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import { ScrollText, Search, User, Activity, FileText } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Empty, EmptyIcon, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
-import { cn } from "@/lib/utils";
 
 const toneForAction = (action = "") => {
   const a = action.toLowerCase();
@@ -27,15 +30,24 @@ const toneForAction = (action = "") => {
 
 const AuditLogs = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const [logs, setLogs] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [userFilter, setUserFilter] = useState("all");
+
+  const isAdmin = user?.role === "Admin";
 
   useEffect(() => {
     const controller = new AbortController();
     const fetchLogs = async () => {
       try {
-        const res = await api.get("/audit/", { signal: controller.signal });
+        const params = {};
+        if (isAdmin && userFilter !== "all") {
+          params.user_id = userFilter;
+        }
+        const res = await api.get("/audit/", { params, signal: controller.signal });
         setLogs(res.data);
       } catch (err) {
         if (err?.name === 'CanceledError') return;
@@ -46,7 +58,13 @@ const AuditLogs = () => {
     };
     fetchLogs();
     return () => controller.abort();
-  }, [t]);
+  }, [t, isAdmin, userFilter]);
+
+  useEffect(() => {
+    if (isAdmin) {
+      api.get("/auth/users").then((r) => setUsers(r.data)).catch(() => {});
+    }
+  }, [isAdmin]);
 
   const filtered = useMemo(() => logs.filter((log) => {
     if (!search.trim()) return true;
@@ -66,18 +84,39 @@ const AuditLogs = () => {
             <ScrollText className="h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">{t("audit.title")}</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">Complete history of system activity</p>
+            <h1 className="text-2xl font-bold tracking-tight">
+              {isAdmin ? t("audit.title") : "My Activity"}
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {isAdmin ? "Complete history of system activity" : "Your personal activity log"}
+            </p>
           </div>
         </div>
-        <div className="relative w-full sm:w-72">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search logs..."
-            className="pl-9"
-          />
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Select value={userFilter} onValueChange={setUserFilter}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Users" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Users</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u._id || u.email} value={u._id || u.email}>
+                    {u.name} ({u.role})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <div className="relative w-full sm:w-72">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search logs..."
+              className="pl-9"
+            />
+          </div>
         </div>
       </div>
 
@@ -87,7 +126,7 @@ const AuditLogs = () => {
             <div>
               <CardTitle className="text-base">Activity Log</CardTitle>
               <CardDescription>
-                {loading ? "Loading…" : `${filtered.length} of ${logs.length} entries`}
+                {loading ? "Loading..." : `${filtered.length} of ${logs.length} entries`}
               </CardDescription>
             </div>
           </div>

@@ -141,6 +141,23 @@ def main():
     le_region = LabelEncoder()
     df['regional_office_encoded'] = le_region.fit_transform(df['regional_office'])
     
+    # Generate synthetic team_size based on industry
+    INDUSTRY_TEAM_LIMITS = {
+        'Technology': 50,
+        'Healthcare': 30,
+        'Construction': 100,
+        'Energy': 40,
+        'Finance': 25,
+        'Banking': 25,
+        'Manufacturing': 100,
+        'Retail': 40,
+    }
+    np.random.seed(42)
+    def generate_team_size(industry):
+        max_size = INDUSTRY_TEAM_LIMITS.get(industry, 50)
+        return int(np.random.randint(1, max_size + 1))
+    df['team_size'] = df['industry'].apply(generate_team_size)
+    
     # Save combined dataset
     output_path = os.path.join(data_dir, 'combined_training_data.csv')
     df.to_csv(output_path, index=False)

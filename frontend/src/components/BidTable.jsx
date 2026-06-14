@@ -31,6 +31,15 @@ const statusVariants = {
   "Under Review": "warning",
 };
 
+function isBidDeletableByBidder(bid) {
+  if (bid.status === "Rejected") return true;
+  const created = bid.createdAt;
+  if (!created) return false;
+  const createdDate = new Date(created);
+  const daysSinceCreated = Math.floor((Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24));
+  return daysSinceCreated >= 30;
+}
+
 const STATUSES = ["Quotation Prepared", "Under Review", "Negotiation", "Order Received", "Rejected"];
 function PredictionPill({ value, explanations, onExplain }) {
   if (value == null) return <span className="text-muted-foreground text-xs">N/A</span>;
@@ -54,7 +63,7 @@ function PredictionPill({ value, explanations, onExplain }) {
           <TooltipContent side="top" className="max-w-xs p-3">
             <div className="flex items-center gap-1.5 mb-2 text-xs font-semibold text-primary">
               <Brain className="h-3 w-3" />
-              AI Explanation
+              Constraint Analysis
             </div>
             <div className="space-y-1.5">
               {explanations.slice(0, 3).map((ex, i) => (
@@ -83,13 +92,17 @@ const BidTable = memo(function BidTable({
   filtered, bids, loading, fmt,
   search, setSearch, sortBy, setSortBy,
   industryFilters, setIndustryFilters,
+  dateFilter, setDateFilter,
+  groupByProject, setGroupByProject,
   handleSearchKeyDown, removeIndustryFilter, clearFilters,
   updateStatus, downloadQuotation, handleDelete,
   onOpenComments, onOpenTags, onExplain,
+  userRole,
 }) {
   const { t } = useTranslation();
   const [sortOpen, setSortOpen] = useState(false);
   const [industryHover, setIndustryHover] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
 
   return (
     <>
@@ -186,6 +199,57 @@ const BidTable = memo(function BidTable({
               </>
             )}
           </div>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setDateOpen((p) => !p)}
+              className={cn(
+                "h-8 inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground",
+                dateFilter !== "all" && "border-primary text-primary"
+              )}
+            >
+              <span>
+                {dateFilter === "all" && "All Time"}
+                {dateFilter === "7d" && "Last 7 Days"}
+                {dateFilter === "30d" && "Last 30 Days"}
+                {dateFilter === "90d" && "Last 90 Days"}
+              </span>
+              <svg className="ml-2 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {dateOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setDateOpen(false)} />
+                <div className="absolute top-full left-0 mt-1 z-50 w-[160px] rounded-md border bg-popover text-popover-foreground shadow-md">
+                  {[
+                    { value: "all", label: "All Time" },
+                    { value: "7d", label: "Last 7 Days" },
+                    { value: "30d", label: "Last 30 Days" },
+                    { value: "90d", label: "Last 90 Days" },
+                  ].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => { setDateFilter(value); setDateOpen(false); }}
+                      className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent", dateFilter === value && "bg-accent")}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setGroupByProject((p) => !p)}
+            className={cn(
+              "h-8 inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground",
+              groupByProject && "border-primary text-primary"
+            )}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" /></svg>
+            Group by Project
+          </button>
           {industryFilters.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {industryFilters.map((ind) => (
@@ -201,7 +265,7 @@ const BidTable = memo(function BidTable({
               ))}
             </div>
           )}
-          {(industryFilters.length > 0 || search) && (
+          {(industryFilters.length > 0 || search || dateFilter !== "all") && (
             <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
               <X className="h-3.5 w-3.5" />
               Clear All
@@ -222,6 +286,109 @@ const BidTable = memo(function BidTable({
               <EmptyTitle>No bids yet</EmptyTitle>
               <EmptyDescription>Create your first bid to get started.</EmptyDescription>
             </Empty>
+          ) : groupByProject ? (
+            (() => {
+              const groups = {};
+              filtered.forEach((bid) => {
+                const key = bid.enquiryId || "Unknown";
+                if (!groups[key]) groups[key] = [];
+                groups[key].push(bid);
+              });
+              return (
+                <div className="divide-y">
+                  {Object.entries(groups).map(([enquiryId, groupBids]) => (
+                    <div key={enquiryId} className="p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Badge variant="outline" className="font-mono text-xs">{enquiryId}</Badge>
+                        <span className="text-xs text-muted-foreground">{groupBids.length} bid{groupBids.length !== 1 ? "s" : ""}</span>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Bid ID</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>AI Prediction</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Assigned</TableHead>
+                            <TableHead className="text-right">Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {groupBids.map((bid) => (
+                            <TableRow key={bid._id}>
+                              <TableCell>
+                                <div className="font-mono text-xs font-semibold">{bid.bidId}</div>
+                                {bid.tags?.length > 0 && (
+                                  <div className="flex flex-wrap gap-1 mt-1">
+                                    {bid.tags.slice(0, 2).map((tg) => (
+                                      <Badge key={tg} variant="secondary" className="text-[10px] font-normal">{tg}</Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </TableCell>
+                              <TableCell className="font-semibold">{fmt(bid.amount)}</TableCell>
+                              <TableCell>
+                                <PredictionPill
+                                  value={bid.aiPrediction}
+                                  explanations={bid.shapExplanations}
+                                  onExplain={onExplain ? () => onExplain(bid) : null}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <div className="space-y-1">
+                                  <Badge variant={statusVariants[bid.status] || "secondary"}>{bid.status}</Badge>
+                                  {bid.slaBreached && (
+                                    <Badge variant="destructive" className="text-[10px]">
+                                      <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                      SLA
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-xs">{bid.assignedEmployee}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-1">
+                                  {userRole !== "Bidder" && (
+                                    <Select value={bid.status} onValueChange={(v) => updateStatus(bid._id, v)}>
+                                      <SelectTrigger className="h-7 w-[140px] text-xs">
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {STATUSES.filter((s) => s !== "Negotiation" || bid.negotiable !== false).map((s) => (
+                                          <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                  <Button variant="ghost" size="icon" onClick={() => onOpenComments(bid)}>
+                                    <MessageSquare className="h-3.5 w-3.5" />
+                                  </Button>
+                                  {userRole !== "Bidder" && (
+                                    <Button variant="ghost" size="icon" onClick={() => onOpenTags(bid)}>
+                                      <Tag className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  {bid.status === "Quotation Prepared" && (
+                                    <Button variant="ghost" size="icon" onClick={() => downloadQuotation(bid._id, bid.bidId)}>
+                                      <FileDown className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                  {(userRole !== "Bidder" || isBidDeletableByBidder(bid)) && (
+                                    <Button variant="ghost" size="icon" onClick={() => handleDelete(bid._id, bid.bidId)} className="text-destructive hover:text-destructive">
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  )}
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()
           ) : (
             <Table>
               <TableHeader>
@@ -271,30 +438,36 @@ const BidTable = memo(function BidTable({
                     <TableCell className="text-xs">{bid.assignedEmployee}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Select value={bid.status} onValueChange={(v) => updateStatus(bid._id, v)}>
-                          <SelectTrigger className="h-7 w-[140px] text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {STATUSES.filter((s) => s !== "Negotiation" || bid.negotiable !== false).map((s) => (
-                              <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        {userRole !== "Bidder" && (
+                          <Select value={bid.status} onValueChange={(v) => updateStatus(bid._id, v)}>
+                            <SelectTrigger className="h-7 w-[140px] text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {STATUSES.filter((s) => s !== "Negotiation" || bid.negotiable !== false).map((s) => (
+                                <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
                         <Button variant="ghost" size="icon" onClick={() => onOpenComments(bid)}>
                           <MessageSquare className="h-3.5 w-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => onOpenTags(bid)}>
-                          <Tag className="h-3.5 w-3.5" />
-                        </Button>
+                        {userRole !== "Bidder" && (
+                          <Button variant="ghost" size="icon" onClick={() => onOpenTags(bid)}>
+                            <Tag className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                         {bid.status === "Quotation Prepared" && (
                           <Button variant="ghost" size="icon" onClick={() => downloadQuotation(bid._id, bid.bidId)}>
                             <FileDown className="h-3.5 w-3.5" />
                           </Button>
                         )}
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(bid._id, bid.bidId)} className="text-destructive hover:text-destructive">
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {(userRole !== "Bidder" || isBidDeletableByBidder(bid)) && (
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(bid._id, bid.bidId)} className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

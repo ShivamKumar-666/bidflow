@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import {
   FileText, Download, AlertTriangle, Clock, User, Briefcase, Calendar,
-  Hash, FileDown, Activity, ShieldCheck, Handshake, Ban,
+  Hash, FileDown, Activity, ShieldCheck, Handshake, Ban, Upload,
 } from "lucide-react";
 import {
   Card, CardContent, CardDescription, CardHeader, CardTitle,
@@ -36,26 +36,49 @@ const CustomerPortal = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const fetchPublicData = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}`);
+      setData(res.data);
+      setError(null);
+    } catch (err) {
+      if (err.response && err.response.status === 403) {
+        setError(t("common.linkExpired", "This share link has expired. Links are valid for 90 days."));
+      } else {
+        setError(t("common.error", "Invalid share link or enquiry not found."));
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchPublicData = async () => {
-      try {
-        setLoading(true);
-        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}`);
-        setData(res.data);
-        setError(null);
-      } catch (err) {
-        if (err.response && err.response.status === 403) {
-          setError(t("common.linkExpired", "This share link has expired. Links are valid for 90 days."));
-        } else {
-          setError(t("common.error", "Invalid share link or enquiry not found."));
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchPublicData();
   }, [token, t]);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}/upload`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      await fetchPublicData();
+    } catch (err) {
+      alert(err.response?.data?.msg || "Failed to upload document");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   if (loading) {
     return (
@@ -234,50 +257,83 @@ const CustomerPortal = () => {
                 <CardDescription>Files available for download</CardDescription>
               </CardHeader>
               <CardContent>
-                {documents && documents.length > 0 ? (
-                  <div className="space-y-2">
-                    {documents.map((doc) => (
-                      <div
-                        key={doc._id}
-                        className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary grid place-items-center flex-shrink-0">
-                            <FileDown className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium truncate">{doc.filename}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {t("enquiries.date", "Uploaded")}: {format(new Date(doc.uploadDate), "MMM dd, yyyy")}
-                            </p>
-                          </div>
-                        </div>
-                        <Button
-                          asChild
-                          variant="outline"
-                          size="sm"
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      {uploading ? (
+                        <>
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                          Uploading...
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-3.5 w-3.5 mr-2" />
+                          Upload Document
+                        </>
+                      )}
+                    </Button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      className="hidden"
+                      accept=".pdf,.txt,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+                      onChange={handleUpload}
+                    />
+                    <span className="text-xs text-muted-foreground">
+                      PDF, DOC, XLS, Images (max 16MB)
+                    </span>
+                  </div>
+
+                  {documents && documents.length > 0 ? (
+                    <div className="space-y-2">
+                      {documents.map((doc) => (
+                        <div
+                          key={doc._id}
+                          className="flex items-center justify-between gap-3 p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors"
                         >
-                          <a
-                            href={`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}/download/${doc._id}`}
-                            download
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="h-9 w-9 rounded-lg bg-primary/10 text-primary grid place-items-center flex-shrink-0">
+                              <FileDown className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">{doc.filename}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {t("enquiries.date", "Uploaded")}: {format(new Date(doc.uploadDate), "MMM dd, yyyy")}
+                              </p>
+                            </div>
+                          </div>
+                          <Button
+                            asChild
+                            variant="outline"
+                            size="sm"
                           >
-                            <Download className="h-3.5 w-3.5" />
-                            Download
-                          </a>
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="p-8 text-center rounded-lg border border-dashed bg-muted/20">
-                    <div className="h-12 w-12 rounded-full bg-muted grid place-items-center mx-auto mb-2">
-                      <FileText className="h-6 w-6 text-muted-foreground" />
+                            <a
+                              href={`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}/download/${doc._id}`}
+                              download
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                              Download
+                            </a>
+                          </Button>
+                        </div>
+                      ))}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                      No documents have been shared for public view yet.
-                    </p>
-                  </div>
-                )}
+                  ) : (
+                    <div className="p-8 text-center rounded-lg border border-dashed bg-muted/20">
+                      <div className="h-12 w-12 rounded-full bg-muted grid place-items-center mx-auto mb-2">
+                        <FileText className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        No documents have been shared for public view yet.
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>

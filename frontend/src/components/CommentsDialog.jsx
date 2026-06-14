@@ -49,7 +49,7 @@ export default function CommentsDialog({ open, onOpenChange, selected, user, onC
         <div className="max-h-80 overflow-y-auto space-y-2">
           {selected?.comments?.length > 0 ? (
             selected.comments.map((c) => {
-              const canDelete = c.author === user?.name || user?.role === "Admin";
+              const canDelete = c.userId === user?._id || c.author === user?.name || user?.role === "Admin";
               return (
                 <div key={c._id} className="flex gap-2 p-2 rounded-md bg-muted/30">
                   <Avatar className="h-7 w-7">

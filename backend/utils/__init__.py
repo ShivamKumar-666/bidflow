@@ -36,6 +36,7 @@ def log_audit(action, details, user_id=None):
         "action":    action,
         "details":   details,
         "user":      user_name,
+        "userId":    user_id,
         "timestamp": now_utc(),
     }
     try:

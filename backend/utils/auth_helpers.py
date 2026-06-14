@@ -59,8 +59,13 @@ def bid_access_required(fn):
         is_owner = bool(user and (user.get('name') == assigned or str(user['_id']) == str(assigned)))
         is_creator = bid.get('createdBy') == user_id
         is_legacy = not bid.get('createdBy') and is_admin
-        if not is_admin and not is_owner and not is_creator and not is_legacy:
-            return jsonify({"msg": "Forbidden: only Admin, assigned employee, or creator can access this bid"}), 403
+        is_enquiry_owner = False
+        if bid.get('enquiryId'):
+            enquiry = db.Enquiries.find_one({"enquiryId": bid['enquiryId']}, {"createdBy": 1})
+            if enquiry:
+                is_enquiry_owner = str(enquiry.get('createdBy', '')) == str(user_id)
+        if not is_admin and not is_owner and not is_creator and not is_legacy and not is_enquiry_owner:
+            return jsonify({"msg": "Forbidden: only Admin, assigned employee, creator, or enquiry owner can access this bid"}), 403
         return fn(id, *args, **kwargs)
     return wrapper
 

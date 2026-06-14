@@ -2,23 +2,25 @@ import React, { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, FileText, CalendarDays,
-  BarChart3, Activity, User, Shield, Sparkles,
+  BarChart3, Activity, User, Shield, Sparkles, Store,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 
 const navConfig = [
-  { to: "/dashboard", icon: LayoutDashboard, key: "sidebar.dashboard" },
-  { to: "/enquiries", icon: MessageSquare, key: "sidebar.enquiries" },
-  { to: "/bids", icon: FileText, key: "sidebar.bids" },
+  { to: "/dashboard", icon: LayoutDashboard, key: "sidebar.dashboard", roles: ["Admin", "Company", "Sales Executive", "Bidder"] },
+  { to: "/enquiries", icon: MessageSquare, key: "sidebar.enquiries", roles: ["Admin", "Company", "Sales Executive"] },
+  { to: "/bids", icon: FileText, key: "sidebar.bids", roles: ["Admin", "Company", "Sales Executive", "Bidder"] },
   { to: "/calendar", icon: CalendarDays, key: "sidebar.calendar" },
   { to: "/profile", icon: User, key: "sidebar.profile" },
+  { to: "/audit-logs", icon: Activity, key: "sidebar.auditLogs", roles: ["Admin", "Company", "Sales Executive", "Bidder"] },
 ];
+
+const marketplaceNav = { to: "/marketplace", icon: Store, key: "sidebar.marketplace" };
 
 const adminNav = [
   { to: "/reports", icon: BarChart3, key: "sidebar.reports" },
-  { to: "/audit-logs", icon: Activity, key: "sidebar.auditLogs" },
 ];
 
 export function Sidebar() {
@@ -40,7 +42,7 @@ export function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
         <ul className="space-y-1">
-          {navConfig.map((item) => {
+          {navConfig.filter((item) => !item.roles || item.roles.includes(user?.role)).map((item) => {
             const Icon = item.icon;
             return (
               <li key={item.to}>
@@ -61,6 +63,25 @@ export function Sidebar() {
               </li>
             );
           })}
+
+          {(user?.role === "Bidder" || user?.role === "Admin" || user?.role === "Company") && (
+            <li>
+              <NavLink
+                to={marketplaceNav.to}
+                className={({ isActive }) =>
+                  cn(
+                    "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                      : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground"
+                  )
+                }
+              >
+                <marketplaceNav.icon className="h-4 w-4" />
+                <span>{t(marketplaceNav.key, "Marketplace")}</span>
+              </NavLink>
+            </li>
+          )}
 
           {user?.role === "Admin" && (
             <>

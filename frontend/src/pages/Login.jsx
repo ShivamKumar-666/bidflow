@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
-import { Shield, ArrowLeft, AlertCircle, Eye, EyeOff, Sparkles, Mail, Lock, UserPlus, LogIn, Check, X } from "lucide-react";
+import { Shield, ArrowLeft, AlertCircle, Eye, EyeOff, Sparkles, Mail, Lock, UserPlus, LogIn, Check, X, Store, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,7 @@ export default function Login() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("Bidder");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -175,7 +176,7 @@ export default function Login() {
           setError("Please enter your full name.");
           return;
         }
-        const result = await register(name.trim(), email.trim().toLowerCase(), password);
+        const result = await register(name.trim(), email.trim().toLowerCase(), password, role);
         toast.success(result?.msg || "Account created. Please check your email to verify your account.");
         setMode("login");
         setName("");
@@ -371,6 +372,46 @@ export default function Login() {
                   autoComplete="name"
                   placeholder="Jane Cooper"
                 />
+              </div>
+            )}
+
+            {isRegistering && (
+              <div className="space-y-2">
+                <Label>I want to</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRole("Bidder")}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                      role === "Bidder"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-muted hover:border-primary/50"
+                    )}
+                  >
+                    <Store className="h-5 w-5" />
+                    <span>{t("login.roleBidder", "Bid on Projects")}</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      {t("login.roleBidderDesc", "Browse & submit competitive bids")}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRole("Company")}
+                    className={cn(
+                      "flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                      role === "Company"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-muted hover:border-primary/50"
+                    )}
+                  >
+                    <Building2 className="h-5 w-5" />
+                    <span>{t("login.roleCompany", "Post Projects")}</span>
+                    <span className="text-[10px] text-muted-foreground font-normal">
+                      {t("login.roleCompanyDesc", "Create enquiries & pick winners")}
+                    </span>
+                  </button>
+                </div>
               </div>
             )}
 

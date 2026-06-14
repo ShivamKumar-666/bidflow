@@ -45,7 +45,7 @@ class BidService:
         'priority_encoded', 'employee_win_rate', 'employee_experience',
         'industry_win_rate', 'amount_vs_industry_avg', 'amount_x_win_rate',
         'industry_encoded', 'product_series_encoded', 'regional_office_encoded',
-        'sales_price',
+        'sales_price', 'team_size',
     ]
 
     VALID_STATUSES = {"Quotation Prepared", "Under Review", "Negotiation", "Order Received", "Rejected"}
@@ -322,12 +322,16 @@ class BidService:
 
         sales_price = float(data.get("salesPrice", 0.0))
 
+        team_size = int(data.get("teamSize", 1))
+        if team_size < 1:
+            team_size = 1
+
         return np.array([[
             amount, amount_log, days_to_deadline, deadline_urgency,
             priority_encoded, employee_win_rate, employee_experience,
             industry_wr, amount_vs_industry_avg, amount_x_win_rate,
             industry_encoded, product_series_encoded, regional_office_encoded,
-            sales_price,
+            sales_price, team_size,
         ]])
 
     @classmethod
@@ -402,6 +406,10 @@ class BidService:
             "positive": ("Sales price (${val:,.0f}) adds +{shap}% to probability", lambda v: round(v, 2)),
             "negative": ("Sales price (${val:,.0f}) reduces probability by {shap}%", lambda v: round(v, 2)),
         },
+        "team_size": {
+            "positive": ("Team of {val} people adds +{shap}% to probability", lambda v: int(v)),
+            "negative": ("Team of {val} people reduces probability by {shap}%", lambda v: int(v)),
+        },
     }
 
     @classmethod
@@ -461,6 +469,10 @@ class BidService:
             return None, []
 
         features = cls._compute_features(data, employee_name, industry, encoder)
+        # Trim features to match model's expected input (handles model trained with fewer features)
+        n_model_features = getattr(clf, 'n_features_in_', features.shape[1])
+        if features.shape[1] > n_model_features:
+            features = features[:, :n_model_features]
         prediction_prob = clf.predict_proba(features)[0][1]
         prediction = int(prediction_prob * 100)
         explanations = cls.compute_shap_explanations(clf, features)
@@ -473,6 +485,10 @@ class BidService:
             return None, None, []
 
         features = cls._compute_features(data, employee_name, industry, encoder)
+        # Trim features to match model's expected input (handles model trained with fewer features)
+        n_model_features = getattr(clf, 'n_features_in_', features.shape[1])
+        if features.shape[1] > n_model_features:
+            features = features[:, :n_model_features]
         probability = clf.predict_proba(features)[0][1]
         explanations = cls.compute_shap_explanations(clf, features)
         employee_win_rate = cls.get_computed_win_rate(employee_name)
@@ -482,6 +498,15 @@ class BidService:
     def get_bid_filter(cls, user_id: str, role: str) -> dict:
         if role == 'Admin':
             return {}
+        if role == 'Company':
+            my_enquiry_ids = [
+                e["enquiryId"] for e in db.Enquiries.find(
+                    {"createdBy": user_id}, {"enquiryId": 1}
+                )
+            ]
+            return {"enquiryId": {"$in": my_enquiry_ids}}
+        if role == 'Bidder':
+            return {"createdBy": user_id}
         if not user_id:
             return {"_id": {"$exists": False}}
         return {"$or": [
@@ -493,6 +518,13 @@ class BidService:
     def get_calendar_filter(cls, user_id: str, role: str) -> dict:
         if role == 'Admin':
             return {}
+        if role == 'Company':
+            enquiry_ids = [
+                e["enquiryId"] for e in db.Enquiries.find(
+                    {"createdBy": user_id}, {"enquiryId": 1}
+                )
+            ]
+            return {"enquiryId": {"$in": enquiry_ids}}
         user = db.Users.find_one({"_id": ObjectId(user_id)}, {"name": 1}) if ObjectId.is_valid(user_id) else None
         employee_name = user.get('name') if user else None
         if not employee_name:
@@ -502,6 +534,21 @@ class BidService:
             {"assignedEmployee": str(user_id)},
             {"createdBy": user_id},
         ]}
+
+    @classmethod
+    def can_update_bid_status(cls, user_id: str, role: str, bid: dict) -> bool:
+        if role == 'Admin':
+            return True
+        enquiry = db.Enquiries.find_one({"enquiryId": bid.get("enquiryId")})
+        if not enquiry:
+            return False
+        if enquiry.get('visibility') == 'public':
+            return enquiry.get('createdBy') == user_id
+        if role == 'Company':
+            return enquiry.get('createdBy') == user_id
+        if role == 'Bidder':
+            return False
+        return bid.get('createdBy') == user_id
 
     @classmethod
     def create_bid(cls, data: dict, user_id: str) -> dict:
@@ -532,6 +579,10 @@ class BidService:
             explanations = []
 
         tags = [t.strip().lower() for t in data.get("tags", []) if isinstance(t, str) and t.strip()]
+
+        enquiry = db.Enquiries.find_one({"enquiryId": data.get("enquiryId")})
+        bidder_type = "external" if (enquiry and enquiry.get("visibility") == "public") else "internal"
+
         new_bid = {
             "bidId": cls.generate_bid_id(),
             "enquiryId": data.get("enquiryId"),
@@ -540,12 +591,14 @@ class BidService:
             "industry": industry,
             "submissionDate": data.get("submissionDate"),
             "assignedEmployee": data.get("assignedEmployee"),
+            "teamSize": int(data.get("teamSize", 1)),
             "remarks": data.get("remarks", ""),
             "aiPrediction": prediction,
             "shapExplanations": explanations,
             "tags": tags,
             "comments": [],
             "createdBy": user_id,
+            "bidderType": bidder_type,
             "history": [{
                 "status": "Quotation Prepared",
                 "date": now_utc(),
@@ -556,7 +609,10 @@ class BidService:
 
         db.Enquiries.update_one(
             {"enquiryId": new_bid["enquiryId"]},
-            {"$set": {"status": "Quotation Prepared"}}
+            {
+                "$set": {"status": "Quotation Prepared"},
+                "$inc": {"bidCount": 1}
+            }
         )
 
         return new_bid

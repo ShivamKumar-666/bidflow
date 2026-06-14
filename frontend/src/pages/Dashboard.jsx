@@ -10,11 +10,13 @@ import {
 import {
   TrendingUp, TrendingDown, DollarSign, FileText, MessageSquare, CheckCircle2, Clock,
   ArrowUpRight, Activity, Briefcase, BarChart3, Brain, Cpu, Database, Hash,
+  Target, Percent,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useTheme } from "@/contexts/ThemeContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
@@ -62,6 +64,7 @@ function MetricCard({ label, value, icon: Icon, trend, accent = "default", loadi
 export default function Dashboard() {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const { user } = useAuth();
   const isDark = theme === "dark";
   const [metrics, setMetrics] = useState(null);
   const [modelStats, setModelStats] = useState(null);
@@ -125,14 +128,22 @@ export default function Dashboard() {
     },
   }), [isDark]);
 
+  const role = user?.role;
+  const isBidder = role === "Bidder";
+  const isCompany = role === "Company";
+
+  const getGreeting = () => {
+    if (isBidder) return "Track your bids and performance.";
+    if (isCompany) return "Monitor your enquiries and incoming bids.";
+    return "Welcome back — here's what's happening with your bids.";
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("dashboard.title")}</h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Welcome back — here's what's happening with your bids.
-          </p>
+          <p className="text-sm text-muted-foreground mt-1">{getGreeting()}</p>
         </div>
         <Badge variant="outline" className="font-mono text-[10px]">
           <Activity className="h-3 w-3 mr-1" />
@@ -140,42 +151,104 @@ export default function Dashboard() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        <MetricCard
-          label={t("dashboard.totalEnquiries")}
-          value={metrics?.totalEnquiries ?? 0}
-          icon={Briefcase}
-          loading={loading}
-        />
-        <MetricCard
-          label={t("dashboard.activeBids")}
-          value={metrics?.activeBids ?? 0}
-          icon={Activity}
-          accent="primary"
-          loading={loading}
-        />
-        <MetricCard
-          label={t("dashboard.wonBids")}
-          value={metrics?.wonBids ?? 0}
-          icon={CheckCircle2}
-          accent="success"
-          loading={loading}
-        />
-        <MetricCard
-          label={t("dashboard.lostBids", "Lost Bids")}
-          value={metrics?.lostBids ?? 0}
-          icon={TrendingDown}
-          accent="danger"
-          loading={loading}
-        />
-        <MetricCard
-          label={t("dashboard.revenueGenerated")}
-          value={fmt(metrics?.revenueGenerated)}
-          icon={DollarSign}
-          accent="primary"
-          loading={loading}
-        />
-      </div>
+      {isBidder ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            label="Total Bids Submitted"
+            value={(metrics?.wonBids ?? 0) + (metrics?.lostBids ?? 0) + (metrics?.activeBids ?? 0)}
+            icon={FileText}
+            loading={loading}
+          />
+          <MetricCard
+            label={t("dashboard.wonBids")}
+            value={metrics?.wonBids ?? 0}
+            icon={CheckCircle2}
+            accent="success"
+            loading={loading}
+          />
+          <MetricCard
+            label={t("dashboard.lostBids", "Lost Bids")}
+            value={metrics?.lostBids ?? 0}
+            icon={TrendingDown}
+            accent="danger"
+            loading={loading}
+          />
+          <MetricCard
+            label="Win Rate"
+            value={`${metrics?.winRate ?? 0}%`}
+            icon={Percent}
+            accent={metrics?.winRate >= 50 ? "success" : "warning"}
+            loading={loading}
+          />
+        </div>
+      ) : isCompany ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            label="Enquiries Posted"
+            value={metrics?.totalEnquiries ?? 0}
+            icon={Briefcase}
+            loading={loading}
+          />
+          <MetricCard
+            label={t("dashboard.activeBids")}
+            value={metrics?.activeBids ?? 0}
+            icon={Activity}
+            accent="primary"
+            loading={loading}
+          />
+          <MetricCard
+            label={t("dashboard.wonBids")}
+            value={metrics?.wonBids ?? 0}
+            icon={CheckCircle2}
+            accent="success"
+            loading={loading}
+          />
+          <MetricCard
+            label="Conversion Rate"
+            value={`${metrics?.winRate ?? 0}%`}
+            icon={Target}
+            accent={metrics?.winRate >= 50 ? "success" : "warning"}
+            loading={loading}
+          />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <MetricCard
+            label={t("dashboard.totalEnquiries")}
+            value={metrics?.totalEnquiries ?? 0}
+            icon={Briefcase}
+            loading={loading}
+          />
+          <MetricCard
+            label={t("dashboard.activeBids")}
+            value={metrics?.activeBids ?? 0}
+            icon={Activity}
+            accent="primary"
+            loading={loading}
+          />
+          <MetricCard
+            label={t("dashboard.wonBids")}
+            value={metrics?.wonBids ?? 0}
+            icon={CheckCircle2}
+            accent="success"
+            loading={loading}
+          />
+          <MetricCard
+            label={t("dashboard.lostBids", "Lost Bids")}
+            value={metrics?.lostBids ?? 0}
+            icon={TrendingDown}
+            accent="danger"
+            loading={loading}
+          />
+          <MetricCard
+            label={t("dashboard.revenueGenerated")}
+            value={fmt(metrics?.revenueGenerated)}
+            icon={DollarSign}
+            accent="primary"
+            loading={loading}
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
@@ -197,6 +270,45 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
+        <Card className="lg:col-span-1">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Win Rate
+            </CardTitle>
+            <CardDescription>Conversion efficiency</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center justify-center py-6">
+              {loading ? (
+                <Skeleton className="h-32 w-32 rounded-full" />
+              ) : (
+                <Doughnut
+                  data={{
+                    labels: ["Won", "Lost"],
+                    datasets: [{
+                      data: [metrics?.wonBids || 0, metrics?.lostBids || 0],
+                      backgroundColor: ["oklch(0.70 0.19 150)", "oklch(0.70 0.19 22)"],
+                      borderWidth: 0,
+                    }],
+                  }}
+                  options={{
+                    cutout: "75%",
+                    plugins: { legend: { display: false } },
+                  }}
+                  className="h-40 w-40"
+                />
+              )}
+              <div className="text-center -mt-28 mb-20">
+                <div className="text-4xl font-bold text-emerald-600">{metrics?.winRate || 0}%</div>
+                <div className="text-xs text-muted-foreground">Win rate</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {role === "Admin" && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -268,46 +380,7 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <Card className="lg:col-span-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-4 w-4" />
-              Win Rate
-            </CardTitle>
-            <CardDescription>Conversion efficiency</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col items-center justify-center py-6">
-              {loading ? (
-                <Skeleton className="h-32 w-32 rounded-full" />
-              ) : (
-                <Doughnut
-                  data={{
-                    labels: ["Won", "Lost"],
-                    datasets: [{
-                      data: [metrics?.wonBids || 0, metrics?.lostBids || 0],
-                      backgroundColor: ["oklch(0.70 0.19 150)", "oklch(0.70 0.19 22)"],
-                      borderWidth: 0,
-                    }],
-                  }}
-                  options={{
-                    cutout: "75%",
-                    plugins: { legend: { display: false } },
-                  }}
-                  className="h-40 w-40"
-                />
-              )}
-              <div className="text-center -mt-28 mb-20">
-                <div className="text-4xl font-bold text-emerald-600">{metrics?.winRate || 0}%</div>
-                <div className="text-xs text-muted-foreground">Win rate</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      )}
     </div>
   );
 }

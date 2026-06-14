@@ -40,6 +40,8 @@ def get_bids():
     for bid in bids:
         bid['_id'] = str(bid['_id'])
         bid['negotiable'] = enq_map.get(bid.get('enquiryId'), True)
+        for comment in bid.get('comments', []):
+            comment['_id'] = str(comment['_id'])
 
     return jsonify({
         "items": bids,
@@ -66,6 +68,21 @@ def create_bid():
 
     log_audit("CREATE_BID", f"Created bid {new_bid['bidId']} for enquiry {new_bid['enquiryId']}")
 
+    # Notify enquiry creator
+    enquiry = db.Enquiries.find_one({"enquiryId": new_bid.get("enquiryId")})
+    if enquiry and enquiry.get("createdBy"):
+        enquiry_creator_id = str(enquiry.get("createdBy"))
+        bid_creator_id = str(get_jwt_identity())
+        if enquiry_creator_id != bid_creator_id:
+            notif = NotificationService.create(
+                user_id=enquiry_creator_id,
+                title="New Bid Received",
+                message=f"New bid {new_bid['bidId']} received for enquiry {new_bid['enquiryId']}",
+                notif_type="status_change",
+                ref_id=str(new_bid["_id"])
+            )
+            socketio.emit('notification', notif, room=f"user_{enquiry_creator_id}")
+
     new_bid['_id'] = str(new_bid['_id'])
     return jsonify(new_bid), 201
 
@@ -79,6 +96,15 @@ def update_bid_status(id):
     note = data.get("note", "Status updated")
 
     bid_oid = require_oid(id)
+    bid = db.Bids.find_one({"_id": bid_oid})
+    if not bid:
+        return jsonify({"msg": "Bid not found"}), 404
+
+    user_id = get_jwt_identity()
+    role = get_jwt().get('role')
+    if not BidService.can_update_bid_status(user_id, role, bid):
+        return jsonify({"msg": "Only the enquiry owner can update bid status"}), 403
+
     bid, error = BidService.update_status(bid_oid, new_status, note)
     if error:
         return jsonify({"msg": error}), 400
@@ -98,6 +124,23 @@ def update_bid_status(id):
                 ref_id=str(bid["_id"])
             )
             socketio.emit('notification', notif, room=f"user_{target_user_id}")
+
+    bid_creator_id = bid.get("createdBy")
+    if bid_creator_id and bid_creator_id != user_id:
+        if new_status == "Order Received":
+            notif_msg = f"Congratulations! Your bid {bid.get('bidId')} has been accepted!"
+        elif new_status == "Rejected":
+            notif_msg = f"Your bid {bid.get('bidId')} has been rejected."
+        else:
+            notif_msg = f"Your bid {bid.get('bidId')} status updated to '{new_status}'"
+        notif = NotificationService.create(
+            user_id=bid_creator_id,
+            title="Bid Status Updated",
+            message=notif_msg,
+            notif_type="status_change",
+            ref_id=str(bid["_id"])
+        )
+        socketio.emit('notification', notif, room=f"user_{bid_creator_id}")
 
     return jsonify({"msg": "Bid status updated"}), 200
 
@@ -127,45 +170,51 @@ def add_comment(id):
         "_id": ObjectId(),
         "text": text,
         "author": user.get("name", "Unknown"),
+        "userId": user_id,
         "date": now_utc()
     }
 
     db.Bids.update_one({"_id": bid_oid}, {"$push": {"comments": comment}})
 
-    bid = db.Bids.find_one({"_id": bid_oid})
-    if bid:
-        log_audit("ADD_COMMENT", f"Added comment to bid {bid.get('bidId')}")
+    try:
+        bid = db.Bids.find_one({"_id": bid_oid})
+        if bid:
+            log_audit("ADD_COMMENT", f"Added comment to bid {bid.get('bidId')}")
 
-    socketio.emit('new_comment', {
-        'bid_id': id,
-        'comment': {
-            '_id': str(comment['_id']),
-            'text': comment['text'],
-            'author': comment['author'],
-            'date': comment['date'].isoformat()
-        }
-    }, room=f"bid_{id}")
+        socketio.emit('new_comment', {
+            'bid_id': id,
+            'comment': {
+                '_id': str(comment['_id']),
+                'text': comment['text'],
+                'author': comment['author'],
+                'userId': comment['userId'],
+                'date': comment['date'].isoformat()
+            }
+        }, room=f"bid_{id}")
 
-    if bid:
-        assigned_name = bid.get("assignedEmployee")
-        commenter_name = user.get("name", "") if user else ""
-        if assigned_name and assigned_name != commenter_name:
-            target_user = BidService.get_user_by_name(assigned_name)
-            if target_user:
-                target_user_id = str(target_user["_id"])
-                notif = NotificationService.create(
-                    user_id=target_user_id,
-                    title="New Comment on Your Bid",
-                    message=f"{commenter_name} commented on {bid.get('bidId', id)}: \"{comment['text'][:60]}\"",
-                    notif_type="new_comment",
-                    ref_id=str(bid["_id"])
-                )
-                socketio.emit('notification', notif, room=f"user_{target_user_id}")
+        if bid:
+            assigned_name = bid.get("assignedEmployee")
+            commenter_name = user.get("name", "") if user else ""
+            if assigned_name and assigned_name != commenter_name:
+                target_user = BidService.get_user_by_name(assigned_name)
+                if target_user:
+                    target_user_id = str(target_user["_id"])
+                    notif = NotificationService.create(
+                        user_id=target_user_id,
+                        title="New Comment on Your Bid",
+                        message=f"{commenter_name} commented on {bid.get('bidId', id)}: \"{comment['text'][:60]}\"",
+                        notif_type="new_comment",
+                        ref_id=str(bid["_id"])
+                    )
+                    socketio.emit('notification', notif, room=f"user_{target_user_id}")
+    except Exception as e:
+        current_app.logger.error(f"Post-comment side effects failed for bid {id}: {e}")
 
     return jsonify({
         "_id": str(comment["_id"]),
         "text": comment["text"],
         "author": comment["author"],
+        "userId": comment["userId"],
         "date": comment["date"].isoformat()
     }), 201
 
@@ -261,7 +310,34 @@ def get_calendar_bids():
                 "customerName": enq.get("customerName", "Unknown Client"),
                 "priority": enq.get("priority", "Medium"),
                 "productServiceRequired": enq.get("productServiceRequired", "N/A"),
+                "eventType": "bid"
             })
+
+        # Add enquiry creation events for Company role
+        if role == 'Company' and user_id:
+            enq_date_filter = {}
+            if month_param:
+                enq_date_filter["date"] = {"$regex": f"^{re.escape(month_param)}"}
+            enq_date_filter["createdBy"] = user_id
+            user_enquiries = list(db.Enquiries.find(enq_date_filter).limit(500))
+            for enq in user_enquiries:
+                enq_date = enq.get('date')
+                if not enq_date:
+                    continue
+                if isinstance(enq_date, datetime.datetime):
+                    enq_date = enq_date.strftime('%Y-%m-%d')
+                elif isinstance(enq_date, str) and "T" in enq_date:
+                    enq_date = enq_date.split("T")[0]
+                events.append({
+                    "enquiryId": enq.get("enquiryId"),
+                    "_id": str(enq.get("_id")),
+                    "submissionDate": enq_date,
+                    "customerName": enq.get("customerName", "Unknown Client"),
+                    "productServiceRequired": enq.get("productServiceRequired", "N/A"),
+                    "priority": enq.get("priority", "Medium"),
+                    "status": enq.get("status", "Under Review"),
+                    "eventType": "enquiry"
+                })
 
         current_app.logger.info(f"Calendar: returning {len(events)} events for month {month_param}")
         return jsonify(events), 200
@@ -349,9 +425,35 @@ def delete_bid(id):
             return jsonify({"msg": "Bid not found"}), 404
         bid_id_str = bid.get("bidId", id)
 
+        # Bidder-specific: only allow delete if status is Rejected or bid is > 30 days old
+        role = get_jwt().get('role')
+        user_id = get_jwt_identity()
+        if role == 'Bidder' and bid.get('createdBy') == user_id:
+            from bson import datetime as bson_datetime
+            is_rejected = bid.get('status') == 'Rejected'
+            created = bid.get('createdAt')
+            is_old = False
+            if created:
+                if isinstance(created, bson_datetime):
+                    age_days = (now_utc() - created).days
+                elif isinstance(created, str):
+                    age_days = (now_utc() - datetime.datetime.fromisoformat(created.replace('Z', '+00:00'))).days
+                else:
+                    age_days = 0
+                is_old = age_days >= 30
+            if not is_rejected and not is_old:
+                return jsonify({"msg": "Bidders can only delete rejected or old bids (30+ days)"}), 403
+
         db.Bids.delete_one({"_id": bid_oid})
         DocumentService.delete_bid_documents(str(bid_oid))
         NotificationService.delete_by_ref(id)
+
+        # Decrement enquiry bidCount
+        if bid.get('enquiryId'):
+            db.Enquiries.update_one(
+                {"enquiryId": bid['enquiryId']},
+                {"$inc": {"bidCount": -1}}
+            )
 
         log_audit("DELETE_BID", f"Deleted bid {bid_id_str}")
         return jsonify({"msg": "Bid deleted successfully"}), 200
@@ -392,7 +494,12 @@ def delete_comment(id, comment_id):
             return jsonify({"msg": "Comment not found"}), 404
 
         is_admin = user.get("role") == "Admin"
-        if comment_to_delete.get("author") != user.get("name") and not is_admin:
+        comment_user_id = comment_to_delete.get("userId")
+        if comment_user_id:
+            is_owner = str(comment_user_id) == str(user_id)
+        else:
+            is_owner = comment_to_delete.get("author") == user.get("name")
+        if not is_owner and not is_admin:
             return jsonify({"msg": "Unauthorized to delete this comment"}), 403
 
         db.Bids.update_one(

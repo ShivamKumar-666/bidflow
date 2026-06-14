@@ -66,7 +66,7 @@ def retrain_from_db(db) -> dict:
             'priority_encoded', 'employee_win_rate', 'employee_experience',
             'industry_win_rate', 'amount_vs_industry_avg', 'amount_x_win_rate',
             'industry_encoded', 'product_series_encoded', 'regional_office_encoded',
-            'sales_price',
+            'sales_price', 'team_size',
         ]
 
     # Fetch terminal bids
@@ -197,6 +197,9 @@ def retrain_from_db(db) -> dict:
             product_series_encoded = 0
             regional_office_encoded = 0
             sales_price = 0.0
+            team_size = int(bid.get("teamSize", 1))
+            if team_size < 1:
+                team_size = 1
 
             # Encode industry (unseen → len(le.classes_) as fallback)
             if industry in le.classes_:
@@ -210,6 +213,7 @@ def retrain_from_db(db) -> dict:
                 ind_wr, amount_vs_industry_avg, amount_x_win_rate,
                 industry_encoded,
                 product_series_encoded, regional_office_encoded, sales_price,
+                team_size,
             ])
             labels.append(1 if bid["status"] == "Order Received" else 0)
         return np.array(rows, dtype=float), np.array(labels)

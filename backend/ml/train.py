@@ -51,7 +51,7 @@ def main():
             'priority_encoded', 'employee_win_rate', 'employee_experience',
             'industry_win_rate', 'amount_vs_industry_avg', 'amount_x_win_rate',
             'industry_encoded', 'product_series_encoded', 'regional_office_encoded',
-            'sales_price',
+            'sales_price', 'team_size',
         ]
     
     print(f"Using {len(FEATURES)} features: {FEATURES}")

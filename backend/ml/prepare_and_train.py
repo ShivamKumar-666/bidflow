@@ -75,6 +75,7 @@ def main():
         'amount_vs_industry_avg',
         'amount_x_win_rate',
         'industry_encoded',
+        'team_size',
     ]
     
     # Optional features (include if available)

@@ -64,7 +64,8 @@ def download_file(doc_id):
     user_id = get_jwt_identity()
     role = get_jwt().get('role')
     if not DocumentService.check_user_bid_access(user_id, role, bid):
-        return jsonify({"msg": "Forbidden"}), 403
+        if not DocumentService.check_enquiry_is_public(doc.get("enquiryId")):
+            return jsonify({"msg": "Forbidden"}), 403
 
     return send_from_directory(
         current_app.config['UPLOAD_FOLDER'],

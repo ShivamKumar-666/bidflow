@@ -17,11 +17,23 @@ import { TagInput } from "@/components/TagInput";
 import LivePrediction from "./LivePrediction";
 import { defaultIndustryTags } from "@/hooks/useBids";
 
+const INDUSTRY_TEAM_LIMITS = {
+  Technology: 50,
+  Healthcare: 30,
+  Construction: 100,
+  Energy: 40,
+  Finance: 25,
+  Banking: 25,
+  Manufacturing: 100,
+  Retail: 40,
+  Other: 50,
+};
+
 export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueTags, onCreated }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
     enquiryId: "", amount: "", industry: "Technology",
-    submissionDate: "", assignedEmployee: "", remarks: "", tags: [],
+    submissionDate: "", assignedEmployee: "", teamSize: "1", remarks: "", tags: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [livePredict, setLivePredict] = useState(null);
@@ -42,6 +54,7 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
           submissionDate: data.submissionDate,
           industry: data.industry,
           assignedEmployee: data.assignedEmployee,
+          teamSize: parseInt(data.teamSize) || 1,
           priority_encoded: 1,
         });
         setLivePredict(res.data);
@@ -58,11 +71,11 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      await api.post("/bids/", form);
+      await api.post("/bids/", { ...form, teamSize: parseInt(form.teamSize) || 1 });
       toast.success(t("bids.createSuccess"));
       onOpenChange(false);
       setLivePredict(null);
-      setForm({ enquiryId: "", amount: "", industry: "Technology", submissionDate: "", assignedEmployee: "", remarks: "", tags: [] });
+      setForm({ enquiryId: "", amount: "", industry: "Technology", submissionDate: "", assignedEmployee: "", teamSize: "1", remarks: "", tags: [] });
       onCreated();
     } catch {
       toast.error(t("bids.createFailed"));
@@ -75,7 +88,7 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
     onOpenChange(o);
     if (!o) {
       setLivePredict(null);
-      setForm({ enquiryId: "", amount: "", industry: "Technology", submissionDate: "", assignedEmployee: "", remarks: "", tags: [] });
+      setForm({ enquiryId: "", amount: "", industry: "Technology", submissionDate: "", assignedEmployee: "", teamSize: "1", remarks: "", tags: [] });
     }
   };
 
@@ -132,21 +145,28 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>{t("bids.assignedEmployee")}</Label>
+              <Label>{t("bids.teamSize", "Team Size")} (people)</Label>
               <Input
-                required
-                value={form.assignedEmployee}
+                type="number"
+                min="1"
+                max={INDUSTRY_TEAM_LIMITS[form.industry] || 50}
+                value={form.teamSize}
                 onChange={(e) => {
-                  const updated = { ...form, assignedEmployee: e.target.value };
-                  setForm(updated);
-                  triggerLivePredict(updated);
+                  const val = e.target.value;
+                  const maxVal = INDUSTRY_TEAM_LIMITS[form.industry] || 50;
+                  if (val === "" || (parseInt(val) >= 1 && parseInt(val) <= maxVal)) {
+                    const updated = { ...form, teamSize: val };
+                    setForm(updated);
+                    triggerLivePredict(updated);
+                  }
                 }}
+                placeholder={`1 - ${INDUSTRY_TEAM_LIMITS[form.industry] || 50}`}
               />
             </div>
             <div className="space-y-1.5">
               <Label>{t("bids.clientIndustry")}</Label>
               <Select value={form.industry} onValueChange={(v) => {
-                const updated = { ...form, industry: v };
+                const updated = { ...form, industry: v, teamSize: "1" };
                 setForm(updated);
                 triggerLivePredict(updated);
               }}>

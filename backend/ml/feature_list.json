@@ -12,5 +12,6 @@
   "industry_encoded",
   "product_series_encoded",
   "regional_office_encoded",
-  "sales_price"
+  "sales_price",
+  "team_size"
 ]

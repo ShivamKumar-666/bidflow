@@ -39,6 +39,13 @@ class DocumentService:
         return bool(user and user.get('name') == bid.get('assignedEmployee'))
 
     @classmethod
+    def check_enquiry_is_public(cls, enquiry_id: str) -> bool:
+        if not enquiry_id:
+            return False
+        enquiry = db.Enquiries.find_one({"enquiryId": enquiry_id}, {"visibility": 1})
+        return bool(enquiry and enquiry.get("visibility") == "public")
+
+    @classmethod
     def validate_file(cls, file) -> tuple:
         if not file or file.filename == '':
             return None, "No file selected"
@@ -74,6 +81,25 @@ class DocumentService:
 
         document = {
             "bidId": str(bid_oid),
+            "enquiryId": bid.get("enquiryId"),
+            "filename": filename,
+            "path": unique_filename,
+            "uploadDate": now_utc(),
+            "uploadedBy": user_id,
+        }
+        db.Documents.insert_one(document)
+        return document, None
+
+    @classmethod
+    def upload_enquiry_document(cls, file, enquiry_id: str, user_id: str) -> tuple:
+        filename = secure_filename(file.filename)
+        unique_filename = f"{now_utc().timestamp()}_{filename}"
+        filepath = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+        file.save(filepath)
+
+        document = {
+            "bidId": None,
+            "enquiryId": enquiry_id,
             "filename": filename,
             "path": unique_filename,
             "uploadDate": now_utc(),
@@ -92,6 +118,13 @@ class DocumentService:
     @classmethod
     def get_bid_documents(cls, bid_id: str) -> list:
         docs = list(db.Documents.find({"bidId": str(bid_id)}))
+        for doc in docs:
+            doc['_id'] = str(doc['_id'])
+        return docs
+
+    @classmethod
+    def get_enquiry_documents(cls, enquiry_id: str) -> list:
+        docs = list(db.Documents.find({"enquiryId": enquiry_id}))
         for doc in docs:
             doc['_id'] = str(doc['_id'])
         return docs

@@ -13,6 +13,7 @@ from routes.admin import admin_bp
 from routes.search import search_bp
 from routes.tags import tags_bp
 from routes.notifications import notifications_bp
+from routes.marketplace import marketplace_bp
 from extensions import socketio, limiter, mail, get_allowed_origins
 from database import db
 import os
@@ -171,6 +172,7 @@ def create_app():
     app.register_blueprint(search_bp,        url_prefix='/api/search')
     app.register_blueprint(tags_bp,          url_prefix='/api/tags')
     app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
+    app.register_blueprint(marketplace_bp,     url_prefix='/api/marketplace')
 
     @app.route('/')
     def index():

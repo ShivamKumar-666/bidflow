@@ -45,8 +45,10 @@ class AuthService:
     def verify_password(cls, password: str, hashed: str) -> bool:
         return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
 
+    ALLOWED_ROLES = {"Admin", "Sales Executive", "Company", "Bidder"}
+
     @classmethod
-    def register_user(cls, name: str, email: str, password: str) -> tuple:
+    def register_user(cls, name: str, email: str, password: str, requested_role: str = None) -> tuple:
         email = email.strip().lower()
 
         if db.Users.find_one({"email": email}):
@@ -58,7 +60,12 @@ class AuthService:
             upsert=True,
             return_document=True
         )
-        role = "Admin" if counter.get("seq", 1) == 1 else "Sales Executive"
+        if counter.get("seq", 1) == 1:
+            role = "Admin"
+        elif requested_role and requested_role in cls.ALLOWED_ROLES and requested_role != "Admin":
+            role = requested_role
+        else:
+            role = "Sales Executive"
 
         user = {
             "name": name,
@@ -192,7 +199,7 @@ class AuthService:
         return user, None
 
     @classmethod
-    def register_google_user(cls, email: str, name: str) -> dict:
+    def register_google_user(cls, email: str, name: str, requested_role: str = None) -> dict:
         random_pw = secrets.token_urlsafe(16)
         hashed_password = cls.hash_password(random_pw)
 
@@ -202,7 +209,12 @@ class AuthService:
             upsert=True,
             return_document=True
         )
-        role = "Admin" if counter.get("seq", 1) == 1 else "Sales Executive"
+        if counter.get("seq", 1) == 1:
+            role = "Admin"
+        elif requested_role and requested_role in cls.ALLOWED_ROLES and requested_role != "Admin":
+            role = requested_role
+        else:
+            role = "Sales Executive"
 
         user = {
             "name": name,

@@ -4,7 +4,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import { useTranslation } from "react-i18next";
 import {
-  Tag as TagIcon, Share2, Search, Filter, X, MessageSquare,
+  Tag as TagIcon, Share2, Search, Filter, X, MessageSquare, Globe, Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,23 +53,25 @@ export default function Enquiries() {
   const [form, setForm] = useState({
     customerName: "", contactInformation: "",
     productServiceRequired: "", priority: "Medium", notes: "", tags: [],
-    negotiable: true,
+    negotiable: true, visibility: true, industry: "Technology",
   });
+
+  const INDUSTRIES = ["Technology", "Healthcare", "Construction", "Energy", "Finance", "Banking", "Manufacturing", "Retail", "Other"];
 
   const fetch = useCallback(async () => {
     setLoading(true);
     try {
-      const [enq, tg] = await Promise.all([
-        api.get("/enquiries/"),
-        api.get("/tags/"),
-      ]);
+      const enq = await api.get("/enquiries/");
       setEnquiries(Array.isArray(enq.data) ? enq.data : (enq.data.items || []));
-      setUniqueTags(tg.data);
     } catch {
       toast.error(t("enquiries.failedFetch"));
-    } finally {
-      setLoading(false);
     }
+    try {
+      const tg = await api.get("/tags/");
+      setUniqueTags(tg.data);
+    } catch {
+    }
+    setLoading(false);
   }, [t]);
 
   useEffect(() => { fetch(); }, [fetch]);
@@ -77,10 +79,10 @@ export default function Enquiries() {
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await api.post("/enquiries/", form);
+      await api.post("/enquiries/", { ...form, industry: form.industry, visibility: form.visibility ? "public" : "internal" });
       toast.success(t("enquiries.createSuccess"));
       setShowModal(false);
-      setForm({ customerName: "", contactInformation: "", productServiceRequired: "", priority: "Medium", notes: "", tags: [], negotiable: true });
+      setForm({ customerName: "", contactInformation: "", productServiceRequired: "", priority: "Medium", notes: "", tags: [], negotiable: true, visibility: true, industry: "Technology" });
       fetch();
     } catch (err) {
       toast.error(err.response?.data?.msg || t("enquiries.createFailed"));
@@ -110,6 +112,17 @@ export default function Enquiries() {
       toast.error(t("enquiries.shareFailed", "Failed to generate share link"));
     }
   }, [t]);
+
+  const toggleVisibility = async (id, currentVisibility) => {
+    try {
+      const newVisibility = currentVisibility === "public" ? "internal" : "public";
+      await api.put(`/enquiries/${id}`, { visibility: newVisibility });
+      toast.success(newVisibility === "public" ? "Listed on marketplace" : "Removed from marketplace");
+      fetch();
+    } catch {
+      toast.error("Failed to update visibility");
+    }
+  };
 
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -207,12 +220,31 @@ export default function Enquiries() {
                   </SelectContent>
                 </Select>
               </div>
+              <div className="space-y-1.5">
+                <Label>Industry</Label>
+                <Select value={form.industry} onValueChange={(v) => {
+                  const cleaned = form.tags.filter((t) => !INDUSTRIES.includes(t.toLowerCase().charAt(0).toUpperCase() + t.slice(1)));
+                  setForm({ ...form, industry: v, tags: [v.toLowerCase(), ...cleaned] });
+                }}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {INDUSTRIES.map((ind) => <SelectItem key={ind} value={ind}>{ind}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-medium">Allow Negotiation</Label>
                   <p className="text-xs text-muted-foreground">Bids on this enquiry can be negotiated</p>
                 </div>
                 <Switch checked={form.negotiable} onCheckedChange={(v) => setForm({ ...form, negotiable: v })} />
+              </div>
+              <div className="flex items-center justify-between rounded-lg border p-3">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium">List on Marketplace</Label>
+                  <p className="text-xs text-muted-foreground">Visible to bidders when enabled</p>
+                </div>
+                <Switch checked={form.visibility} onCheckedChange={(v) => setForm({ ...form, visibility: v })} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t("common.tags")}</Label>
@@ -336,12 +368,29 @@ export default function Enquiries() {
                     </TableCell>
                     <TableCell>
                       <Badge variant={statusVariants[e.status] || "secondary"}>{e.status}</Badge>
+                      {e.visibility === "public" ? (
+                        <Badge variant="success" className="ml-1">Public</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="ml-1">Private</Badge>
+                      )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {format(new Date(e.date), "MMM dd, yyyy")}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleVisibility(e._id, e.visibility)}
+                          title={e.visibility === "public" ? "Remove from marketplace" : "List on marketplace"}
+                        >
+                          {e.visibility === "public" ? (
+                            <Globe className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <Lock className="h-3.5 w-3.5 text-muted-foreground" />
+                          )}
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"

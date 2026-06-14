@@ -31,6 +31,10 @@ class EnquiryService:
     def get_visibility_filter(cls, user_id: str, role: str) -> dict:
         if role == 'Admin':
             return {}
+        if role == 'Bidder':
+            return {"visibility": "public"}
+        if role == 'Company':
+            return {"createdBy": user_id}
         if not user_id:
             return {"_id": {"$exists": False}}
         return {"createdBy": user_id}
@@ -58,6 +62,9 @@ class EnquiryService:
     @classmethod
     def create_enquiry(cls, data: dict, user_id: str) -> dict:
         tags = [t.strip().lower() for t in data.get("tags", []) if isinstance(t, str) and t.strip()]
+        industry = data.get("industry", "").strip() if isinstance(data.get("industry"), str) else ""
+        if industry and industry.lower() not in tags:
+            tags.insert(0, industry.lower())
 
         new_enquiry = {
             "enquiryId": cls.generate_enquiry_id(),
@@ -70,8 +77,20 @@ class EnquiryService:
             "tags": tags,
             "status": "Under Review",
             "negotiable": data.get("negotiable", True),
+            "visibility": data.get("visibility", "public"),
+            "industry": industry or None,
             "createdBy": user_id,
         }
+
+        listing_deadline = data.get("listingDeadline")
+        if listing_deadline:
+            try:
+                if isinstance(listing_deadline, str):
+                    listing_deadline = datetime.datetime.fromisoformat(listing_deadline)
+                new_enquiry["listingDeadline"] = listing_deadline
+            except (TypeError, ValueError):
+                pass
+
         db.Enquiries.insert_one(new_enquiry)
         return new_enquiry
 
@@ -80,7 +99,7 @@ class EnquiryService:
     @classmethod
     def update_enquiry(cls, enq_oid: ObjectId, data: dict) -> tuple:
         ALLOWED_FIELDS = {"customerName", "contactInformation", "productServiceRequired",
-                          "priority", "notes", "tags", "status", "negotiable"}
+                          "priority", "notes", "tags", "status", "negotiable", "visibility", "industry"}
         update_data = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
 
         if not update_data:
@@ -152,15 +171,12 @@ class EnquiryService:
     def get_public_share_data(cls, enq: dict) -> dict:
         bid = db.Bids.find_one({"enquiryId": enq.get("enquiryId")})
         bid_data = None
-        docs = []
+        docs = list(db.Documents.find({"enquiryId": enq.get("enquiryId")}))
 
         if bid:
             for doc in db.Documents.find({"bidId": bid.get("bidId")}):
-                docs.append({
-                    "_id": str(doc["_id"]),
-                    "filename": doc["filename"],
-                    "uploadDate": doc.get("uploadDate").isoformat() if isinstance(doc.get("uploadDate"), datetime.datetime) else doc.get("uploadDate"),
-                })
+                if not any(d["_id"] == doc["_id"] for d in docs):
+                    docs.append(doc)
 
             bid_data = {
                 "bidId": bid.get("bidId"),
@@ -183,7 +199,11 @@ class EnquiryService:
                 "negotiable": enq.get("negotiable", True),
             },
             "bid": bid_data,
-            "documents": docs,
+            "documents": [{
+                "_id": str(doc["_id"]),
+                "filename": doc["filename"],
+                "uploadDate": doc.get("uploadDate").isoformat() if isinstance(doc.get("uploadDate"), datetime.datetime) else doc.get("uploadDate"),
+            } for doc in docs],
         }
 
     @classmethod

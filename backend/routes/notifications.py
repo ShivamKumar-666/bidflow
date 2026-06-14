@@ -40,3 +40,13 @@ def mark_all_read():
     user_id = get_jwt_identity()
     NotificationService.mark_all_read(user_id)
     return jsonify({"msg": "All notifications marked as read"}), 200
+
+
+@notifications_bp.route('/<notif_id>', methods=['DELETE'])
+@jwt_required()
+@limiter.limit("30 per minute")
+def delete_notification(notif_id):
+    user_id = get_jwt_identity()
+    if NotificationService.delete_notification(user_id, notif_id):
+        return jsonify({"msg": "Notification deleted"}), 200
+    return jsonify({"msg": "Notification not found"}), 404

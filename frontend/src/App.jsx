@@ -13,6 +13,7 @@ import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Enquiries from "@/pages/Enquiries";
 import Bids from "@/pages/Bids";
+import Marketplace from "@/pages/Marketplace";
 import Reports from "@/pages/Reports";
 import AuditLogs from "@/pages/AuditLogs";
 import Profile from "@/pages/Profile";
@@ -84,6 +85,17 @@ const AppRoutes = () => {
         />
 
         <Route
+          path="/marketplace"
+          element={
+            <ProtectedRoute>
+              <AppLayout>
+                <Marketplace />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/calendar"
           element={
             <ProtectedRoute>
@@ -119,11 +131,11 @@ const AppRoutes = () => {
         <Route
           path="/audit-logs"
           element={
-            <ProtectedRoute adminOnly>
-              <AppLayout>
-                <AuditLogs />
-              </AppLayout>
-            </ProtectedRoute>
+          <ProtectedRoute>
+            <AppLayout>
+              <AuditLogs />
+            </AppLayout>
+          </ProtectedRoute>
           }
         />
 

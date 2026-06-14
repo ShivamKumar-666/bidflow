@@ -29,6 +29,7 @@ def register():
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
+    requested_role = data.get('role')
 
     if not email or not password or not name:
         return jsonify({"msg": "Missing required fields"}), 400
@@ -43,7 +44,7 @@ def register():
 
     email = email.strip().lower()
 
-    user, error = AuthService.register_user(name, email, password)
+    user, error = AuthService.register_user(name, email, password, requested_role)
     if error:
         return jsonify({"msg": error}), 400
 
@@ -178,6 +179,15 @@ def me():
     return jsonify({"msg": "User not found"}), 404
 
 
+@auth_bp.route('/users', methods=['GET'])
+@jwt_required()
+def list_users():
+    users = list(db.Users.find({}, {"name": 1, "role": 1, "industry": 1}))
+    for u in users:
+        u['_id'] = str(u['_id'])
+    return jsonify(users), 200
+
+
 @auth_bp.route('/profile', methods=['PUT'])
 @jwt_required()
 def update_profile():
@@ -263,6 +273,7 @@ def get_google_client_id():
 def google_login():
     data = request.get_json() or {}
     token = data.get('credential')
+    requested_role = data.get('role')
     if not token:
         return jsonify({"msg": "Missing Google credential"}), 400
 
@@ -288,7 +299,7 @@ def google_login():
 
         user = db.Users.find_one({"email": email})
         if not user:
-            user = AuthService.register_google_user(email, name)
+            user = AuthService.register_google_user(email, name, requested_role)
         else:
             if not user.get("google_oauth") and not user.get("is_verified"):
                 return jsonify({"msg": "Please verify your email first before using Google login."}), 403

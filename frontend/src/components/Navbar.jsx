@@ -38,7 +38,7 @@ function NotifIcon({ type }) {
 }
 
 function NotificationBell() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
 
   return (
     <Popover>
@@ -75,31 +75,47 @@ function NotificationBell() {
           ) : (
             <div className="divide-y">
               {notifications.slice(0, 30).map((n) => (
-                <button
+                <div
                   key={n._id}
-                  onClick={() => !n.isRead && markAsRead(n._id)}
                   className={cn(
-                    "w-full text-left px-4 py-3 hover:bg-accent/50 transition-colors flex gap-3",
+                    "relative w-full text-left px-4 py-3 hover:bg-accent/50 transition-colors flex gap-3",
                     !n.isRead && "bg-blue-500/5"
                   )}
                 >
-                  <div className={cn(
-                    "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
-                    n.type === "status_change" && "bg-amber-500/15 text-amber-600",
-                    n.type === "new_comment" && "bg-blue-500/15 text-blue-600",
-                    (!n.type || n.type === "system") && "bg-muted text-muted-foreground"
-                  )}>
-                    <NotifIcon type={n.type} />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium text-sm truncate">{n.title}</span>
-                      {!n.isRead && <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />}
+                  <button
+                    onClick={() => !n.isRead && markAsRead(n._id)}
+                    className="flex-1 min-w-0 text-left"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={cn(
+                        "h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0",
+                        n.type === "status_change" && "bg-amber-500/15 text-amber-600",
+                        n.type === "new_comment" && "bg-blue-500/15 text-blue-600",
+                        (!n.type || n.type === "system") && "bg-muted text-muted-foreground"
+                      )}>
+                        <NotifIcon type={n.type} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-medium text-sm truncate">{n.title}</span>
+                          {!n.isRead && <span className="h-2 w-2 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
+                        <span className="text-[10px] text-muted-foreground mt-1 inline-block">{timeAgo(n.createdAt)}</span>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{n.message}</p>
-                    <span className="text-[10px] text-muted-foreground mt-1 inline-block">{timeAgo(n.createdAt)}</span>
-                  </div>
-                </button>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteNotification(n._id);
+                    }}
+                    className="absolute top-2 right-2 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Delete notification"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               ))}
             </div>
           )}

@@ -5,10 +5,13 @@ import { useTranslation } from "react-i18next";
 
 const defaultIndustryTags = {
   Technology: ["software", "saas", "hardware", "consulting", "cloud", "devops", "cybersecurity"],
+  Healthcare: ["medical-devices", "pharma", "compliance", "telehealth", "clinical-trials", "patient-care"],
+  Construction: ["building", "infrastructure", "civil", "electrical", "plumbing", "structural"],
+  Energy: ["oil-gas", "renewables", "utilities", "solar", "wind", "power-grid"],
+  Finance: ["accounting", "auditing", "tax", "advisory", "wealth-management", "insurance"],
   Banking: ["loan", "credit", "securities", "compliance", "fintech", "retail-banking", "asset-management"],
   Manufacturing: ["machinery", "materials", "logistics", "supply-chain", "automotive", "quality-control"],
   Retail: ["e-commerce", "inventory", "merchandising", "pos", "supply-chain", "customer-loyalty"],
-  Healthcare: ["medical-devices", "pharma", "compliance", "telehealth", "clinical-trials", "patient-care"],
   Other: ["general", "consulting", "services", "miscellaneous"],
 };
 
@@ -23,23 +26,28 @@ export function useBids() {
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState("deadline");
   const [industryFilters, setIndustryFilters] = useState([]);
+  const [dateFilter, setDateFilter] = useState("all");
+  const [groupByProject, setGroupByProject] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [b, e, tg] = await Promise.all([
-        api.get("/bids/"),
-        api.get("/enquiries/"),
-        api.get("/tags/"),
-      ]);
+      const b = await api.get("/bids/");
       setBids(Array.isArray(b.data) ? b.data : (b.data.items || []));
-      setEnquiries(Array.isArray(e.data) ? e.data : (e.data.items || []));
-      setUniqueTags(tg.data);
     } catch {
       toast.error(t("bids.failedFetch"));
-    } finally {
-      setLoading(false);
     }
+    try {
+      const e = await api.get("/enquiries/");
+      setEnquiries(Array.isArray(e.data) ? e.data : (e.data.items || []));
+    } catch {
+    }
+    try {
+      const tg = await api.get("/tags/");
+      setUniqueTags(tg.data);
+    } catch {
+    }
+    setLoading(false);
   }, [t]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
@@ -49,7 +57,7 @@ export function useBids() {
       e.preventDefault();
       const val = search.trim().toLowerCase();
       if (!val) return;
-      const industries = ["Technology", "Banking", "Manufacturing", "Retail", "Healthcare", "Other"];
+      const industries = ["Technology", "Healthcare", "Construction", "Energy", "Finance", "Banking", "Manufacturing", "Retail", "Other"];
       const matching = industries.find((ind) => ind.toLowerCase() === val);
       if (matching && !industryFilters.includes(matching)) {
         setIndustryFilters((p) => [...p, matching]);
@@ -65,6 +73,7 @@ export function useBids() {
   const clearFilters = () => {
     setIndustryFilters([]);
     setSearch("");
+    setDateFilter("all");
   };
 
   const fmt = (n) => new Intl.NumberFormat(i18n.language || "en-US", { style: "currency", currency: "USD" }).format(n);
@@ -72,6 +81,13 @@ export function useBids() {
   const filtered = useMemo(() => {
     let result = bids.filter((b) => {
       if (industryFilters.length > 0 && !industryFilters.includes(b.industry)) return false;
+      if (dateFilter !== "all") {
+        const now = Date.now();
+        const created = new Date(b.createdAt || b.history?.[0]?.date || 0).getTime();
+        const daysMap = { "7d": 7, "30d": 30, "90d": 90 };
+        const days = daysMap[dateFilter] || 30;
+        if (now - created > days * 86400000) return false;
+      }
       if (search) {
         const s = search.toLowerCase();
         return (
@@ -101,7 +117,7 @@ export function useBids() {
         break;
     }
     return result;
-  }, [bids, search, sortBy, industryFilters]);
+  }, [bids, search, sortBy, industryFilters, dateFilter]);
 
   return {
     bids, setBids,
@@ -111,6 +127,8 @@ export function useBids() {
     search, setSearch,
     sortBy, setSortBy,
     industryFilters, setIndustryFilters,
+    dateFilter, setDateFilter,
+    groupByProject, setGroupByProject,
     filtered,
     fetchAll,
     handleSearchKeyDown,

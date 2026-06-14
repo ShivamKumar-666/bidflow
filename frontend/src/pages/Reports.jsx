@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useContext } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { useTranslation } from "react-i18next";
 import {
   Brain, Cpu, Play, Calendar, AlertTriangle, RefreshCw, History, Undo2,
@@ -214,7 +214,7 @@ const Reports = () => {
         tableRows.push(bidData);
       });
 
-      doc.autoTable({
+      autoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 20,
@@ -223,7 +223,8 @@ const Reports = () => {
       doc.save("bids_report.pdf");
       toast.success(t("reports.pdfSuccess"));
     } catch (err) {
-      toast.error(t("reports.pdfFailed"));
+      console.error("PDF export failed:", err);
+      toast.error(err.message || t("reports.pdfFailed"));
     }
   };
 

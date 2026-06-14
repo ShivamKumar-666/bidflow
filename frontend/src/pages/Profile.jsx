@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import {
   User, Mail, Shield, Building, Percent, DollarSign, Globe, Sun, Moon,
   Lock, Key, Copy, Download, RefreshCw, CheckCircle, Eye, EyeOff, Save,
+  TrendingUp, Target, FileText,
 } from "lucide-react";
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TwoFASetup from "./TwoFASetup";
 import { LANGUAGES } from "@/lib/utils";
 
@@ -38,6 +41,7 @@ export default function Profile() {
   const [regenerating, setRegenerating] = useState(false);
   const [newBackupCodes, setNewBackupCodes] = useState([]);
   const [copiedAll, setCopiedAll] = useState(false);
+  const [analytics, setAnalytics] = useState(null);
   const copiedTimerRef = useRef(null);
 
   useEffect(() => {
@@ -63,6 +67,12 @@ export default function Profile() {
   useEffect(() => {
     if (user?.totp_enabled) {
       api.get("/2fa/backup-codes").then((r) => setBackupCodesCount(r.data.backup_codes_remaining)).catch(() => {});
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      api.get("/analytics/dashboard").then((r) => setAnalytics(r.data)).catch(() => {});
     }
   }, [user]);
 
@@ -181,20 +191,24 @@ export default function Profile() {
                     <div className="text-sm">{user?.industry || "Other"}</div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Percent className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Win Rate Goal</div>
-                    <div className="text-sm">{user?.winRate ?? 50}%</div>
+                {user?.role !== "Admin" && (
+                  <div className="flex items-center gap-3">
+                    <Percent className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Win Rate Goal</div>
+                      <div className="text-sm">{user?.winRate ?? 50}%</div>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                  <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Target Bid Value</div>
-                    <div className="text-sm">${(user?.targetBidValue ?? 10000).toLocaleString()}</div>
+                )}
+                {user?.role !== "Admin" && (
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Target Bid Value</div>
+                      <div className="text-sm">${(user?.targetBidValue ?? 10000).toLocaleString()}</div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -256,6 +270,73 @@ export default function Profile() {
         </div>
 
         <div className="lg:col-span-2 space-y-4">
+          {user?.role !== "Admin" && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-4 w-4" />
+                  Performance Analytics
+                </CardTitle>
+                <CardDescription>Your actual performance vs. goals</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Win Rate</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-muted-foreground">Goal: {user?.winRate ?? 50}%</span>
+                      <span className="font-bold text-emerald-600">Actual: {analytics?.winRate ?? 0}%</span>
+                    </div>
+                  </div>
+                  <Progress value={analytics?.winRate ?? 0} className="h-2" />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <DollarSign className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm font-medium">Avg Bid Value</span>
+                    </div>
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-muted-foreground">Target: ${(user?.targetBidValue ?? 10000).toLocaleString()}</span>
+                      <span className="font-bold text-primary">Actual: ${(analytics?.avgBidSize ?? 0).toLocaleString()}</span>
+                    </div>
+                  </div>
+                  <Progress value={Math.min(((analytics?.avgBidSize ?? 0) / (user?.targetBidValue ?? 10000)) * 100, 100)} className="h-2" />
+                </div>
+
+                <Separator />
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">Total Bids</span>
+                    </div>
+                    <div className="text-2xl font-bold">{(analytics?.wonBids ?? 0) + (analytics?.lostBids ?? 0) + (analytics?.activeBids ?? 0)}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                      <span className="text-xs text-muted-foreground">Won</span>
+                    </div>
+                    <div className="text-2xl font-bold text-emerald-600">{analytics?.wonBids ?? 0}</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="flex items-center justify-center gap-1 mb-1">
+                      <TrendingUp className="h-3.5 w-3.5 text-rose-600" />
+                      <span className="text-xs text-muted-foreground">Lost</span>
+                    </div>
+                    <div className="text-2xl font-bold text-rose-600">{analytics?.lostBids ?? 0}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <Card>
             <CardHeader>
               <CardTitle>{t("profile.detailsTitle")}</CardTitle>
@@ -270,24 +351,25 @@ export default function Profile() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>{t("profile.industry")}</Label>
-                    <select
-                      value={form.industry}
-                      onChange={(e) => setForm({ ...form, industry: e.target.value })}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-                    >
-                      {industries.map((ind) => (
-                        <option key={ind} value={ind}>{ind}</option>
-                      ))}
-                    </select>
+                    <Select value={form.industry} onValueChange={(v) => setForm({ ...form, industry: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {industries.map((ind) => <SelectItem key={ind} value={ind}>{ind}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label>{t("profile.winRate")}</Label>
-                    <Input type="number" min="0" max="100" value={form.winRate} onChange={(e) => setForm({ ...form, winRate: parseInt(e.target.value) || 0 })} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label>{t("profile.targetBidValue")}</Label>
-                    <Input type="number" min="0" value={form.targetBidValue} onChange={(e) => setForm({ ...form, targetBidValue: parseFloat(e.target.value) || 0 })} />
-                  </div>
+                  {user?.role !== "Admin" && (
+                    <>
+                      <div className="space-y-1.5">
+                        <Label>{t("profile.winRate")}</Label>
+                        <Input type="number" min="0" max="100" value={form.winRate} onChange={(e) => setForm({ ...form, winRate: parseInt(e.target.value) || 0 })} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label>{t("profile.targetBidValue")}</Label>
+                        <Input type="number" min="0" value={form.targetBidValue} onChange={(e) => setForm({ ...form, targetBidValue: parseFloat(e.target.value) || 0 })} />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="space-y-1.5">
                   <Label>{t("profile.bio")}</Label>

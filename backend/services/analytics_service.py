@@ -15,6 +15,15 @@ class AnalyticsService:
             return {}, None
         if not user_id or not ObjectId.is_valid(user_id):
             return {"_id": {"$exists": False}}, None
+        if role == 'Bidder':
+            return {"createdBy": user_id}, None
+        if role == 'Company':
+            enquiry_ids = [
+                e["enquiryId"] for e in db.Enquiries.find(
+                    {"createdBy": user_id}, {"enquiryId": 1}
+                )
+            ]
+            return {"enquiryId": {"$in": enquiry_ids}}, None
         user = db.Users.find_one({"_id": ObjectId(user_id)}, {"name": 1})
         name = user.get('name') if user else None
         if not name:

@@ -13,10 +13,11 @@ An enterprise-grade bid and proposal management platform that automates, analyze
 In competitive B2B sales, companies lose millions due to disorganized bid tracking, missed deadlines, and gut-feel decisions. BidFlow centralizes the entire bid lifecycle — from customer enquiry to final outcome — into one intelligent platform.
 
 **Key Stats:**
-- **75 pytest tests** passing with 0 warnings in ~20 seconds
+- **99 pytest tests** passing with 0 warnings in ~20 seconds
 - **88.6% balanced accuracy** on ML predictions
 - **7 languages** supported (EN, HI, GU, ES, FR, DE, AR with RTL)
-- **14 engineered features** for bid win prediction
+- **15 engineered features** for bid win prediction (including team size)
+- **4 user roles**: Admin, Company, Sales Executive, Bidder
 
 ---
 
@@ -34,6 +35,7 @@ In competitive B2B sales, companies lose millions due to disorganized bid tracki
 | **Team Collaboration** | Real-time comments via WebSockets, document attachments, role-based dashboards |
 | **KPI Analytics** | Live revenue, win rate, pipeline metrics with Chart.js visualizations and CSV export |
 | **Customer Portal** | Secure token-based links let customers check bid status without exposing internal data |
+| **Marketplace** | Public enquiry listing, sealed bidding, team size input with industry-dependent limits, deadline enforcement |
 
 ### Security & Administration
 
@@ -55,6 +57,7 @@ In competitive B2B sales, companies lose millions due to disorganized bid tracki
 | **Multi-Language (7 langs + RTL)** | Serve global teams and Arabic-speaking clients natively |
 | **Dark/Light Theme** | Glassmorphic design, persisted in localStorage, respects system preference |
 | **Real-Time Notifications** | SocketIO push for bid status changes and comments, unread badge in navbar |
+| **Notification Dismissal** | Dismiss individual notifications with one click (X button) |
 | **Interactive Calendar** | Monthly grid with deadline highlighting, upcoming deadline sidebar |
 | **Secure Document Management** | PDF/DOCX/image attachments, 16MB max, blocked extensions, path traversal protection |
 
@@ -70,13 +73,84 @@ In competitive B2B sales, companies lose millions due to disorganized bid tracki
 
 ---
 
+## User Roles
+
+BidFlow supports 4 distinct user roles with role-based access control:
+
+| Role | Dashboard | Enquiries | Bids | Marketplace | Reports | Audit Logs |
+|------|-----------|-----------|------|-------------|---------|------------|
+| **Admin** | ✅ | ✅ CRUD | ✅ CRUD | ✅ View | ✅ | ✅ |
+| **Company** | ✅ | ✅ CRUD (own) | ✅ View (own enquiries) | ✅ | ❌ | ✅ |
+| **Sales Executive** | ✅ | ✅ CRUD | ✅ CRUD | ❌ | ❌ | ✅ |
+| **Bidder** | ✅ | ❌ | ✅ Own bids only | ✅ Submit | ❌ | ✅ |
+
+### Role Descriptions
+
+- **Admin** — Full system access: manage all enquiries/bids, view reports, audit logs, retrain ML models, rollback model versions.
+- **Company** — Posts enquiries, reviews bids submitted on their enquiries, updates bid status, downloads quotations, browses marketplace, views own audit activity.
+- **Sales Executive** — Internal sales role: creates bids, manages assigned enquiries, full bid CRUD, views own audit activity.
+- **Bidder** — External role: submits bids on public marketplace enquiries, tracks own bid status, receives notifications on status changes, views own audit activity. Cannot create or view enquiries.
+
+### First User = Admin
+
+The first registered user automatically receives the Admin role (enforced via atomic counter in `Counters` collection). Subsequent users select their role during registration.
+
+---
+
+## Marketplace
+
+BidFlow includes a public marketplace for multi-party bidding on procurement enquiries.
+
+### How It Works
+
+1. **Company** creates an enquiry and toggles visibility to **Public** (Globe icon)
+2. **Bidders** browse public enquiries on the Marketplace page, filtered by industry
+3. Bidders submit sealed bids — they cannot see other bidders' submissions
+4. **Company** reviews all bids, updates status (Quotation Prepared → Order Received / Rejected)
+5. Bidders receive real-time notifications on status changes
+
+### Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **Public/Private Toggle** | Company can toggle enquiry visibility (Globe/Lock button). Default is public. |
+| **Sealed Bids** | Bidders see only their own bids. Company sees all bids on their enquiries. |
+| **Listing Deadline** | Enquiries can have a bidding deadline. Bids after deadline are rejected. |
+| **Team Size Input** | Bidders specify team size (number of people). Industry-dependent max limits apply. |
+| **Auto-Assignment** | Bidder's name is auto-assigned to their submitted bid. |
+| **Live ML Prediction** | Real-time win probability + SHAP breakdown as bidder fills in the form. |
+
+### Industry Team Size Limits
+
+| Industry | Max Team Size |
+|----------|--------------|
+| Technology | 50 |
+| Healthcare | 30 |
+| Construction | 100 |
+| Energy | 40 |
+| Finance | 25 |
+| Banking | 25 |
+| Manufacturing | 100 |
+| Retail | 40 |
+| Other | 50 |
+
+### Marketplace API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/marketplace/` | List public enquiries (search, sort, filter) |
+| GET | `/api/marketplace/<enquiry_id>` | Enquiry detail + my bids + all bids (company/admin) |
+| POST | `/api/marketplace/<enquiry_id>/bid` | Submit a bid (deadline enforced) |
+
+---
+
 ## Tech Stack
 
 **Frontend:** React 19, Vite 8, React Router v7, Axios, `react-i18next`, Chart.js, `lucide-react`, shadcn/ui, Sonner
 
 **Backend:** Python 3.12, Flask 3.0 (Blueprints), Flask-SocketIO, Flask-JWT-Extended, Flask-Limiter, Celery, XGBoost, SHAP, scikit-learn, imbalanced-learn (SMOTE), PyMongo, bcrypt, pyotp, bleach
 
-**Testing:** pytest, pytest-cov, pytest-env (75 tests, 0 warnings, ~20s)
+**Testing:** pytest, pytest-cov, pytest-env (99 tests, 0 warnings, ~20s)
 
 **Database:** MongoDB 7 with JSON Schema validation & TTL indexes
 
@@ -225,7 +299,7 @@ Triggered on push to `main` and version tags:
 ### Model Architecture
 
 - **Algorithm:** XGBoost with L1/L2 regularization
-- **Features:** 14 engineered features (amount, log-amount, deadline urgency, employee/industry win rates, interaction terms)
+- **Features:** 15 engineered features (amount, log-amount, deadline urgency, employee/industry win rates, interaction terms, team size)
 - **Class Imbalance:** SMOTE oversampling + `scale_pos_weight`
 - **Tuning:** GridSearchCV with `balanced_accuracy` scoring (target: 80-90%)
 - **Explainability:** SHAP values for per-feature impact visualization
@@ -278,7 +352,7 @@ database.py      ← MongoDB connection & schema validation
 | `AuthService` | Password validation, token issuance, 2FA logic |
 | `AnalyticsService` | Dashboard metrics, CSV exports, model stats |
 | `DocumentService` | File validation, upload/download, access control |
-| `NotificationService` | Notification creation, read status |
+| `NotificationService` | Notification creation, read status, deletion |
 
 ### System Layers
 
@@ -307,6 +381,7 @@ ML Pipeline (XGBoost + SHAP)
 | MongoDB Auth | `MONGO_USERNAME` / `MONGO_PASSWORD` env-driven URI |
 | Non-Sequential IDs | `secrets.token_hex(6)` → `BID-3a7f9c2b1d4e` format |
 | RBAC Enforcement | Ownership checks on bid delete/status; admin-only audit & retrain |
+| Bidder Bid Deletion | Bidders can delete own bids only if status is Rejected or bid is 30+ days old |
 | Mass Assignment | Field allowlists on all PUT endpoints |
 | Path Traversal | DB-ID-based document lookup; no filename exposure |
 | CORS | Restricted to `http://localhost:5173` |
@@ -334,7 +409,7 @@ bidflow/
 │   ├── pytest.ini          # Test configuration
 │   ├── Dockerfile          # Python 3.12-slim + Gunicorn
 │   ├── .env.docker         # Docker environment template
-│   ├── routes/             # HTTP controllers (auth, bids, enquiries, etc.)
+│   ├── routes/             # HTTP controllers (auth, bids, enquiries, marketplace, etc.)
 │   ├── services/           # Business logic layer
 │   │   ├── bid_service.py
 │   │   ├── enquiry_service.py
@@ -348,9 +423,9 @@ bidflow/
 │   │   ├── bid_model.pkl          # Trained XGBoost model
 │   │   ├── industry_encoder.pkl   # Label encoder
 │   │   ├── best_params.json       # Best hyperparameters
-│   │   └── feature_list.json      # Feature names (14)
+│   │   └── feature_list.json      # Feature names (15)
 │   ├── templates/          # Jinja2 templates (quotation PDF)
-│   ├── tests/              # Pytest suite (9 files, 75 tests)
+│   ├── tests/              # Pytest suite (10 files, 99 tests)
 │   └── utils/              # Helpers (email, auth, audit)
 ├── data/                   # Raw CRM data + training datasets
 │   ├── Sales-Pipeline-Dataset.xlsx  # Original Excel workbook
@@ -369,16 +444,17 @@ bidflow/
 │   ├── Dockerfile          # Multi-stage Node build → Nginx
 │   ├── nginx.conf          # Reverse proxy config
 │   └── src/
-│       ├── pages/          # 11 pages (Bids, Enquiries, Calendar, etc.)
+│       ├── pages/          # 12 pages (Bids, Enquiries, Calendar, Marketplace, etc.)
 │       ├── components/     # AppLayout, Navbar, Sidebar, TagInput, ui/
 │       ├── contexts/       # AuthContext, ThemeContext, NotificationContext
+│       ├── hooks/          # useBids, useMarketplace, useUsers
 │       ├── locales/        # i18n JSON (ar, de, en, es, fr, gu, hi)
 │       └── services/       # Axios API layer with auto-retry
 ├── .github/workflows/      # CI/CD pipelines
 │   ├── ci.yml              # Test & build on PR
 │   └── cd.yml              # Build & push images on merge
 ├── docker-compose.yml      # 4-service deployment
-├── combine_datasets.py     # Merges data/ sources into training data
+├── combine_datasets.py     # Merges data/ sources into training data (includes team_size generation)
 ├── start.bat               # One-click launcher (Windows)
 └── backup.bat              # Backup wrapper (Windows)
 ```
@@ -401,7 +477,7 @@ pytest --cov=routes --cov-report=html
 pytest tests/test_auth.py -v
 ```
 
-**Coverage:** 75 tests across 9 test files, 0 warnings, ~20 seconds
+**Coverage:** 99 tests across 10 test files, 0 warnings, ~20 seconds
 
 ---
 

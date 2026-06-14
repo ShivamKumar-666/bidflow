@@ -24,8 +24,8 @@ USERS_SCHEMA = {
         },
         "role": {
             "bsonType": "string",
-            "enum": ["Admin", "Sales Executive"],
-            "description": "User role (Admin or Sales Executive)"
+            "enum": ["Admin", "Sales Executive", "Company", "Bidder"],
+            "description": "User role (Admin, Sales Executive, Company, or Bidder)"
         },
         "is_verified": {
             "bsonType": "bool",
@@ -150,6 +150,24 @@ ENQUIRIES_SCHEMA = {
         "shareTokenCreatedAt": {
             "bsonType": "date",
             "description": "Share token creation timestamp"
+        },
+        "visibility": {
+            "bsonType": "string",
+            "enum": ["internal", "public"],
+            "description": "internal = only creator sees, public = listed on marketplace"
+        },
+        "listingDeadline": {
+            "bsonType": "date",
+            "description": "Deadline for marketplace bids (optional)"
+        },
+        "bidCount": {
+            "bsonType": "int",
+            "minimum": 0,
+            "description": "Number of bids received (denormalized)"
+        },
+        "industry": {
+            "bsonType": ["string", "null"],
+            "description": "Primary industry sector for marketplace filtering"
         }
     }
 }
@@ -194,6 +212,11 @@ BIDS_SCHEMA = {
         "assignedEmployee": {
             "bsonType": ["string", "null"],
             "description": "Assigned employee name"
+        },
+        "teamSize": {
+            "bsonType": ["int", "null"],
+            "minimum": 1,
+            "description": "Number of people working on the project"
         },
         "remarks": {
             "bsonType": ["string", "null"],
@@ -264,17 +287,26 @@ BIDS_SCHEMA = {
         "slaThresholdDays": {
             "bsonType": "int",
             "description": "SLA threshold in days"
+        },
+        "bidderType": {
+            "bsonType": "string",
+            "enum": ["internal", "external"],
+            "description": "internal = org employee, external = marketplace bidder"
         }
     }
 }
 
 DOCUMENTS_SCHEMA = {
     "bsonType": "object",
-    "required": ["bidId", "filename", "path", "uploadDate", "uploadedBy"],
+    "required": ["filename", "path", "uploadDate", "uploadedBy"],
     "properties": {
         "bidId": {
-            "bsonType": "string",
+            "bsonType": ["string", "null"],
             "description": "Reference to bid (string of ObjectId)"
+        },
+        "enquiryId": {
+            "bsonType": ["string", "null"],
+            "description": "Reference to enquiry (for portal/marketplace uploads)"
         },
         "filename": {
             "bsonType": "string",
@@ -290,7 +322,7 @@ DOCUMENTS_SCHEMA = {
         },
         "uploadedBy": {
             "bsonType": "string",
-            "description": "User ID of uploader"
+            "description": "User ID of uploader or 'portal' for public uploads"
         }
     }
 }
@@ -361,6 +393,10 @@ AUDIT_LOGS_SCHEMA = {
         "user": {
             "bsonType": "string",
             "description": "User name or 'System'"
+        },
+        "userId": {
+            "bsonType": ["string", "null"],
+            "description": "User ID for per-user filtering"
         },
         "timestamp": {
             "bsonType": "date",

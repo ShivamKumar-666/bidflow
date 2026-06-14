@@ -66,9 +66,18 @@ export function NotificationProvider({ children }) {
     }
   };
 
+  const deleteNotification = async (id) => {
+    try {
+      await api.delete(`/notifications/${id}`);
+      setNotifications((prev) => prev.filter((n) => n._id !== id));
+    } catch (err) {
+      console.error("Failed to delete notification", err);
+    }
+  };
+
   return (
     <NotificationContext.Provider
-      value={{ notifications, unreadCount, markAsRead, markAllAsRead, loading }}
+      value={{ notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification, loading }}
     >
       {children}
     </NotificationContext.Provider>
