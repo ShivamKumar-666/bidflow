@@ -13,7 +13,7 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
-    healthCheckPath: /api/health
+    healthCheckPath: /health
     envVars:
       - key: FLASK_ENV
         value: production
@@ -41,6 +41,8 @@ services:
       # MAIL_USERNAME
       # MAIL_PASSWORD
       # GOOGLE_CLIENT_ID (optional)
+      - key: REDIS_URL
+        sync: false  # Set to rediss://... (TLS required for Upstash)
 
   # ── Celery Worker (Background Tasks) ────────────────────────────────────────
   - type: worker
@@ -56,7 +58,7 @@ services:
       - key: MONGO_URI
         sync: false  # Same as backend
       - key: REDIS_URL
-        sync: false  # Set to your Redis URL (e.g., Upstash free tier)
+        sync: false  # Set to rediss://... (TLS required for Upstash)
       - key: SECRET_KEY
         generateValue: true
       - key: JWT_SECRET_KEY

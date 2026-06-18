@@ -1,8 +1,7 @@
-import React, { useRef, useCallback, useState } from "react";
+import { useRef, useCallback, useState } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +15,7 @@ import {
 import { TagInput } from "@/components/TagInput";
 import LivePrediction from "./LivePrediction";
 import { defaultIndustryTags } from "@/hooks/useBids";
+import { CURRENCIES, CURRENCY_SYMBOLS } from "@/utils/formatCurrency";
 
 const INDUSTRY_TEAM_LIMITS = {
   Technology: 50,
@@ -32,7 +32,7 @@ const INDUSTRY_TEAM_LIMITS = {
 export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueTags, onCreated }) {
   const { t } = useTranslation();
   const [form, setForm] = useState({
-    enquiryId: "", amount: "", industry: "Technology",
+    enquiryId: "", amount: "", currency: "USD", industry: "Technology",
     submissionDate: "", assignedEmployee: "", teamSize: "1", remarks: "", tags: [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -50,6 +50,7 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
         const days = Math.max(1, Math.round((sub - new Date()) / (1000 * 60 * 60 * 24)));
         const res = await api.post("/bids/predict", {
           amount: Number(data.amount),
+          currency: data.currency,
           days_to_deadline: days,
           submissionDate: data.submissionDate,
           industry: data.industry,
@@ -75,7 +76,7 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
       toast.success(t("bids.createSuccess"));
       onOpenChange(false);
       setLivePredict(null);
-      setForm({ enquiryId: "", amount: "", industry: "Technology", submissionDate: "", assignedEmployee: "", teamSize: "1", remarks: "", tags: [] });
+      setForm({ enquiryId: "", amount: "", currency: "USD", industry: "Technology", submissionDate: "", assignedEmployee: "", teamSize: "1", remarks: "", tags: [] });
       onCreated();
     } catch {
       toast.error(t("bids.createFailed"));
@@ -88,7 +89,7 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
     onOpenChange(o);
     if (!o) {
       setLivePredict(null);
-      setForm({ enquiryId: "", amount: "", industry: "Technology", submissionDate: "", assignedEmployee: "", teamSize: "1", remarks: "", tags: [] });
+      setForm({ enquiryId: "", amount: "", currency: "USD", industry: "Technology", submissionDate: "", assignedEmployee: "", teamSize: "1", remarks: "", tags: [] });
     }
   };
 
@@ -114,7 +115,7 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
             </Select>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label>{t("bids.bidAmount")}</Label>
               <Input
@@ -127,6 +128,21 @@ export default function CreateBidDialog({ open, onOpenChange, enquiries, uniqueT
                   triggerLivePredict(updated);
                 }}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Currency</Label>
+              <Select value={form.currency} onValueChange={(v) => {
+                const updated = { ...form, currency: v };
+                setForm(updated);
+                triggerLivePredict(updated);
+              }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>{CURRENCY_SYMBOLS[c]} {c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1.5">
               <Label>{t("bids.submissionDate")}</Label>

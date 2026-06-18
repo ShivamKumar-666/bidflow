@@ -8,20 +8,20 @@ class TestDocumentUploads:
     def test_upload_missing_file(self, client, auth_headers):
         headers = auth_headers()
 
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Doc Corp',
             'contactInformation': 'doc@corp.com',
             'productServiceRequired': 'Doc Management'
         }, headers=headers)
         enquiry_id = enq_res.get_json()['enquiryId']
 
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enquiry_id, 'amount': 10000,
             'submissionDate': '2026-08-01', 'assignedEmployee': 'Exec User'
         }, headers=headers)
         bid_db_id = bid_res.get_json()['_id']
 
-        upload_fail = client.post('/api/documents/upload', data={
+        upload_fail = client.post('/api/v1/documents/upload', data={
             'bidId': bid_db_id
         }, headers=headers)
         assert upload_fail.status_code == 400
@@ -30,18 +30,18 @@ class TestDocumentUploads:
     def test_upload_empty_filename(self, client, auth_headers):
         headers = auth_headers()
 
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Doc Corp',
             'contactInformation': 'doc@corp.com',
             'productServiceRequired': 'Doc Management'
         }, headers=headers)
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enq_res.get_json()['enquiryId'], 'amount': 10000,
             'submissionDate': '2026-08-01'
         }, headers=headers)
         bid_db_id = bid_res.get_json()['_id']
 
-        upload_fail = client.post('/api/documents/upload', data={
+        upload_fail = client.post('/api/v1/documents/upload', data={
             'bidId': bid_db_id,
             'file': (io.BytesIO(b''), '')
         }, headers=headers)
@@ -50,18 +50,18 @@ class TestDocumentUploads:
     def test_upload_blocked_extension(self, client, auth_headers):
         headers = auth_headers()
 
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Doc Corp',
             'contactInformation': 'doc@corp.com',
             'productServiceRequired': 'Doc Management'
         }, headers=headers)
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enq_res.get_json()['enquiryId'], 'amount': 10000,
             'submissionDate': '2026-08-01', 'assignedEmployee': 'Exec User'
         }, headers=headers)
         bid_db_id = bid_res.get_json()['_id']
 
-        upload_fail = client.post('/api/documents/upload', data={
+        upload_fail = client.post('/api/v1/documents/upload', data={
             'bidId': bid_db_id,
             'file': (io.BytesIO(b'binary'), 'virus.exe')
         }, headers=headers)
@@ -72,20 +72,20 @@ class TestDocumentUploads:
     def test_upload_valid_pdf(self, client, auth_headers, app):
         headers = auth_headers()
 
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Doc Corp',
             'contactInformation': 'doc@corp.com',
             'productServiceRequired': 'Doc Management'
         }, headers=headers)
         enquiry_id = enq_res.get_json()['enquiryId']
 
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enquiry_id, 'amount': 10000,
             'submissionDate': '2026-08-01', 'assignedEmployee': 'Exec User'
         }, headers=headers)
         bid_db_id = bid_res.get_json()['_id']
 
-        upload_success = client.post('/api/documents/upload', data={
+        upload_success = client.post('/api/v1/documents/upload', data={
             'bidId': bid_db_id,
             'file': (io.BytesIO(b'Sample PDF'), 'proposal.pdf')
         }, headers=headers)

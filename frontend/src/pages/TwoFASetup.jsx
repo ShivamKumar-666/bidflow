@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext, useRef } from "react";
+import { useState, useEffect, useContext, useRef, useCallback, Fragment } from "react";
 import { AuthContext } from "@/contexts/AuthContext";
 import api from "@/services/api";
 import { toast } from "sonner";
@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 const STEPS = ["scanQr", "verify", "backupCodes"];
 
 const TwoFASetup = ({ onClose }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { dismissTwoFASetup, refreshUser } = useContext(AuthContext);
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState("loading");
@@ -35,9 +35,25 @@ const TwoFASetup = ({ onClose }) => {
     return () => { if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current); };
   }, []);
 
+  const fetchSetup = useCallback(async () => {
+    setStep("loading");
+    setError("");
+    try {
+      const res = await api.get("/2fa/setup");
+      setQrCode(res.data.qr_code);
+      setSecret(res.data.secret);
+      setStep("qr");
+    } catch {
+      setError(t("security.failedGenerate", "Failed to generate 2FA setup. Please try again."));
+      setStep("error");
+    }
+  }, [t]);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchSetup();
-  }, []);
+  }, [fetchSetup]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleOpenChange = (next) => {
     setOpen(next);
@@ -46,20 +62,6 @@ const TwoFASetup = ({ onClose }) => {
         dismissTwoFASetup();
         if (onClose) onClose();
       }, 200);
-    }
-  };
-
-  const fetchSetup = async () => {
-    setStep("loading");
-    setError("");
-    try {
-      const res = await api.get("/2fa/setup");
-      setQrCode(res.data.qr_code);
-      setSecret(res.data.secret);
-      setStep("qr");
-    } catch (err) {
-      setError(t("security.failedGenerate", "Failed to generate 2FA setup. Please try again."));
-      setStep("error");
     }
   };
 
@@ -100,7 +102,7 @@ const TwoFASetup = ({ onClose }) => {
   };
 
   const downloadBackupCodes = () => {
-    const content = `BidFlow 2FA Backup Codes\nGenerated: ${new Date().toLocaleString()}\n\nStore these codes somewhere safe. Each can only be used once.\n\n${backupCodes.join("\n")}`;
+    const content = `BidFlow 2FA Backup Codes\nGenerated: ${new Date().toLocaleString(i18n.language)}\n\nStore these codes somewhere safe. Each can only be used once.\n\n${backupCodes.join("\n")}`;
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -146,7 +148,7 @@ const TwoFASetup = ({ onClose }) => {
             const active = i === stepIndex;
             const done = i < stepIndex;
             return (
-              <React.Fragment key={label}>
+              <Fragment key={label}>
                 <div className="flex flex-col items-center gap-1.5 flex-1">
                   <div
                     className={cn(
@@ -175,7 +177,7 @@ const TwoFASetup = ({ onClose }) => {
                     )}
                   />
                 )}
-              </React.Fragment>
+              </Fragment>
             );
           })}
         </div>
@@ -250,6 +252,7 @@ const TwoFASetup = ({ onClose }) => {
                 autoFocus
                 onKeyDown={(e) => e.key === "Enter" && handleVerify()}
                 className="text-center text-2xl tracking-[0.5em] font-mono h-14"
+                aria-label="Enter 6-digit verification code"
               />
             </div>
             {error && (

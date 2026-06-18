@@ -1,16 +1,17 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
-  Search, Bell, Sun, Moon, Globe, LogOut, Command, X, GitBranch, MessageSquare, Info,
+  Search, Bell, Sun, Moon, Globe, LogOut, X, GitBranch, MessageSquare, Info,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useNotifications } from "@/contexts/NotificationContext";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { formatCurrency } from "@/utils/formatCurrency";
+import { timeAgo } from "@/utils/date";
 import api from "@/services/api";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
@@ -20,17 +21,6 @@ import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, LANGUAGES } from "@/lib/utils";
 
-function timeAgo(isoString) {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const mins = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  return `${days}d ago`;
-}
-
 function NotifIcon({ type }) {
   if (type === "status_change") return <GitBranch className="h-4 w-4" />;
   if (type === "new_comment") return <MessageSquare className="h-4 w-4" />;
@@ -38,6 +28,7 @@ function NotifIcon({ type }) {
 }
 
 function NotificationBell() {
+  const { t } = useTranslation();
   const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
 
   return (
@@ -55,14 +46,14 @@ function NotificationBell() {
       <PopoverContent className="w-96 p-0" align="end">
         <div className="flex items-center justify-between px-4 py-3 border-b">
           <div className="flex items-center gap-2">
-            <span className="font-semibold text-sm">Notifications</span>
+            <span className="font-semibold text-sm">{t("navbar.notifications", "Notifications")}</span>
             {unreadCount > 0 && (
-              <Badge variant="info">{unreadCount} new</Badge>
+              <Badge variant="info">{unreadCount} {t("navbar.new", "new")}</Badge>
             )}
           </div>
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" onClick={markAllAsRead} className="text-xs h-7">
-              Mark all read
+              {t("navbar.markAllRead", "Mark all read")}
             </Button>
           )}
         </div>
@@ -70,7 +61,7 @@ function NotificationBell() {
           {notifications.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 py-12 text-muted-foreground">
               <Bell className="h-9 w-9 opacity-30" />
-              <span className="text-sm">All caught up!</span>
+              <span className="text-sm">{t("navbar.allCaughtUp", "All caught up!")}</span>
             </div>
           ) : (
             <div className="divide-y">
@@ -155,6 +146,7 @@ function GlobalSearch() {
     return () => window.removeEventListener("keydown", handler);
   }, [open]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!query.trim()) {
       setResults({ enquiries: [], bids: [], documents: [] });
@@ -174,6 +166,7 @@ function GlobalSearch() {
     }, 300);
     return () => clearTimeout(t);
   }, [query]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const flat = useMemo(() => [
     ...results.enquiries.map((d) => ({ type: "enquiry", data: d })),
@@ -213,7 +206,7 @@ function GlobalSearch() {
       >
         <span className="flex items-center gap-2">
           <Search className="h-4 w-4" />
-          Search...
+          {t("navbar.searchPlaceholder", "Search...")}
         </span>
         <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted">⌘K</kbd>
       </Button>
@@ -221,33 +214,37 @@ function GlobalSearch() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 px-4" onClick={() => setOpen(false)}>
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-start justify-center pt-20 px-4" onClick={() => setOpen(false)} role="dialog" aria-modal="true" aria-label="Global search">
       <div
         className="w-full max-w-xl bg-popover border rounded-xl shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onKey}
       >
         <div className="flex items-center gap-3 px-4 py-3 border-b">
-          <Search className="h-4 w-4 text-muted-foreground" />
+          <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
           <input
             ref={inputRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search enquiries, bids, documents..."
+            placeholder={t("navbar.searchEnquiriesBids", "Search enquiries, bids, documents...")}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            role="combobox"
+            aria-expanded={flat.length > 0}
+            aria-autocomplete="list"
+            aria-label={t("navbar.searchEnquiriesBids", "Search enquiries, bids, and documents")}
           />
           <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-muted text-muted-foreground">ESC</kbd>
         </div>
         <div className="max-h-80 overflow-y-auto">
           {flat.length === 0 && query.trim() === "" && (
-            <p className="p-6 text-sm text-muted-foreground text-center">Type to search enquiries, bids, or document attachments</p>
+            <p className="p-6 text-sm text-muted-foreground text-center">{t("navbar.typeToSearch", "Type to search enquiries, bids, or document attachments")}</p>
           )}
           {flat.length === 0 && query.trim() !== "" && !loading && (
-            <p className="p-6 text-sm text-muted-foreground text-center">No results for "{query}"</p>
+            <p className="p-6 text-sm text-muted-foreground text-center">{t("navbar.noResults", "No results for")} "{query}"</p>
           )}
           {results.enquiries.length > 0 && (
             <div>
-              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/30">Enquiries</div>
+              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/30">{t("enquiries.title", "Enquiries")}</div>
               {results.enquiries.map((enq) => {
                 const idx = flat.findIndex((f) => f.type === "enquiry" && f.data._id === enq._id);
                 return (
@@ -269,7 +266,7 @@ function GlobalSearch() {
           )}
           {results.bids.length > 0 && (
             <div>
-              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/30">Bids</div>
+              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/30">{t("bids.title", "Bids")}</div>
               {results.bids.map((bid) => {
                 const idx = flat.findIndex((f) => f.type === "bid" && f.data._id === bid._id);
                 return (
@@ -283,7 +280,7 @@ function GlobalSearch() {
                       <div className="font-medium">{bid.bidId} · {bid.customerName}</div>
                       <div className="text-xs text-muted-foreground">Assigned: {bid.assignedEmployee || "Unassigned"}</div>
                     </div>
-                    <span className="text-xs font-semibold">${Number(bid.amount).toLocaleString()}</span>
+                    <span className="text-xs font-semibold">{formatCurrency(bid.amount, bid.currency)}</span>
                   </button>
                 );
               })}
@@ -291,7 +288,7 @@ function GlobalSearch() {
           )}
           {results.documents.length > 0 && (
             <div>
-              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/30">Documents</div>
+              <div className="px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted/30">{t("common.documents", "Documents")}</div>
               {results.documents.map((doc) => {
                 const idx = flat.findIndex((f) => f.type === "document" && f.data._id === doc._id);
                 return (
@@ -311,10 +308,10 @@ function GlobalSearch() {
         </div>
         <div className="flex items-center justify-between px-4 py-2 border-t bg-muted/30 text-[10px] text-muted-foreground">
           <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1"><kbd className="font-mono px-1 rounded bg-background">↑↓</kbd> Navigate</span>
-            <span className="flex items-center gap-1"><kbd className="font-mono px-1 rounded bg-background">↵</kbd> Select</span>
+            <span className="flex items-center gap-1"><kbd className="font-mono px-1 rounded bg-background">↑↓</kbd> {t("navbar.navigate", "Navigate")}</span>
+            <span className="flex items-center gap-1"><kbd className="font-mono px-1 rounded bg-background">↵</kbd> {t("navbar.select", "Select")}</span>
           </div>
-          <span>BidFlow Global Search</span>
+          <span>{t("navbar.globalSearch", "BidFlow Global Search")}</span>
         </div>
       </div>
     </div>
@@ -322,6 +319,7 @@ function GlobalSearch() {
 }
 
 export function Navbar() {
+  const { t } = useTranslation();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { i18n } = useTranslation();
@@ -344,7 +342,7 @@ export function Navbar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Language</DropdownMenuLabel>
+              <DropdownMenuLabel>{t("profile.language", "Language")}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {LANGUAGES.map((l) => (
                 <DropdownMenuItem
@@ -371,7 +369,7 @@ export function Navbar() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 ml-2 pl-2 pr-1 py-1 rounded-md hover:bg-accent transition-colors">
+              <button className="flex items-center gap-2 ml-2 pl-2 pr-1 py-1 rounded-md hover:bg-accent transition-colors" aria-label="User menu" aria-haspopup="true">
                 <div className="hidden sm:flex flex-col items-end">
                   <span className="text-xs font-semibold leading-tight">{user?.name}</span>
                   <span className="text-[10px] text-muted-foreground leading-tight">{user?.role}</span>
@@ -393,7 +391,7 @@ export function Navbar() {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive">
                 <LogOut className="h-4 w-4" />
-                <span>Sign out</span>
+                <span>{t("common.logout", "Sign out")}</span>
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

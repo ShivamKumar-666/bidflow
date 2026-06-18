@@ -1,4 +1,4 @@
-import React, { useContext } from "react";
+import { useContext } from "react";
 import {
   BrowserRouter as Router, Routes, Route, Navigate,
 } from "react-router-dom";
@@ -120,7 +120,7 @@ const AppRoutes = () => {
         <Route
           path="/reports"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute adminOnly>
               <AppLayout>
                 <Reports />
               </AppLayout>

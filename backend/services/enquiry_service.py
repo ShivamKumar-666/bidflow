@@ -2,10 +2,20 @@ import datetime
 import secrets
 import uuid
 
+import bleach
 from bson.objectid import ObjectId
 from database import db
 from flask import current_app
 from utils.auth_helpers import now_utc
+
+
+def _clean_text(value, max_length=None):
+    if not isinstance(value, str):
+        return value
+    cleaned = bleach.clean(value, strip=True)
+    if max_length and len(cleaned) > max_length:
+        cleaned = cleaned[:max_length]
+    return cleaned
 
 
 class EnquiryService:
@@ -68,12 +78,12 @@ class EnquiryService:
 
         new_enquiry = {
             "enquiryId": cls.generate_enquiry_id(),
-            "customerName": data.get("customerName"),
-            "contactInformation": data.get("contactInformation"),
-            "productServiceRequired": data.get("productServiceRequired"),
+            "customerName": _clean_text(data.get("customerName"), 200),
+            "contactInformation": _clean_text(data.get("contactInformation"), 500),
+            "productServiceRequired": _clean_text(data.get("productServiceRequired"), 500),
             "date": now_utc(),
             "priority": data.get("priority", "Medium"),
-            "notes": data.get("notes", ""),
+            "notes": _clean_text(data.get("notes", ""), 5000),
             "tags": tags,
             "status": "Under Review",
             "negotiable": data.get("negotiable", True),
@@ -111,6 +121,16 @@ class EnquiryService:
         if "tags" in update_data:
             update_data["tags"] = [t.strip().lower() for t in update_data["tags"] if isinstance(t, str) and t.strip()]
 
+        text_fields = {
+            "customerName": 200,
+            "contactInformation": 500,
+            "productServiceRequired": 500,
+            "notes": 5000,
+        }
+        for field, max_len in text_fields.items():
+            if field in update_data:
+                update_data[field] = _clean_text(update_data[field], max_len)
+
         result = db.Enquiries.update_one({"_id": enq_oid}, {"$set": update_data})
         if result.matched_count:
             enq = db.Enquiries.find_one({"_id": enq_oid})
@@ -119,7 +139,27 @@ class EnquiryService:
 
     @classmethod
     def delete_enquiry(cls, enq_oid: ObjectId) -> tuple:
+        from services import DocumentService, NotificationService
+
         enq = db.Enquiries.find_one({"_id": enq_oid})
+        if not enq:
+            return None, "Enquiry not found"
+
+        enquiry_id = enq.get("enquiryId")
+
+        associated_bids = list(db.Bids.find({"enquiryId": enquiry_id}))
+        for bid in associated_bids:
+            DocumentService.delete_bid_documents(str(bid["_id"]))
+
+        if associated_bids:
+            bid_ids = [str(b["_id"]) for b in associated_bids]
+            for bid_id in bid_ids:
+                NotificationService.delete_by_ref(bid_id)
+
+        db.Bids.delete_many({"enquiryId": enquiry_id})
+
+        DocumentService.delete_enquiry_documents(enquiry_id)
+
         result = db.Enquiries.delete_one({"_id": enq_oid})
         if result.deleted_count:
             return enq, None

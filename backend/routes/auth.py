@@ -6,7 +6,7 @@ from flask_jwt_extended import (
 from database import db
 from extensions import limiter
 from services import AuthService
-from utils.auth_helpers import now_utc
+from utils.auth_helpers import now_utc, admin_required
 from utils.email_tokens import generate_verification_token, confirm_verification_token
 from utils.email_sender import send_verification_email
 from itsdangerous import SignatureExpired, BadSignature
@@ -181,6 +181,7 @@ def me():
 
 @auth_bp.route('/users', methods=['GET'])
 @jwt_required()
+@admin_required
 def list_users():
     users = list(db.Users.find({}, {"name": 1, "role": 1, "industry": 1}))
     for u in users:

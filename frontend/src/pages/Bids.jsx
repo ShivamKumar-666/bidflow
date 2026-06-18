@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -9,6 +9,10 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSocket } from "@/contexts/SocketContext";
 import { cn } from "@/lib/utils";
@@ -45,7 +49,7 @@ function ShapBar({ explanation }) {
 export default function Bids() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const socketRef = useSocket();
+  const socket = useSocket();
 
   const {
     bids, setBids,
@@ -69,13 +73,13 @@ export default function Bids() {
   const [showTags, setShowTags] = useState(false);
   const [selected, setSelected] = useState(null);
   const [shapModal, setShapModal] = useState({ open: false, bidId: "", value: 0, explanations: [] });
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const predictDebounce = useRef(null);
 
   useEffect(() => {
-    const socket = socketRef.current;
     if (!socket) return;
 
-    socket.on("new_comment", (data) => {
+    const handleNewComment = (data) => {
       setBids((prev) => prev.map((b) => {
         if (b._id === data.bid_id) {
           const exists = (b.comments || []).some((c) => c._id === data.comment._id);
@@ -92,8 +96,9 @@ export default function Bids() {
         }
         return prev;
       });
-    });
-    socket.on("delete_comment", (data) => {
+    };
+
+    const handleDeleteComment = (data) => {
       setBids((prev) => prev.map((b) => {
         if (b._id === data.bid_id) {
           return { ...b, comments: (b.comments || []).filter((c) => c._id !== data.comment_id) };
@@ -104,25 +109,35 @@ export default function Bids() {
         ? { ...prev, comments: (prev.comments || []).filter((c) => c._id !== data.comment_id) }
         : prev
       );
-    });
+    };
+
+    socket.on("new_comment", handleNewComment);
+    socket.on("delete_comment", handleDeleteComment);
+
     return () => {
-      socket.off("new_comment");
-      socket.off("delete_comment");
+      socket.off("new_comment", handleNewComment);
+      socket.off("delete_comment", handleDeleteComment);
       if (predictDebounce.current) {
         clearTimeout(predictDebounce.current);
         predictDebounce.current = null;
       }
     };
-  }, [socketRef, setBids]);
+  }, [socket, setBids]);
 
-  const handleDelete = async (id, bidId) => {
-    if (!window.confirm(`Delete bid ${bidId}?`)) return;
+  const handleDelete = (id, bidId) => {
+    setDeleteTarget({ id, bidId });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await api.delete(`/bids/${id}`);
+      await api.delete(`/bids/${deleteTarget.id}`);
       toast.success("Bid deleted");
       fetchAll();
     } catch {
       toast.error("Failed to delete bid");
+    } finally {
+      setDeleteTarget(null);
     }
   };
 
@@ -245,7 +260,7 @@ export default function Bids() {
             <div className="flex items-center gap-2 mb-1">
               <Brain className="h-5 w-5 text-primary" />
               <DialogTitle className="flex items-center gap-2">
-                Constraint Analysis
+                {t("bids.constraintAnalysis", "Constraint Analysis")}
                 <Badge variant={shapModal.value >= 70 ? "success" : shapModal.value >= 40 ? "warning" : "destructive"} className="font-mono">
                   {shapModal.value}%
                 </Badge>
@@ -259,14 +274,29 @@ export default function Bids() {
                 <ShapBar key={i} explanation={ex} />
               ))
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No explanation data available for this bid.</p>
+              <p className="text-sm text-muted-foreground text-center py-4">{t("bids.noExplanation", "No explanation data available for this bid.")}</p>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShapModal({ ...shapModal, open: false })}>Close</Button>
+            <Button variant="outline" onClick={() => setShapModal({ ...shapModal, open: false })}>{t("common.close", "Close")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("bids.deleteBidTitle", "Delete bid?")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("bids.deleteBidDesc", "Are you sure you want to delete bid")} <strong>{deleteTarget?.bidId}</strong>? {t("bids.deleteBidWarning", "This action cannot be undone.")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>{t("common.delete")}</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

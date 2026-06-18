@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { formatCurrency } from "@/utils/formatCurrency";
 import {
-  User, Mail, Shield, Building, Percent, DollarSign, Globe, Sun, Moon,
+  Mail, Shield, Building, Percent, DollarSign, Globe, Sun, Moon,
   Lock, Key, Copy, Download, RefreshCw, CheckCircle, Eye, EyeOff, Save,
   TrendingUp, Target, FileText,
 } from "lucide-react";
@@ -17,7 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import TwoFASetup from "./TwoFASetup";
@@ -52,6 +53,7 @@ export default function Profile() {
     name: "", industry: "Other", winRate: 50, targetBidValue: 10000, bio: "",
   });
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (user) {
       setForm({
@@ -75,6 +77,7 @@ export default function Profile() {
       api.get("/analytics/dashboard").then((r) => setAnalytics(r.data)).catch(() => {});
     }
   }, [user]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -91,19 +94,19 @@ export default function Profile() {
 
   const handleRegenerate = async () => {
     if (regenOTP.length !== 6) {
-      toast.error("Please enter a 6-digit TOTP code.");
+      toast.error(t("profile.enterTotpCode", "Please enter a 6-digit TOTP code."));
       return;
     }
     setRegenerating(true);
     try {
       const res = await api.post("/2fa/regenerate-backup-codes", { code: regenOTP });
       setNewBackupCodes(res.data.backup_codes);
-      toast.success("Backup codes regenerated");
+      toast.success(t("profile.codesRegenerated", "Backup codes regenerated"));
       setShowRegenForm(false);
       setRegenOTP("");
       await refreshUser();
     } catch (err) {
-      toast.error(err.response?.data?.msg || "Failed to regenerate codes");
+      toast.error(err.response?.data?.msg || t("profile.failedRegenerate", "Failed to regenerate codes"));
     } finally {
       setRegenerating(false);
     }
@@ -111,18 +114,18 @@ export default function Profile() {
 
   const handleDisable2FA = async () => {
     if (!disablingPassword) {
-      toast.error("Enter your password");
+      toast.error(t("profile.enterPassword", "Enter your password"));
       return;
     }
     setDisabling2FA(true);
     try {
       await api.post("/2fa/disable", { password: disablingPassword });
-      toast.success("2FA disabled");
+      toast.success(t("profile.twoFaDisabled", "2FA disabled"));
       setShowDisableForm(false);
       setDisablingPassword("");
       await refreshUser();
     } catch (err) {
-      toast.error(err.response?.data?.msg || "Failed to disable 2FA");
+      toast.error(err.response?.data?.msg || t("profile.failedDisable", "Failed to disable 2FA"));
     } finally {
       setDisabling2FA(false);
     }
@@ -131,13 +134,13 @@ export default function Profile() {
   const copyCodes = () => {
     navigator.clipboard.writeText(newBackupCodes.join("\n"));
     setCopiedAll(true);
-    toast.success("Copied");
+    toast.success(t("profile.copied", "Copied"));
     if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
     copiedTimerRef.current = setTimeout(() => setCopiedAll(false), 2000);
   };
 
   const downloadCodes = () => {
-    const content = `BidFlow 2FA Backup Codes\nGenerated: ${new Date().toLocaleString()}\n\n${newBackupCodes.join("\n")}`;
+    const content = `BidFlow 2FA Backup Codes\nGenerated: ${new Date().toLocaleString(i18n.language)}\n\n${newBackupCodes.join("\n")}`;
     const blob = new Blob([content], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -154,7 +157,7 @@ export default function Profile() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{t("profile.title")}</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your account settings and preferences.</p>
+        <p className="text-sm text-muted-foreground mt-1">{t("profile.manageSettings", "Manage your account settings and preferences.")}</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -180,14 +183,14 @@ export default function Profile() {
                 <div className="flex items-center gap-3">
                   <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Email</div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("profile.email", "Email")}</div>
                     <div className="text-sm truncate">{user?.email}</div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <Building className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   <div className="min-w-0">
-                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Industry</div>
+                    <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("profile.industry", "Industry")}</div>
                     <div className="text-sm">{user?.industry || "Other"}</div>
                   </div>
                 </div>
@@ -195,7 +198,7 @@ export default function Profile() {
                   <div className="flex items-center gap-3">
                     <Percent className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Win Rate Goal</div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("profile.winRateGoal", "Win Rate Goal")}</div>
                       <div className="text-sm">{user?.winRate ?? 50}%</div>
                     </div>
                   </div>
@@ -204,8 +207,8 @@ export default function Profile() {
                   <div className="flex items-center gap-3">
                     <DollarSign className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Target Bid Value</div>
-                      <div className="text-sm">${(user?.targetBidValue ?? 10000).toLocaleString()}</div>
+                      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{t("profile.targetBidValue", "Target Bid Value")}</div>
+                      <div className="text-sm">{formatCurrency(user?.targetBidValue ?? 10000)}</div>
                     </div>
                   </div>
                 )}
@@ -221,7 +224,7 @@ export default function Profile() {
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs">
                   <Globe className="h-3 w-3" />
-                  Language
+                  {t("profile.language", "Language")}
                 </Label>
                 <Tabs value={i18n.language?.slice(0, 2)} onValueChange={(v) => i18n.changeLanguage(v)}>
                   <TabsList className="grid grid-cols-4 w-full h-8">
@@ -232,7 +235,7 @@ export default function Profile() {
                     ))}
                   </TabsList>
                 </Tabs>
-                <p className="text-[10px] text-muted-foreground">Selected: {LANGUAGES.find((l) => l.code === i18n.language?.slice(0, 2))?.name}</p>
+                <p className="text-[10px] text-muted-foreground">{t("profile.selected", "Selected")}: {LANGUAGES.find((l) => l.code === i18n.language?.slice(0, 2))?.name}</p>
               </div>
 
               <Separator />
@@ -240,7 +243,7 @@ export default function Profile() {
               <div className="space-y-1.5">
                 <Label className="flex items-center gap-1.5 text-xs">
                   {theme === "dark" ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
-                  Theme
+                  {t("profile.theme", "Theme")}
                 </Label>
                 <div className="grid grid-cols-2 gap-2">
                   <Button
@@ -251,7 +254,7 @@ export default function Profile() {
                     className="w-full"
                   >
                     <Sun className="h-3.5 w-3.5" />
-                    Light
+                    {t("profile.light", "Light")}
                   </Button>
                   <Button
                     type="button"
@@ -261,7 +264,7 @@ export default function Profile() {
                     className="w-full"
                   >
                     <Moon className="h-3.5 w-3.5" />
-                    Dark
+                    {t("profile.dark", "Dark")}
                   </Button>
                 </div>
               </div>
@@ -275,37 +278,37 @@ export default function Profile() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  Performance Analytics
+                  {t("profile.performanceAnalytics", "Performance Analytics")}
                 </CardTitle>
-                <CardDescription>Your actual performance vs. goals</CardDescription>
+                <CardDescription>{t("profile.performanceDesc", "Your actual performance vs. goals")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Target className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Win Rate</span>
+                      <span className="text-sm font-medium">{t("profile.winRate", "Win Rate")}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm">
-                      <span className="text-muted-foreground">Goal: {user?.winRate ?? 50}%</span>
-                      <span className="font-bold text-emerald-600">Actual: {analytics?.winRate ?? 0}%</span>
+                      <span className="text-muted-foreground">{t("profile.goal", "Goal")}: {user?.winRate ?? 50}%</span>
+                      <span className="font-bold text-emerald-600">{t("profile.actual", "Actual")}: {analytics?.winRate ?? 0}%</span>
                     </div>
                   </div>
-                  <Progress value={analytics?.winRate ?? 0} className="h-2" />
+                  <Progress value={analytics?.winRate ?? 0} className="h-2" aria-label={`Win rate: ${analytics?.winRate ?? 0}%`} />
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-muted-foreground" />
-                      <span className="text-sm font-medium">Avg Bid Value</span>
+                      <span className="text-sm font-medium">{t("profile.avgBidValue", "Avg Bid Value")}</span>
                     </div>
                     <div className="flex items-center gap-3 text-sm">
-                      <span className="text-muted-foreground">Target: ${(user?.targetBidValue ?? 10000).toLocaleString()}</span>
-                      <span className="font-bold text-primary">Actual: ${(analytics?.avgBidSize ?? 0).toLocaleString()}</span>
+                      <span className="text-muted-foreground">{t("profile.target", "Target")}: {formatCurrency(user?.targetBidValue ?? 10000)}</span>
+                      <span className="font-bold text-primary">{t("profile.actual", "Actual")}: {formatCurrency(analytics?.avgBidSize ?? 0)}</span>
                     </div>
                   </div>
-                  <Progress value={Math.min(((analytics?.avgBidSize ?? 0) / (user?.targetBidValue ?? 10000)) * 100, 100)} className="h-2" />
+                  <Progress value={Math.min(((analytics?.avgBidSize ?? 0) / (user?.targetBidValue ?? 10000)) * 100, 100)} className="h-2" aria-label="Bid value progress toward target" />
                 </div>
 
                 <Separator />
@@ -314,21 +317,21 @@ export default function Profile() {
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 mb-1">
                       <FileText className="h-3.5 w-3.5 text-muted-foreground" />
-                      <span className="text-xs text-muted-foreground">Total Bids</span>
+                      <span className="text-xs text-muted-foreground">{t("profile.totalBids", "Total Bids")}</span>
                     </div>
                     <div className="text-2xl font-bold">{(analytics?.wonBids ?? 0) + (analytics?.lostBids ?? 0) + (analytics?.activeBids ?? 0)}</div>
                   </div>
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 mb-1">
                       <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
-                      <span className="text-xs text-muted-foreground">Won</span>
+                      <span className="text-xs text-muted-foreground">{t("dashboard.won", "Won")}</span>
                     </div>
                     <div className="text-2xl font-bold text-emerald-600">{analytics?.wonBids ?? 0}</div>
                   </div>
                   <div className="text-center">
                     <div className="flex items-center justify-center gap-1 mb-1">
                       <TrendingUp className="h-3.5 w-3.5 text-rose-600" />
-                      <span className="text-xs text-muted-foreground">Lost</span>
+                      <span className="text-xs text-muted-foreground">{t("dashboard.lost", "Lost")}</span>
                     </div>
                     <div className="text-2xl font-bold text-rose-600">{analytics?.lostBids ?? 0}</div>
                   </div>
@@ -352,7 +355,7 @@ export default function Profile() {
                   <div className="space-y-1.5">
                     <Label>{t("profile.industry")}</Label>
                     <Select value={form.industry} onValueChange={(v) => setForm({ ...form, industry: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectTrigger aria-label="Industry"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {industries.map((ind) => <SelectItem key={ind} value={ind}>{ind}</SelectItem>)}
                       </SelectContent>
@@ -361,19 +364,20 @@ export default function Profile() {
                   {user?.role !== "Admin" && (
                     <>
                       <div className="space-y-1.5">
-                        <Label>{t("profile.winRate")}</Label>
-                        <Input type="number" min="0" max="100" value={form.winRate} onChange={(e) => setForm({ ...form, winRate: parseInt(e.target.value) || 0 })} />
+                        <Label htmlFor="winRate">{t("profile.winRate")}</Label>
+                        <Input id="winRate" type="number" min="0" max="100" value={form.winRate} onChange={(e) => setForm({ ...form, winRate: parseInt(e.target.value) || 0 })} />
                       </div>
                       <div className="space-y-1.5">
-                        <Label>{t("profile.targetBidValue")}</Label>
-                        <Input type="number" min="0" value={form.targetBidValue} onChange={(e) => setForm({ ...form, targetBidValue: parseFloat(e.target.value) || 0 })} />
+                        <Label htmlFor="targetBidValue">{t("profile.targetBidValue")}</Label>
+                        <Input id="targetBidValue" type="number" min="0" value={form.targetBidValue} onChange={(e) => setForm({ ...form, targetBidValue: parseFloat(e.target.value) || 0 })} />
                       </div>
                     </>
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <Label>{t("profile.bio")}</Label>
+                  <Label htmlFor="bio">{t("profile.bio")}</Label>
                   <Textarea
+                    id="bio"
                     rows={4}
                     placeholder={t("profile.bioPlaceholder")}
                     value={form.bio}
@@ -397,50 +401,50 @@ export default function Profile() {
                   <Lock className="h-4 w-4" />
                   {t("security.title")}
                 </CardTitle>
-                <CardDescription>Two-factor authentication & backup codes</CardDescription>
+                <CardDescription>{t("profile.twoFaDesc", "Two-factor authentication & backup codes")}</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between p-3 rounded-lg border">
                   <div>
-                    <div className="text-sm font-semibold">2FA Status</div>
+                    <div className="text-sm font-semibold">{t("profile.twoFaStatus", "2FA Status")}</div>
                     {user?.totp_enabled && backupCodesCount !== null && (
                       <div className="text-xs text-muted-foreground mt-0.5">
-                        {backupCodesCount} of 8 backup codes remaining
+                        {backupCodesCount} {t("profile.ofBackupCodes", "of 8 backup codes remaining")}
                       </div>
                     )}
                   </div>
                   {user?.totp_enabled ? (
                     <Badge variant="success" className="gap-1">
                       <CheckCircle className="h-3 w-3" />
-                      Enabled
+                      {t("profile.enabled", "Enabled")}
                     </Badge>
                   ) : (
-                    <Badge variant="destructive">Not Enabled</Badge>
+                    <Badge variant="destructive">{t("profile.notEnabled", "Not Enabled")}</Badge>
                   )}
                 </div>
 
                 {!user?.totp_enabled && (
                   <Button onClick={() => setShow2FASetup(true)} className="w-full">
                     <Key className="h-4 w-4" />
-                    Enable 2FA
+                    {t("profile.enable2fa", "Enable 2FA")}
                   </Button>
                 )}
 
                 {user?.totp_enabled && !showDisableForm && !showRegenForm && newBackupCodes.length === 0 && (
                   <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" onClick={() => setShowDisableForm(true)}>
-                      Disable 2FA
+                      {t("profile.disable2fa", "Disable 2FA")}
                     </Button>
                     <Button variant="outline" onClick={() => setShowRegenForm(true)}>
                       <RefreshCw className="h-4 w-4" />
-                      Regenerate Codes
+                      {t("profile.regenerateCodes", "Regenerate Codes")}
                     </Button>
                   </div>
                 )}
 
                 {newBackupCodes.length > 0 && (
                   <div className="p-4 rounded-lg border-2 border-dashed border-emerald-500/30 bg-emerald-500/5">
-                    <p className="text-sm font-semibold text-emerald-600 mb-2">New Backup Codes — save them now!</p>
+                    <p className="text-sm font-semibold text-emerald-600 mb-2">{t("profile.newBackupCodes", "New Backup Codes — save them now!")}</p>
                     <div className="grid grid-cols-2 gap-2 font-mono text-xs">
                       {newBackupCodes.map((c, i) => (
                         <div key={i} className="p-2 rounded bg-background border">
@@ -451,14 +455,14 @@ export default function Profile() {
                     <div className="flex gap-2 mt-3">
                       <Button variant="outline" size="sm" onClick={downloadCodes}>
                         <Download className="h-3.5 w-3.5" />
-                        Download
+                        {t("profile.download", "Download")}
                       </Button>
                       <Button variant="outline" size="sm" onClick={copyCodes}>
                         {copiedAll ? <CheckCircle className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                        {copiedAll ? "Copied" : "Copy"}
+                        {copiedAll ? t("profile.copied", "Copied") : t("profile.copy", "Copy")}
                       </Button>
                       <Button size="sm" onClick={() => { setNewBackupCodes([]); api.get("/2fa/backup-codes").then((r) => setBackupCodesCount(r.data.backup_codes_remaining)); }}>
-                        I've Saved Them
+                        {t("profile.saved", "I've Saved Them")}
                       </Button>
                     </div>
                   </div>
@@ -466,23 +470,24 @@ export default function Profile() {
 
                 {showDisableForm && (
                   <div className="space-y-2 p-3 rounded-lg border bg-muted/30">
-                    <Label className="text-xs">Enter your password to confirm</Label>
+                    <Label htmlFor="disable-2fa-password" className="text-xs">{t("profile.enterPasswordConfirm", "Enter your password to confirm")}</Label>
                     <div className="relative">
                       <Input
+                        id="disable-2fa-password"
                         type={showDisablePassword ? "text" : "password"}
                         value={disablingPassword}
                         onChange={(e) => setDisablingPassword(e.target.value)}
-                        placeholder="Password"
+                        placeholder={t("login.passwordLabel", "Password")}
                         className="pr-10"
                       />
-                      <button type="button" onClick={() => setShowDisablePassword((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground">
+                      <button type="button" onClick={() => setShowDisablePassword((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground" aria-label={showDisablePassword ? t("security.hidePassword") : t("security.showPassword")}>
                         {showDisablePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => { setShowDisableForm(false); setDisablingPassword(""); }}>Cancel</Button>
+                      <Button variant="outline" size="sm" onClick={() => { setShowDisableForm(false); setDisablingPassword(""); }}>{t("common.cancel")}</Button>
                       <Button variant="destructive" size="sm" onClick={handleDisable2FA} disabled={disabling2FA}>
-                        {disabling2FA ? "Disabling…" : "Confirm Disable"}
+                        {disabling2FA ? t("profile.disabling", "Disabling…") : t("profile.confirmDisable", "Confirm Disable")}
                       </Button>
                     </div>
                   </div>
@@ -490,8 +495,9 @@ export default function Profile() {
 
                 {showRegenForm && (
                   <div className="space-y-2 p-3 rounded-lg border bg-muted/30">
-                    <Label className="text-xs">Enter 6-digit TOTP code</Label>
+                    <Label htmlFor="regen-totp" className="text-xs">{t("profile.enterTotpCode", "Enter 6-digit TOTP code")}</Label>
                     <Input
+                      id="regen-totp"
                       type="text"
                       inputMode="numeric"
                       maxLength={6}
@@ -500,9 +506,9 @@ export default function Profile() {
                       placeholder="000000"
                     />
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => { setShowRegenForm(false); setRegenOTP(""); }}>Cancel</Button>
+                      <Button variant="outline" size="sm" onClick={() => { setShowRegenForm(false); setRegenOTP(""); }}>{t("common.cancel")}</Button>
                       <Button size="sm" onClick={handleRegenerate} disabled={regenerating || regenOTP.length !== 6}>
-                        {regenerating ? "Regenerating…" : "Confirm"}
+                        {regenerating ? t("profile.regenerating", "Regenerating…") : t("profile.confirm", "Confirm")}
                       </Button>
                     </div>
                   </div>

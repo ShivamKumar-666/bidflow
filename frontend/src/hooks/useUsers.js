@@ -16,7 +16,9 @@ export function useUsers() {
     setLoading(false);
   }, []);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return { users, loading, refetch: fetchUsers };
 }

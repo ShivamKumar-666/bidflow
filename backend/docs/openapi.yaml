@@ -1,0 +1,1484 @@
+openapi: "3.0.3"
+info:
+  title: BidFlow API
+  version: "1.0.0"
+  description: |
+    BidFlow is a bid/proposal management platform with ML-powered win probability prediction.
+    All API routes are versioned under `/api/v1/`.
+
+    ## Authentication
+    Uses JWT tokens stored in httpOnly cookies (`access_token_cookie`, `refresh_token_cookie`).
+    CSRF protection via double-submit cookie pattern (`X-CSRF-TOKEN` header).
+
+    ## Roles
+    - **Admin** — Full access to all resources
+    - **Company** — Enquiry owner, can update bid status on own enquiries
+    - **Sales Executive** — Internal bid management
+    - **Bidder** — Submit bids on marketplace enquiries only
+
+    ## Rate Limiting
+    All endpoints are rate-limited. Limits are documented per-endpoint.
+
+servers:
+  - url: /api/v1
+    description: API v1
+
+tags:
+  - name: Auth
+    description: Registration, login, profile management
+  - name: Bids
+    description: Bid CRUD, status updates, comments, predictions
+  - name: Enquiries
+    description: Enquiry CRUD, sharing, document upload
+  - name: Marketplace
+    description: Public enquiry listings and sealed bid submission
+  - name: Documents
+    description: File upload/download for bids
+  - name: Analytics
+    description: Dashboard metrics, CSV export, model stats
+  - name: Admin
+    description: Model retraining, SLA, version management (Admin only)
+  - name: Audit
+    description: Activity log (role-scoped)
+  - name: 2FA
+    description: Two-factor authentication setup and verification
+  - name: Notifications
+    description: Real-time notification management
+  - name: Search
+    description: Global search across enquiries, bids, documents
+  - name: Tags
+    description: Unique tag listing
+  - name: Health
+    description: Infrastructure health check (no /api/v1 prefix)
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token_cookie
+      description: JWT access token in httpOnly cookie
+    headerCsrf:
+      type: apiKey
+      in: header
+      name: X-CSRF-TOKEN
+      description: CSRF token from csrf_access_token cookie
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        msg:
+          type: string
+
+    User:
+      type: object
+      properties:
+        _id: { type: string }
+        name: { type: string }
+        email: { type: string }
+        role: { type: string, enum: [Admin, Company, Sales Executive, Bidder] }
+        industry: { type: string }
+        winRate: { type: number }
+        targetBidValue: { type: number }
+        bio: { type: string }
+        totp_enabled: { type: boolean }
+
+    Enquiry:
+      type: object
+      properties:
+        _id: { type: string }
+        enquiryId: { type: string }
+        customerName: { type: string }
+        contactInformation: { type: string }
+        productServiceRequired: { type: string }
+        priority: { type: string, enum: [High, Medium, Low] }
+        status: { type: string, enum: [Under Review, Quotation Prepared, Negotiation, Rejected, Order Received] }
+        negotiable: { type: boolean }
+        visibility: { type: string, enum: [public, internal] }
+        industry: { type: string }
+        tags: { type: array, items: { type: string } }
+        bidCount: { type: integer }
+        listingDeadline: { type: string, format: date-time }
+        date: { type: string, format: date-time }
+        notes: { type: string }
+        createdBy: { type: string }
+
+    Bid:
+      type: object
+      properties:
+        _id: { type: string }
+        bidId: { type: string }
+        enquiryId: { type: string }
+        amount: { type: number }
+        currency: { type: string, enum: [USD, EUR, GBP, INR, JPY, CAD, AUD] }
+        status: { type: string, enum: [Quotation Prepared, Under Review, Negotiation, Order Received, Rejected] }
+        assignedEmployee: { type: string }
+        industry: { type: string }
+        submissionDate: { type: string }
+        remarks: { type: string }
+        tags: { type: array, items: { type: string } }
+        teamSize: { type: integer }
+        aiPrediction: { type: integer }
+        shapExplanations: { type: array, items: { $ref: '#/components/schemas/SHAPExplanation' } }
+        comments: { type: array, items: { $ref: '#/components/schemas/Comment' } }
+        history: { type: array, items: { $ref: '#/components/schemas/HistoryEntry' } }
+        createdBy: { type: string }
+
+    Comment:
+      type: object
+      properties:
+        _id: { type: string }
+        text: { type: string }
+        author: { type: string }
+        userId: { type: string }
+        date: { type: string, format: date-time }
+
+    HistoryEntry:
+      type: object
+      properties:
+        status: { type: string }
+        date: { type: string, format: date-time }
+        note: { type: string }
+
+    SHAPExplanation:
+      type: object
+      properties:
+        feature: { type: string }
+        value: { type: string }
+        shap_value: { type: number }
+        impact: { type: string, enum: [positive, negative] }
+        text: { type: string }
+
+    Notification:
+      type: object
+      properties:
+        _id: { type: string }
+        userId: { type: string }
+        title: { type: string }
+        message: { type: string }
+        type: { type: string }
+        refId: { type: string }
+        isRead: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    Document:
+      type: object
+      properties:
+        _id: { type: string }
+        filename: { type: string }
+        path: { type: string }
+        bidId: { type: string }
+        enquiryId: { type: string }
+        uploadedBy: { type: string }
+        uploadDate: { type: string, format: date-time }
+
+    AuditLog:
+      type: object
+      properties:
+        _id: { type: string }
+        userId: { type: string }
+        user: { type: string }
+        action: { type: string }
+        details: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    CalendarEvent:
+      type: object
+      properties:
+        _id: { type: string }
+        bidId: { type: string }
+        enquiryId: { type: string }
+        submissionDate: { type: string }
+        amount: { type: number }
+        status: { type: string }
+        customerName: { type: string }
+        priority: { type: string }
+        eventType: { type: string, enum: [bid, enquiry] }
+
+    ModelVersion:
+      type: object
+      properties:
+        _id: { type: string }
+        version: { type: integer }
+        isActive: { type: boolean }
+        accuracy: { type: number }
+        records: { type: integer }
+        trainedAt: { type: string, format: date-time }
+
+paths:
+  # ── Auth ─────────────────────────────────────────────────────────────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register a new user
+      description: First registered user becomes Admin. Rate limited to 5/min.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+                role: { type: string, enum: [Company, Sales Executive, Bidder] }
+      responses:
+        201:
+          description: Account created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  msg: { type: string }
+        400:
+          description: Validation error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login with email/password
+      description: Returns JWT tokens in httpOnly cookies. May require 2FA. Rate limited to 10/min.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+      responses:
+        200:
+          description: Login successful (or 2FA required)
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      access_token: { type: string }
+                      user: { $ref: '#/components/schemas/User' }
+                  - type: object
+                    properties:
+                      requires_2FA: { type: boolean }
+                      temp_token: { type: string }
+        401:
+          description: Invalid credentials
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        403:
+          description: Email not verified
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout and revoke JWT
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  msg: { type: string }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      description: Uses refresh token cookie to issue new access + refresh tokens.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Tokens refreshed
+        404:
+          description: User not found
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user profile
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: User profile
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        404:
+          description: User not found
+
+  /auth/users:
+    get:
+      tags: [Auth]
+      summary: List all users
+      description: Returns name, role, industry for all users.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: User list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    _id: { type: string }
+                    name: { type: string }
+                    role: { type: string }
+                    industry: { type: string }
+
+  /auth/profile:
+    put:
+      tags: [Auth]
+      summary: Update current user profile
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                industry: { type: string }
+                winRate: { type: number }
+                targetBidValue: { type: number }
+                bio: { type: string }
+      responses:
+        200:
+          description: Profile updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        400:
+          description: Validation error
+
+  /auth/verify-email:
+    get:
+      tags: [Auth]
+      summary: Verify email address
+      description: Called via email link. Rate limited to 10/min.
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Email verified
+        400:
+          description: Invalid or expired token
+
+  /auth/resend-verification:
+    post:
+      tags: [Auth]
+      summary: Resend verification email
+      description: Rate limited to 3/hour.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        200:
+          description: Email sent (if applicable)
+
+  /auth/google-client-id:
+    get:
+      tags: [Auth]
+      summary: Get Google OAuth client ID
+      responses:
+        200:
+          description: Client ID
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  client_id: { type: string }
+
+  /auth/google-login:
+    post:
+      tags: [Auth]
+      summary: Login with Google OAuth
+      description: Rate limited to 15/min.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [credential]
+              properties:
+                credential: { type: string }
+                role: { type: string, enum: [Company, Sales Executive, Bidder] }
+      responses:
+        200:
+          description: Login successful (or 2FA required)
+        400:
+          description: Invalid credential
+        401:
+          description: Authentication failed
+
+  # ── Bids ─────────────────────────────────────────────────────────────────────
+  /bids/:
+    get:
+      tags: [Bids]
+      summary: List bids
+      description: Role-scoped. Admin sees all; others see assigned bids.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+      responses:
+        200:
+          description: Paginated bid list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Bid' } }
+                  page: { type: integer }
+                  size: { type: integer }
+                  total: { type: integer }
+
+    post:
+      tags: [Bids]
+      summary: Create a bid
+      description: Creates bid with AI prediction and SHAP explanations.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, enquiryId]
+              properties:
+                amount: { type: number, minimum: 0 }
+                enquiryId: { type: string }
+                currency: { type: string, enum: [USD, EUR, GBP, INR, JPY, CAD, AUD], default: USD }
+                assignedEmployee: { type: string }
+                industry: { type: string }
+                submissionDate: { type: string }
+                remarks: { type: string }
+                tags: { type: array, items: { type: string } }
+                teamSize: { type: integer, minimum: 1 }
+                productSeries: { type: string }
+                regionalOffice: { type: string }
+                salesPrice: { type: number }
+      responses:
+        201:
+          description: Bid created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  msg: { type: string }
+                  bid: { $ref: '#/components/schemas/Bid' }
+
+  /bids/{id}/status:
+    put:
+      tags: [Bids]
+      summary: Update bid status
+      description: Only enquiry owner or Admin can update. Sends SHAP feedback to losing bidders. Rate limited to 30/min.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [Quotation Prepared, Under Review, Negotiation, Order Received, Rejected] }
+                note: { type: string }
+      responses:
+        200:
+          description: Status updated
+        400:
+          description: Invalid status
+        403:
+          description: Forbidden
+
+  /bids/{id}/comments:
+    post:
+      tags: [Bids]
+      summary: Add comment to bid
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string, maxLength: 2000 }
+      responses:
+        201:
+          description: Comment added
+        400:
+          description: Validation error
+
+  /bids/{id}/comments/{commentId}:
+    delete:
+      tags: [Bids]
+      summary: Delete a comment
+      description: Only comment author, bid creator, or Admin can delete.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Comment deleted
+        403:
+          description: Forbidden
+        404:
+          description: Not found
+
+  /bids/predict:
+    post:
+      tags: [Bids]
+      summary: Get live AI prediction
+      description: Returns win probability, employee win rate, and SHAP explanations.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number }
+                currency: { type: string }
+                assignedEmployee: { type: string }
+                industry: { type: string }
+                submissionDate: { type: string }
+                teamSize: { type: integer }
+                productSeries: { type: string }
+                regionalOffice: { type: string }
+                salesPrice: { type: number }
+      responses:
+        200:
+          description: Prediction result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  win_probability: { type: number }
+                  computed_win_rate_pct: { type: number }
+                  shap_explanations: { type: array, items: { $ref: '#/components/schemas/SHAPExplanation' } }
+
+  /bids/calendar:
+    get:
+      tags: [Bids]
+      summary: Get calendar events
+      description: Returns bid submission dates and enquiry creation dates for calendar view.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: month
+          in: query
+          schema: { type: string }
+          description: "Filter by month (e.g., 2026-06)"
+      responses:
+        200:
+          description: Calendar events
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CalendarEvent' }
+
+  /bids/{id}:
+    put:
+      tags: [Bids]
+      summary: Update bid fields
+      description: Update tags, remarks, amount, currency, submissionDate, assignedEmployee, industry.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                tags: { type: array, items: { type: string } }
+                remarks: { type: string }
+                amount: { type: number }
+                currency: { type: string, enum: [USD, EUR, GBP, INR, JPY, CAD, AUD] }
+                submissionDate: { type: string }
+                assignedEmployee: { type: string }
+                industry: { type: string }
+      responses:
+        200:
+          description: Bid updated
+        400:
+          description: Validation error
+
+    delete:
+      tags: [Bids]
+      summary: Delete a bid
+      description: Admin can always delete. Bidders can delete own bids if Rejected or 30+ days old.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Bid deleted
+        403:
+          description: Forbidden
+
+  /bids/{id}/quotation:
+    get:
+      tags: [Bids]
+      summary: Download quotation PDF
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+
+  # ── Enquiries ────────────────────────────────────────────────────────────────
+  /enquiries/:
+    get:
+      tags: [Enquiries]
+      summary: List enquiries
+      description: Role-scoped. Bidders cannot access (use marketplace). Rate limited to 60/min.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 50, maximum: 200 }
+      responses:
+        200:
+          description: Paginated enquiry list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Enquiry' } }
+                  page: { type: integer }
+                  size: { type: integer }
+                  total: { type: integer }
+        403:
+          description: Bidders cannot access enquiries
+
+    post:
+      tags: [Enquiries]
+      summary: Create enquiry
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerName, contactInformation, productServiceRequired]
+              properties:
+                customerName: { type: string }
+                contactInformation: { type: string }
+                productServiceRequired: { type: string }
+                priority: { type: string, enum: [High, Medium, Low], default: Medium }
+                notes: { type: string }
+                tags: { type: array, items: { type: string } }
+                negotiable: { type: boolean, default: true }
+                visibility: { type: boolean, default: true }
+                industry: { type: string, default: Technology }
+      responses:
+        201:
+          description: Enquiry created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Enquiry' }
+
+  /enquiries/{id}:
+    put:
+      tags: [Enquiries]
+      summary: Update enquiry
+      description: Only creator or Admin can update.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                customerName: { type: string }
+                contactInformation: { type: string }
+                productServiceRequired: { type: string }
+                priority: { type: string }
+                status: { type: string }
+                notes: { type: string }
+                tags: { type: array, items: { type: string } }
+                negotiable: { type: boolean }
+                visibility: { type: string, enum: [public, internal] }
+                industry: { type: string }
+      responses:
+        200:
+          description: Enquiry updated
+        403:
+          description: Forbidden
+
+    delete:
+      tags: [Enquiries]
+      summary: Delete enquiry
+      description: Only creator or Admin can delete.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Enquiry deleted
+        403:
+          description: Forbidden
+
+  /enquiries/{id}/share:
+    post:
+      tags: [Enquiries]
+      summary: Generate public share link
+      description: Creates a 90-day share token for customer portal access.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Share link generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shareToken: { type: string }
+                  shareUrl: { type: string }
+
+  /enquiries/{id}/upload:
+    post:
+      tags: [Enquiries]
+      summary: Upload document to enquiry
+      description: JWT required, creator only. Max 16MB.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        201:
+          description: Document uploaded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Document' }
+
+  /enquiries/public/share/{token}:
+    get:
+      tags: [Enquiries]
+      summary: Get public share data
+      description: No auth required. Returns enquiry, bid, and documents for customer portal.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Public share data
+        403:
+          description: Token expired
+        404:
+          description: Token invalid
+
+  /enquiries/public/share/{token}/download/{doc_id}:
+    get:
+      tags: [Enquiries]
+      summary: Download shared document
+      description: No auth required. Uses share token.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+        - name: doc_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /enquiries/public/share/{token}/upload:
+    post:
+      tags: [Enquiries]
+      summary: Upload document via share link
+      description: No auth required. Uses share token. Max 16MB.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        201:
+          description: Document uploaded
+
+  # ── Marketplace ──────────────────────────────────────────────────────────────
+  /marketplace/:
+    get:
+      tags: [Marketplace]
+      summary: List public enquiries
+      description: Sealed bids — bidders cannot see each other's bids. Rate limited to 60/min.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, default: 1 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 20 }
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: industry
+          in: query
+          schema: { type: string }
+        - name: priority
+          in: query
+          schema: { type: string, enum: [High, Medium, Low] }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [date, -date, priority, -bidCount], default: -date }
+      responses:
+        200:
+          description: Paginated marketplace listings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Enquiry' } }
+                  page: { type: integer }
+                  size: { type: integer }
+                  total: { type: integer }
+
+  /marketplace/{enquiry_id}:
+    get:
+      tags: [Marketplace]
+      summary: Get marketplace enquiry detail
+      description: Returns enquiry, documents, my bids (bidders), all bids (company/admin).
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: enquiry_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Enquiry detail with bids and documents
+        404:
+          description: Not found
+
+  /marketplace/{enquiry_id}/bid:
+    post:
+      tags: [Marketplace]
+      summary: Submit sealed bid
+      description: Only Bidder, Sales Executive, or Company roles. Deadline enforced. Rate limited to 10/min.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: enquiry_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number, minimum: 0 }
+                currency: { type: string, enum: [USD, EUR, GBP, INR, JPY, CAD, AUD], default: USD }
+                industry: { type: string }
+                submissionDate: { type: string }
+                remarks: { type: string }
+                tags: { type: array, items: { type: string } }
+                teamSize: { type: integer, minimum: 1 }
+      responses:
+        201:
+          description: Bid submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  msg: { type: string }
+                  bid: { $ref: '#/components/schemas/Bid' }
+        400:
+          description: Validation error or deadline passed
+        403:
+          description: Forbidden
+
+  # ── Documents ────────────────────────────────────────────────────────────────
+  /documents/upload:
+    post:
+      tags: [Documents]
+      summary: Upload document to bid
+      description: Max 16MB. JWT required.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file, bidId]
+              properties:
+                file: { type: string, format: binary }
+                bidId: { type: string }
+      responses:
+        201:
+          description: Document uploaded
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Document' }
+
+  /documents/download/{doc_id}:
+    get:
+      tags: [Documents]
+      summary: Download document
+      description: Falls back to public enquiry check if bid access fails.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: doc_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: File download
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+
+  /documents/bid/{bid_id}:
+    get:
+      tags: [Documents]
+      summary: List documents for a bid
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: bid_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Document list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Document' }
+
+  # ── Analytics ────────────────────────────────────────────────────────────────
+  /analytics/dashboard:
+    get:
+      tags: [Analytics]
+      summary: Get dashboard metrics
+      description: Role-scoped metrics including total bids, win rate, amounts, etc.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /analytics/export/csv:
+    get:
+      tags: [Analytics]
+      summary: Export bids as CSV
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: CSV file
+          content:
+            text/csv:
+              schema:
+                type: string
+
+  /analytics/model-stats:
+    get:
+      tags: [Analytics]
+      summary: Get ML model statistics
+      description: Model accuracy, features, training records, terminal bids.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Model stats
+
+  # ── Admin ────────────────────────────────────────────────────────────────────
+  /admin/retrain:
+    post:
+      tags: [Admin]
+      summary: Trigger model retraining
+      description: Retrains XGBoost from MongoDB terminal bids. Requires >= 50 labeled bids. Admin only. Rate limited to 3/hour.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Retraining result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [success, insufficient_data, low_accuracy] }
+                  accuracy: { type: number }
+                  records: { type: integer }
+
+  /admin/model-status:
+    get:
+      tags: [Admin]
+      summary: Get model file metadata
+      description: File sizes, last modified, terminal bid count, retrain readiness. Admin only.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Model status
+
+  /admin/sla/check:
+    post:
+      tags: [Admin]
+      summary: Trigger SLA breach check
+      description: Manually runs the hourly SLA checker. Admin only. Rate limited to 5/min.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: SLA check result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  checked: { type: integer }
+                  breaches: { type: integer }
+
+  /admin/sla/report:
+    get:
+      tags: [Admin]
+      summary: Get SLA breach report
+      description: Grouped by stage and employee. Admin only.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: SLA report
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  by_stage: { type: array }
+                  by_employee: { type: array }
+                  details: { type: array }
+
+  /admin/models:
+    get:
+      tags: [Admin]
+      summary: List model versions
+      description: All trained model versions with accuracy and records. Admin only.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Model versions
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/ModelVersion' }
+
+  /admin/models/rollback:
+    post:
+      tags: [Admin]
+      summary: Rollback to model version
+      description: Activates a previous model version. Admin only. Rate limited to 5/min.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [version]
+              properties:
+                version: { type: integer }
+      responses:
+        200:
+          description: Rollback successful
+        404:
+          description: Version not found
+
+  # ── Audit ────────────────────────────────────────────────────────────────────
+  /audit/:
+    get:
+      tags: [Audit]
+      summary: Get audit logs
+      description: Admin sees all logs (with optional user filter). Others see only their own. Rate limited to 60/min.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100, maximum: 500 }
+        - name: user_id
+          in: query
+          schema: { type: string }
+          description: Filter by user (Admin only)
+      responses:
+        200:
+          description: Audit log entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/AuditLog' }
+
+  # ── 2FA ──────────────────────────────────────────────────────────────────────
+  /2fa/setup:
+    get:
+      tags: [2FA]
+      summary: Initiate 2FA setup
+      description: Generates TOTP secret and QR code. Admin only. Rate limited to 3/min.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: QR code (base64 PNG)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  qr_code: { type: string }
+
+  /2fa/enable:
+    post:
+      tags: [2FA]
+      summary: Enable 2FA with verification code
+      description: Verifies first TOTP code, generates backup codes. Admin only. Rate limited to 3/min.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: "^[0-9]{6}$" }
+      responses:
+        200:
+          description: 2FA enabled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  msg: { type: string }
+                  backup_codes: { type: array, items: { type: string } }
+
+  /2fa/verify:
+    post:
+      tags: [2FA]
+      summary: Verify 2FA during login
+      description: Accepts temp_token + TOTP code or backup code. Returns full JWT. Rate limited to 5/min.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [temp_token, code]
+              properties:
+                temp_token: { type: string }
+                code: { type: string }
+      responses:
+        200:
+          description: 2FA verified, full JWT issued
+        401:
+          description: Invalid code or token
+
+  /2fa/disable:
+    post:
+      tags: [2FA]
+      summary: Disable 2FA
+      description: Requires password confirmation. Admin only. Rate limited to 5/min.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string }
+      responses:
+        200:
+          description: 2FA disabled
+        401:
+          description: Incorrect password
+
+  /2fa/backup-codes:
+    get:
+      tags: [2FA]
+      summary: Get backup codes count
+      description: Returns remaining backup codes count (not the codes themselves).
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Backup codes count
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  backup_codes_remaining: { type: integer }
+
+  /2fa/regenerate-backup-codes:
+    post:
+      tags: [2FA]
+      summary: Regenerate backup codes
+      description: Requires TOTP code verification. Admin only. Rate limited to 3/min.
+      security: [{ cookieAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, pattern: "^[0-9]{6}$" }
+      responses:
+        200:
+          description: Backup codes regenerated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  msg: { type: string }
+                  backup_codes: { type: array, items: { type: string } }
+
+  # ── Notifications ────────────────────────────────────────────────────────────
+  /notifications/:
+    get:
+      tags: [Notifications]
+      summary: Get user notifications
+      description: Returns up to 200 most recent notifications.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Notification list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Notification' }
+
+  /notifications/{notif_id}/read:
+    post:
+      tags: [Notifications]
+      summary: Mark notification as read
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: notif_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Marked as read
+        404:
+          description: Not found
+
+  /notifications/read-all:
+    post:
+      tags: [Notifications]
+      summary: Mark all notifications as read
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: All marked as read
+
+  /notifications/{notif_id}:
+    delete:
+      tags: [Notifications]
+      summary: Delete notification
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: notif_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        200:
+          description: Deleted
+        404:
+          description: Not found
+
+  # ── Search ───────────────────────────────────────────────────────────────────
+  /search:
+    get:
+      tags: [Search]
+      summary: Global search
+      description: Searches enquiries, bids, and documents. Role-scoped. Max 200 chars. Rate limited to 30/min.
+      security: [{ cookieAuth: [] }]
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, maxLength: 200 }
+      responses:
+        200:
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  enquiries: { type: array, items: { $ref: '#/components/schemas/Enquiry' } }
+                  bids: { type: array, items: { $ref: '#/components/schemas/Bid' } }
+                  documents: { type: array, items: { $ref: '#/components/schemas/Document' } }
+
+  # ── Tags ─────────────────────────────────────────────────────────────────────
+  /tags/:
+    get:
+      tags: [Tags]
+      summary: Get unique tags
+      description: Returns sorted unique tags from enquiries and bids visible to the user.
+      security: [{ cookieAuth: [] }]
+      responses:
+        200:
+          description: Tag list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: string }
+
+  # ── Health (top-level, no /api/v1 prefix) ───────────────────────────────────
+  /health:
+    get:
+      tags: [Health]
+      summary: Health check
+      description: Checks MongoDB connectivity. No auth required.
+      responses:
+        200:
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [healthy, unhealthy] }
+        503:
+          description: Unhealthy

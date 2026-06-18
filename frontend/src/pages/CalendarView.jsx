@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, X, Calendar as CalendarIcon, ExternalLink, Inbox } from "lucide-react";
+import { formatCurrency } from "@/utils/formatCurrency";
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, ExternalLink, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
@@ -102,9 +103,9 @@ export default function CalendarView() {
       result.push({ day: result.length - daysInMonth - firstDay + 1, current: false, key: `n${result.length}` });
     }
     return result;
-  }, [firstDay, daysInPrev, daysInMonth]);
+  }, [firstDay, daysInPrev, daysInMonth]); // eslint-disable-line react-hooks/preserve-manual-memoization
 
-  const today = new Date();
+  const today = useMemo(() => new Date(), []);  
   const isToday = (day, current) => {
     if (!current) return false;
     return day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
@@ -123,9 +124,9 @@ export default function CalendarView() {
     }
     (acc[dateKey] = acc[dateKey] || []).push(e);
     return acc;
-  }, {}), [events]);
+  }, {}), [events]);  
 
-  const years = useMemo(() => Array.from({ length: 11 }, (_, i) => currentYear - 5 + i), [currentYear]);
+  const years = useMemo(() => Array.from({ length: 11 }, (_, i) => currentYear - 5 + i), [currentYear]); // eslint-disable-line react-hooks/preserve-manual-memoization
 
   return (
     <div className="space-y-6">
@@ -142,13 +143,13 @@ export default function CalendarView() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" onClick={() => setCurrentDate(new Date(currentYear, currentMonth - 1, 1))}>
+                <Button variant="outline" size="icon" onClick={() => setCurrentDate(new Date(currentYear, currentMonth - 1, 1))} aria-label="Previous month">
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => setCurrentDate(new Date())}>
                   Today
                 </Button>
-                <Button variant="outline" size="icon" onClick={() => setCurrentDate(new Date(currentYear, currentMonth + 1, 1))}>
+                <Button variant="outline" size="icon" onClick={() => setCurrentDate(new Date(currentYear, currentMonth + 1, 1))} aria-label="Next month">
                   <ChevronRight className="h-4 w-4" />
                 </Button>
               </div>
@@ -210,9 +211,9 @@ export default function CalendarView() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-7 gap-1">
+            <div className="grid grid-cols-7 gap-1" role="grid" aria-label="Bid deadline calendar">
               {weekdays.map((d) => (
-                <div key={d} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center py-2">
+                <div key={d} className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center py-2" role="columnheader">
                   {d}
                 </div>
               ))}
@@ -223,12 +224,15 @@ export default function CalendarView() {
                 return (
                   <div
                     key={cell.key}
+                    role="gridcell"
+                    tabIndex={hasEvents && cell.current ? 0 : -1}
+                    aria-label={`${cell.current ? `${monthNames[cell.month]} ${cell.day}` : ''}${hasEvents ? `, ${dayEvents.length} events` : ''}`}
                     className={cn(
                       "min-h-24 rounded-md border p-1.5 text-xs transition-colors",
                       cell.current ? "bg-card" : "bg-muted/20 text-muted-foreground/50",
                       isToday(cell.day, cell.current) && "ring-2 ring-primary",
                       hasEvents && "border-primary/50 bg-primary/5",
-                      hasEvents && cell.current && "cursor-pointer hover:bg-accent/30"
+                      hasEvents && cell.current && "cursor-pointer hover:bg-accent/30 focus:outline-none focus:ring-2 focus:ring-primary"
                     )}
                   >
                     <div className={cn(
@@ -247,8 +251,9 @@ export default function CalendarView() {
                             "w-full text-left px-1.5 py-0.5 rounded text-[10px] font-semibold truncate",
                             priorityColors[e.priority]
                           )}
+                          aria-label={`${e.customerName}: ${formatCurrency(e.amount)}`}
                         >
-                          {e.customerName}: ${(Number(e.amount) || 0).toLocaleString()}
+                          {e.customerName}: {formatCurrency(e.amount)}
                         </button>
                       ))}
                       {dayEvents.length > 2 && (
@@ -290,7 +295,7 @@ export default function CalendarView() {
                     <p className="text-xs text-muted-foreground truncate">{bid.productServiceRequired}</p>
                     <div className="flex items-center justify-between mt-1.5 text-xs">
                       <span className="text-muted-foreground">{bid.submissionDate}</span>
-                      <span className="font-semibold">${(Number(bid.amount) || 0).toLocaleString()}</span>
+                      <span className="font-semibold">{formatCurrency(bid.amount)}</span>
                     </div>
                   </button>
                 ))}
@@ -314,7 +319,7 @@ export default function CalendarView() {
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Amount</div>
-              <div className="font-bold text-lg">${(Number(selected?.amount) || 0).toLocaleString()}</div>
+              <div className="font-bold text-lg">{formatCurrency(selected?.amount)}</div>
             </div>
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Due</div>
@@ -331,7 +336,7 @@ export default function CalendarView() {
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">AI Prediction</div>
               <div className="font-bold text-emerald-600 mb-1">{selected?.aiPrediction}%</div>
-              <Progress value={selected?.aiPrediction} className="h-1.5" />
+              <Progress value={selected?.aiPrediction} className="h-1.5" aria-label={`AI prediction: ${selected?.aiPrediction}%`} />
             </div>
           </div>
           {selected?.remarks && (

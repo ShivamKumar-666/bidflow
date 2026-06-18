@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 
@@ -6,41 +6,55 @@ const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
   const { user } = useAuth();
-  const socketRef = useRef(null);
+  const [socket, setSocket] = useState(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!user?._id) {
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
       }
       return;
     }
 
-    const socket = io(import.meta.env.VITE_SOCKET_URL, {
+    const newSocket = io(import.meta.env.VITE_SOCKET_URL, {
       transports: ["websocket", "polling"],
+      withCredentials: true,
     });
-    socketRef.current = socket;
 
-    socket.on("connect", () => {
-      socket.emit("join", { room: `user_${user._id}` });
+    newSocket.on("connect", () => {
+      newSocket.emit("join", { room: `user_${user._id}` });
     });
+
+    if (import.meta.env.DEV) {
+      newSocket.on("connect_error", (err) => {
+        console.debug("Socket connection error:", err.message);
+      });
+      newSocket.on("disconnect", (reason) => {
+        console.debug("Socket disconnected:", reason);
+      });
+    }
+
+    setSocket(newSocket);
 
     return () => {
-      socket.disconnect();
-      socketRef.current = null;
+      newSocket.disconnect();
+      setSocket(null);
     };
-  }, [user?._id]);
+  }, [user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return (
-    <SocketContext.Provider value={socketRef}>
+    <SocketContext.Provider value={socket}>
       {children}
     </SocketContext.Provider>
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useSocket = () => {
   const ctx = useContext(SocketContext);
-  if (!ctx) throw new Error("useSocket must be used within SocketProvider");
+  if (ctx === undefined) throw new Error("useSocket must be used within SocketProvider");
   return ctx;
 };

@@ -130,7 +130,18 @@ def update_bid_status(id):
         if new_status == "Order Received":
             notif_msg = f"Congratulations! Your bid {bid.get('bidId')} has been accepted!"
         elif new_status == "Rejected":
-            notif_msg = f"Your bid {bid.get('bidId')} has been rejected."
+            notif_msg = f"Your bid {bid.get('bidId')} was not selected."
+            shap_explanations = bid.get("shapExplanations", [])
+            if shap_explanations:
+                negative_factors = [
+                    ex for ex in shap_explanations
+                    if ex.get("impact") == "negative"
+                ][:3]
+                if negative_factors:
+                    feedback_lines = [f"• {ex.get('text', '')}" for ex in negative_factors]
+                    notif_msg += "\n\nKey factors:\n" + "\n".join(feedback_lines)
+                else:
+                    notif_msg += "\n\nThe winning bid had a stronger overall profile."
         else:
             notif_msg = f"Your bid {bid.get('bidId')} status updated to '{new_status}'"
         notif = NotificationService.create(
@@ -181,7 +192,21 @@ def add_comment(id):
         if bid:
             log_audit("ADD_COMMENT", f"Added comment to bid {bid.get('bidId')}")
 
-        socketio.emit('new_comment', {
+        relevant_user_ids = set()
+        if bid:
+            if bid.get("createdBy"):
+                relevant_user_ids.add(str(bid["createdBy"]))
+            assigned_name = bid.get("assignedEmployee")
+            if assigned_name:
+                assigned_user = BidService.get_user_by_name(assigned_name)
+                if assigned_user:
+                    relevant_user_ids.add(str(assigned_user["_id"]))
+            if bid.get("enquiryId"):
+                enq = db.Enquiries.find_one({"enquiryId": bid["enquiryId"]})
+                if enq and enq.get("createdBy"):
+                    relevant_user_ids.add(str(enq["createdBy"]))
+
+        comment_data = {
             'bid_id': id,
             'comment': {
                 '_id': str(comment['_id']),
@@ -190,10 +215,11 @@ def add_comment(id):
                 'userId': comment['userId'],
                 'date': comment['date'].isoformat()
             }
-        }, room=f"bid_{id}")
+        }
+        for uid in relevant_user_ids:
+            socketio.emit('new_comment', comment_data, room=f"user_{uid}")
 
         if bid:
-            assigned_name = bid.get("assignedEmployee")
             commenter_name = user.get("name", "") if user else ""
             if assigned_name and assigned_name != commenter_name:
                 target_user = BidService.get_user_by_name(assigned_name)
@@ -249,8 +275,13 @@ def predict_bid():
         else:
             industry = req_industry
 
+        currency = data.get("currency", "USD")
+        if currency not in BidService.ALLOWED_CURRENCIES:
+            currency = "USD"
+        currency_symbol = BidService.CURRENCY_SYMBOLS.get(currency, "$")
+
         win_prob, computed_win_rate, explanations = BidService.predict_live(
-            data, override_name, industry
+            data, override_name, industry, currency_symbol
         )
 
         return jsonify({
@@ -317,7 +348,16 @@ def get_calendar_bids():
         if role == 'Company' and user_id:
             enq_date_filter = {}
             if month_param:
-                enq_date_filter["date"] = {"$regex": f"^{re.escape(month_param)}"}
+                try:
+                    year, month = map(int, month_param.split('-'))
+                    start_of_month = datetime.datetime(year, month, 1)
+                    if month == 12:
+                        start_of_next_month = datetime.datetime(year + 1, 1, 1)
+                    else:
+                        start_of_next_month = datetime.datetime(year, month + 1, 1)
+                    enq_date_filter["date"] = {"$gte": start_of_month, "$lt": start_of_next_month}
+                except (ValueError, AttributeError):
+                    pass
             enq_date_filter["createdBy"] = user_id
             user_enquiries = list(db.Enquiries.find(enq_date_filter).limit(500))
             for enq in user_enquiries:
@@ -354,7 +394,7 @@ def update_bid(id):
 
     try:
         data = request.get_json() or {}
-        ALLOWED_FIELDS = {"tags", "remarks", "amount", "submissionDate", "assignedEmployee", "industry"}
+        ALLOWED_FIELDS = {"tags", "remarks", "amount", "currency", "submissionDate", "assignedEmployee", "industry"}
         update_data = {k: v for k, v in data.items() if k in ALLOWED_FIELDS}
 
         if not update_data:
@@ -368,8 +408,15 @@ def update_bid(id):
             except (TypeError, ValueError):
                 return jsonify({"msg": "amount must be a number"}), 400
 
+        if "currency" in update_data:
+            if update_data["currency"] not in BidService.ALLOWED_CURRENCIES:
+                return jsonify({"msg": f"Invalid currency. Must be one of: {', '.join(BidService.ALLOWED_CURRENCIES)}"}), 400
+
         if "tags" in update_data:
             update_data["tags"] = [t.strip().lower() for t in update_data["tags"] if isinstance(t, str) and t.strip()]
+
+        if "remarks" in update_data:
+            update_data["remarks"] = bleach.clean(update_data["remarks"], strip=True)[:2000]
 
         result = db.Bids.update_one({"_id": bid_oid}, {"$set": update_data})
         if result.matched_count:
@@ -429,12 +476,11 @@ def delete_bid(id):
         role = get_jwt().get('role')
         user_id = get_jwt_identity()
         if role == 'Bidder' and bid.get('createdBy') == user_id:
-            from bson import datetime as bson_datetime
             is_rejected = bid.get('status') == 'Rejected'
             created = bid.get('createdAt')
             is_old = False
             if created:
-                if isinstance(created, bson_datetime):
+                if isinstance(created, datetime.datetime):
                     age_days = (now_utc() - created).days
                 elif isinstance(created, str):
                     age_days = (now_utc() - datetime.datetime.fromisoformat(created.replace('Z', '+00:00'))).days
@@ -444,16 +490,36 @@ def delete_bid(id):
             if not is_rejected and not is_old:
                 return jsonify({"msg": "Bidders can only delete rejected or old bids (30+ days)"}), 403
 
-        db.Bids.delete_one({"_id": bid_oid})
-        DocumentService.delete_bid_documents(str(bid_oid))
-        NotificationService.delete_by_ref(id)
+        # Use transaction for atomic deletion (if replica set available)
+        client = db.client
+        try:
+            with client.start_session() as session:
+                with session.start_transaction():
+                    db.Bids.delete_one({"_id": bid_oid}, session=session)
+                    DocumentService.delete_bid_documents(str(bid_oid))
+                    NotificationService.delete_by_ref(id)
 
-        # Decrement enquiry bidCount
-        if bid.get('enquiryId'):
-            db.Enquiries.update_one(
-                {"enquiryId": bid['enquiryId']},
-                {"$inc": {"bidCount": -1}}
-            )
+                    # Decrement enquiry bidCount
+                    if bid.get('enquiryId'):
+                        db.Enquiries.update_one(
+                            {"enquiryId": bid['enquiryId']},
+                            {"$inc": {"bidCount": -1}},
+                            session=session
+                        )
+        except Exception as txn_err:
+            # Fallback for standalone MongoDB (no replica set)
+            if "Transaction" in str(txn_err) or "replica" in str(txn_err).lower():
+                current_app.logger.warning("Transactions not supported, using non-atomic delete")
+                db.Bids.delete_one({"_id": bid_oid})
+                DocumentService.delete_bid_documents(str(bid_oid))
+                NotificationService.delete_by_ref(id)
+                if bid.get('enquiryId'):
+                    db.Enquiries.update_one(
+                        {"enquiryId": bid['enquiryId']},
+                        {"$inc": {"bidCount": -1}}
+                    )
+            else:
+                raise
 
         log_audit("DELETE_BID", f"Deleted bid {bid_id_str}")
         return jsonify({"msg": "Bid deleted successfully"}), 200
@@ -507,10 +573,25 @@ def delete_comment(id, comment_id):
             {"$pull": {"comments": {"_id": ObjectId(comment_id)}}}
         )
 
-        socketio.emit('delete_comment', {
+        relevant_user_ids = set()
+        if bid.get("createdBy"):
+            relevant_user_ids.add(str(bid["createdBy"]))
+        assigned_name = bid.get("assignedEmployee")
+        if assigned_name:
+            assigned_user = BidService.get_user_by_name(assigned_name)
+            if assigned_user:
+                relevant_user_ids.add(str(assigned_user["_id"]))
+        if bid.get("enquiryId"):
+            enq = db.Enquiries.find_one({"enquiryId": bid["enquiryId"]})
+            if enq and enq.get("createdBy"):
+                relevant_user_ids.add(str(enq["createdBy"]))
+
+        delete_data = {
             'bid_id': id,
             'comment_id': comment_id
-        }, room=f"bid_{id}")
+        }
+        for uid in relevant_user_ids:
+            socketio.emit('delete_comment', delete_data, room=f"user_{uid}")
 
         log_audit("DELETE_COMMENT", f"Deleted comment from bid {bid.get('bidId', id)}")
         return jsonify({"msg": "Comment deleted"}), 200

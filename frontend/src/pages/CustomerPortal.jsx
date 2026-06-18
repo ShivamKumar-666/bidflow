@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
 import axios from "axios";
-import { format } from "date-fns";
+import { formatDate } from "@/utils/date";
 import { useTranslation } from "react-i18next";
 import {
   FileText, Download, AlertTriangle, Clock, User, Briefcase, Calendar,
@@ -39,10 +39,10 @@ const CustomerPortal = () => {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef(null);
 
-  const fetchPublicData = async () => {
+  const fetchPublicData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/v1/enquiries/public/share/${token}`);
       setData(res.data);
       setError(null);
     } catch (err) {
@@ -54,11 +54,13 @@ const CustomerPortal = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [t, token]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchPublicData();
-  }, [token, t]);
+  }, [fetchPublicData]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -68,7 +70,7 @@ const CustomerPortal = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}/upload`, formData, {
+      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/v1/enquiries/public/share/${token}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       await fetchPublicData();
@@ -173,7 +175,7 @@ const CustomerPortal = () => {
                 <InfoRow
                   icon={Calendar}
                   label={t("enquiries.date", "Request Date")}
-                  value={enquiry?.date ? format(new Date(enquiry.date), "MMM dd, yyyy") : "N/A"}
+                  value={enquiry?.date ? formatDate(new Date(enquiry.date), "MMM dd, yyyy") : "N/A"}
                 />
                 <Separator />
                 <div className="flex items-center justify-between pt-1">
@@ -218,7 +220,7 @@ const CustomerPortal = () => {
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <Badge variant={statusTone(h.status)}>{h.status}</Badge>
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(h.date), "MMM dd, yyyy h:mm a")}
+                            {formatDate(new Date(h.date), "MMM dd, yyyy h:mm a")}
                           </span>
                         </div>
                         {h.note && (
@@ -236,7 +238,7 @@ const CustomerPortal = () => {
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <Badge variant={statusTone(enquiry?.status)}>{enquiry?.status}</Badge>
                         <span className="text-xs text-muted-foreground">
-                          {enquiry?.date ? format(new Date(enquiry.date), "MMM dd, yyyy") : ""}
+                          {enquiry?.date ? formatDate(new Date(enquiry.date), "MMM dd, yyyy") : ""}
                         </span>
                       </div>
                       <p className="text-sm text-muted-foreground">
@@ -283,6 +285,7 @@ const CustomerPortal = () => {
                       className="hidden"
                       accept=".pdf,.txt,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
                       onChange={handleUpload}
+                      aria-label="Upload document file"
                     />
                     <span className="text-xs text-muted-foreground">
                       PDF, DOC, XLS, Images (max 16MB)
@@ -303,7 +306,7 @@ const CustomerPortal = () => {
                             <div className="min-w-0">
                               <p className="text-sm font-medium truncate">{doc.filename}</p>
                               <p className="text-xs text-muted-foreground">
-                                {t("enquiries.date", "Uploaded")}: {format(new Date(doc.uploadDate), "MMM dd, yyyy")}
+                                {t("enquiries.date", "Uploaded")}: {formatDate(new Date(doc.uploadDate), "MMM dd, yyyy")}
                               </p>
                             </div>
                           </div>
@@ -313,7 +316,7 @@ const CustomerPortal = () => {
                             size="sm"
                           >
                             <a
-                              href={`${import.meta.env.VITE_API_BASE_URL}/api/enquiries/public/share/${token}/download/${doc._id}`}
+                              href={`${import.meta.env.VITE_API_BASE_URL}/api/v1/enquiries/public/share/${token}/download/${doc._id}`}
                               download
                             >
                               <Download className="h-3.5 w-3.5" />

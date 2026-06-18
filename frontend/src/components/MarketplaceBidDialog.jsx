@@ -1,10 +1,9 @@
-import React, { useState, useContext, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
-  Handshake, Ban, Loader2, AlertTriangle, FileText, FileDown, Download,
+  Handshake, Ban, Loader2, FileText, FileDown, Download,
 } from "lucide-react";
-import { AuthContext } from "@/contexts/AuthContext";
 import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +15,11 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
   DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { CURRENCIES, CURRENCY_SYMBOLS } from "@/utils/formatCurrency";
 
 const INDUSTRY_TEAM_LIMITS = {
   Technology: 50,
@@ -42,8 +45,8 @@ function getIndustryFromEnquiry(enquiry) {
 
 const MarketplaceBidDialog = ({ open, onOpenChange, enquiry, onSubmitSuccess }) => {
   const { t } = useTranslation();
-  const { user } = useContext(AuthContext);
   const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("USD");
   const [remarks, setRemarks] = useState("");
   const [submissionDate, setSubmissionDate] = useState("");
   const [teamSize, setTeamSize] = useState("1");
@@ -52,19 +55,21 @@ const MarketplaceBidDialog = ({ open, onOpenChange, enquiry, onSubmitSuccess }) 
   const [predictions, setPredictions] = useState(null);
   const [loadingPrediction, setLoadingPrediction] = useState(false);
   const [documents, setDocuments] = useState([]);
-  const [loadingDocs, setLoadingDocs] = useState(false);
+  const loadingDocsRef = useRef(false);
   const predictDebounce = useRef(null);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (open && enquiry?.enquiryId) {
-      setLoadingDocs(true);
+      loadingDocsRef.current = true;
       api.get(`/marketplace/${enquiry.enquiryId}`).then((res) => {
         setDocuments(res.data.documents || []);
-      }).catch(() => {}).finally(() => setLoadingDocs(false));
+      }).catch(() => {}).finally(() => { loadingDocsRef.current = false; });
     } else {
       setDocuments([]);
     }
   }, [open, enquiry]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const triggerLivePredict = useCallback((newAmount, newSubmissionDate) => {
     if (predictDebounce.current) clearTimeout(predictDebounce.current);
@@ -80,6 +85,7 @@ const MarketplaceBidDialog = ({ open, onOpenChange, enquiry, onSubmitSuccess }) 
         const industry = getIndustryFromEnquiry(enquiry);
         const res = await api.post("/bids/predict", {
           amount: parseFloat(newAmount),
+          currency,
           submissionDate: newSubmissionDate || undefined,
           industry,
           teamSize: parseInt(teamSize) || 1,
@@ -93,12 +99,13 @@ const MarketplaceBidDialog = ({ open, onOpenChange, enquiry, onSubmitSuccess }) 
         setLoadingPrediction(false);
       }
     }, 600);
-  }, [enquiry, teamSize]);
+  }, [enquiry, teamSize, currency]);
 
   if (!enquiry) return null;
 
   const resetForm = () => {
     setAmount("");
+    setCurrency("USD");
     setRemarks("");
     setSubmissionDate("");
     setTeamSize("1");
@@ -122,6 +129,7 @@ const MarketplaceBidDialog = ({ open, onOpenChange, enquiry, onSubmitSuccess }) 
       const industry = getIndustryFromEnquiry(enquiry);
       await api.post(`/marketplace/${enquiry.enquiryId}/bid`, {
         amount: parseFloat(amount),
+        currency,
         remarks,
         submissionDate: submissionDate || undefined,
         industry,
@@ -193,7 +201,7 @@ const MarketplaceBidDialog = ({ open, onOpenChange, enquiry, onSubmitSuccess }) 
                         className="h-6 px-2"
                       >
                         <a
-                          href={`${import.meta.env.VITE_API_BASE_URL}/api/documents/download/${doc._id}`}
+                          href={`${import.meta.env.VITE_API_BASE_URL}/api/v1/documents/download/${doc._id}`}
                           download
                           target="_blank"
                           rel="noopener noreferrer"
@@ -210,21 +218,34 @@ const MarketplaceBidDialog = ({ open, onOpenChange, enquiry, onSubmitSuccess }) 
 
           <Separator />
 
-          <div className="space-y-2">
-            <Label htmlFor="amount">{t("marketplace.bidAmount", "Bid Amount")} *</Label>
-            <Input
-              id="amount"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => {
-                const newAmount = e.target.value;
-                setAmount(newAmount);
-                triggerLivePredict(newAmount, submissionDate);
-              }}
-            />
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="amount">{t("marketplace.bidAmount", "Bid Amount")} *</Label>
+              <Input
+                id="amount"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={amount}
+                onChange={(e) => {
+                  const newAmount = e.target.value;
+                  setAmount(newAmount);
+                  triggerLivePredict(newAmount, submissionDate);
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Currency</Label>
+              <Select value={currency} onValueChange={(v) => setCurrency(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {CURRENCIES.map((c) => (
+                    <SelectItem key={c} value={c}>{CURRENCY_SYMBOLS[c]} {c}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">

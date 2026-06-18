@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { Brain, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +66,7 @@ export default function LivePrediction({ livePredict, loading }) {
             <button
               onClick={() => setShowAll(!showAll)}
               className="mt-2 text-[10px] text-primary hover:underline font-medium"
+              aria-expanded={showAll}
             >
               {showAll ? "Show less" : `Show ${explanations.length - 5} more`}
             </button>

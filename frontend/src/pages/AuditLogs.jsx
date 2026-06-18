@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { formatDate } from "@/utils/date";
 import { useTranslation } from "react-i18next";
 import { ScrollText, Search, User, Activity, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -85,21 +85,21 @@ const AuditLogs = () => {
           </div>
           <div>
             <h1 className="text-2xl font-bold tracking-tight">
-              {isAdmin ? t("audit.title") : "My Activity"}
+              {isAdmin ? t("audit.title") : t("audit.myActivity", "My Activity")}
             </h1>
             <p className="text-sm text-muted-foreground mt-0.5">
-              {isAdmin ? "Complete history of system activity" : "Your personal activity log"}
+              {isAdmin ? t("audit.completeHistory", "Complete history of system activity") : t("audit.personalLog", "Your personal activity log")}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           {isAdmin && (
             <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All Users" />
+              <SelectTrigger className="w-[180px]" aria-label="Filter by user">
+                <SelectValue placeholder={t("audit.allUsers", "All Users")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Users</SelectItem>
+                <SelectItem value="all">{t("audit.allUsers", "All Users")}</SelectItem>
                 {users.map((u) => (
                   <SelectItem key={u._id || u.email} value={u._id || u.email}>
                     {u.name} ({u.role})
@@ -109,12 +109,13 @@ const AuditLogs = () => {
             </Select>
           )}
           <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search logs..."
+              placeholder={t("audit.searchLogs", "Search logs...")}
               className="pl-9"
+              aria-label="Search audit logs"
             />
           </div>
         </div>
@@ -124,9 +125,9 @@ const AuditLogs = () => {
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="text-base">Activity Log</CardTitle>
+              <CardTitle className="text-base">{t("audit.activityLog", "Activity Log")}</CardTitle>
               <CardDescription>
-                {loading ? "Loading..." : `${filtered.length} of ${logs.length} entries`}
+                {loading ? t("common.loading") : `${filtered.length} ${t("audit.of", "of")} ${logs.length} ${t("audit.entries", "entries")}`}
               </CardDescription>
             </div>
           </div>
@@ -144,9 +145,9 @@ const AuditLogs = () => {
                 <EmptyIcon>
                   <FileText className="h-6 w-6" />
                 </EmptyIcon>
-                <EmptyTitle>No audit logs</EmptyTitle>
+                <EmptyTitle>{t("audit.noAuditLogs", "No audit logs")}</EmptyTitle>
                 <EmptyDescription>
-                  {search ? "No entries match your search" : t("audit.noLogs", "No audit logs found.")}
+                  {search ? t("audit.noMatch", "No entries match your search") : t("audit.noLogs", "No audit logs found.")}
                 </EmptyDescription>
               </Empty>
             </div>
@@ -175,7 +176,7 @@ const AuditLogs = () => {
                   {filtered.map((log) => (
                     <TableRow key={log._id}>
                       <TableCell className="font-mono text-xs whitespace-nowrap text-muted-foreground">
-                        {format(new Date(log.timestamp), "MMM dd, yyyy HH:mm:ss")}
+                        {formatDate(new Date(log.timestamp), "MMM dd, yyyy HH:mm:ss")}
                       </TableCell>
                       <TableCell className="font-semibold">{log.user}</TableCell>
                       <TableCell>

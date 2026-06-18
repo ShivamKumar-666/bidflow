@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 class TestAuthFlows:
     def test_valid_registration(self, client):
-        res = client.post('/api/auth/register', json={
+        res = client.post('/api/v1/auth/register', json={
             'name': 'Sales User', 'email': 'sales@bidflow.com',
             'password': 'Salespass123!', 'role': 'Sales Executive'
         })
@@ -13,11 +13,11 @@ class TestAuthFlows:
         assert 'Account created' in res.get_json().get('msg')
 
     def test_duplicate_registration(self, client):
-        client.post('/api/auth/register', json={
+        client.post('/api/v1/auth/register', json={
             'name': 'Sales User', 'email': 'dup@bidflow.com',
             'password': 'Salespass123!', 'role': 'Sales Executive'
         })
-        res = client.post('/api/auth/register', json={
+        res = client.post('/api/v1/auth/register', json={
             'name': 'Sales User Dup', 'email': 'dup@bidflow.com',
             'password': 'Salespass123!', 'role': 'Sales Executive'
         })
@@ -25,7 +25,7 @@ class TestAuthFlows:
         assert 'already exists' in res.get_json().get('msg')
 
     def test_missing_fields(self, client):
-        res = client.post('/api/auth/register', json={
+        res = client.post('/api/v1/auth/register', json={
             'name': 'No Password', 'email': 'nopass@bidflow.com'
         })
         assert res.status_code == 400
@@ -33,7 +33,7 @@ class TestAuthFlows:
 
     def test_valid_login(self, client, auth_headers):
         auth_headers('Sales User', 'sales@bidflow.com', 'Salespass123!')
-        res = client.post('/api/auth/login', json={
+        res = client.post('/api/v1/auth/login', json={
             'email': 'sales@bidflow.com', 'password': 'Salespass123!'
         })
         assert res.status_code == 200
@@ -44,7 +44,7 @@ class TestAuthFlows:
 
     def test_bad_password(self, client, auth_headers):
         auth_headers('Sales User', 'sales@bidflow.com', 'Salespass123!')
-        res = client.post('/api/auth/login', json={
+        res = client.post('/api/v1/auth/login', json={
             'email': 'sales@bidflow.com', 'password': 'wrongpass'
         })
         assert res.status_code == 401
@@ -52,7 +52,7 @@ class TestAuthFlows:
 
     def test_me_endpoint(self, client, auth_headers):
         headers = auth_headers('Sales User', 'sales@bidflow.com', 'Salespass123!')
-        res = client.get('/api/auth/me', headers=headers)
+        res = client.get('/api/v1/auth/me', headers=headers)
         assert res.status_code == 200
         assert res.get_json()['email'] == 'sales@bidflow.com'
 
@@ -61,10 +61,10 @@ class TestJWTLogout:
     def test_logout_endpoint(self, client, auth_headers):
         headers = auth_headers('Logout User', 'logout@bidflow.com', 'Logoutpass123!')
 
-        res = client.get('/api/auth/me', headers=headers)
+        res = client.get('/api/v1/auth/me', headers=headers)
         assert res.status_code == 200
 
-        logout_res = client.post('/api/auth/logout', headers=headers)
+        logout_res = client.post('/api/v1/auth/logout', headers=headers)
         assert logout_res.status_code == 200
         assert 'Successfully logged out' in logout_res.get_json().get('msg')
 
@@ -75,7 +75,7 @@ class TestEmailVerification:
             'name': 'Verify Me', 'email': 'verify@bidflow.com',
             'password': 'VerifyPassword123!'
         }
-        res = client.post('/api/auth/register', json=register_payload)
+        res = client.post('/api/v1/auth/register', json=register_payload)
         assert res.status_code == 201
         assert 'Please check your email' in res.get_json()['msg']
 
@@ -83,7 +83,7 @@ class TestEmailVerification:
         assert user_in_db is not None
         assert not user_in_db.get('is_verified', False)
 
-        login_res = client.post('/api/auth/login', json={
+        login_res = client.post('/api/v1/auth/login', json={
             'email': 'verify@bidflow.com', 'password': 'VerifyPassword123!'
         })
         assert login_res.status_code == 403
@@ -92,14 +92,14 @@ class TestEmailVerification:
         from utils.email_tokens import generate_verification_token
         token = generate_verification_token('verify@bidflow.com')
 
-        verify_res = client.get(f'/api/auth/verify-email?token={token}')
+        verify_res = client.get(f'/api/v1/auth/verify-email?token={token}')
         assert verify_res.status_code == 200
         assert 'verified successfully' in verify_res.get_json()['msg']
 
         user_after = db.Users.find_one({'email': 'verify@bidflow.com'})
         assert user_after.get('is_verified', False)
 
-        login_success = client.post('/api/auth/login', json={
+        login_success = client.post('/api/v1/auth/login', json={
             'email': 'verify@bidflow.com', 'password': 'VerifyPassword123!'
         })
         assert login_success.status_code == 200
@@ -107,12 +107,12 @@ class TestEmailVerification:
 
     def test_resend_verification(self, client, auth_headers):
         auth_headers('Verify User', 'verify2@bidflow.com', 'Verify123!')
-        resend_res = client.post('/api/auth/resend-verification', json={
+        resend_res = client.post('/api/v1/auth/resend-verification', json={
             'email': 'verify2@bidflow.com'
         })
         assert resend_res.status_code == 200
 
-        missing_res = client.post('/api/auth/resend-verification', json={
+        missing_res = client.post('/api/v1/auth/resend-verification', json={
             'email': 'nonexistent@bidflow.com'
         })
         assert missing_res.status_code == 200
@@ -132,7 +132,7 @@ class TestGoogleOAuth:
         old_client_id = Config.GOOGLE_CLIENT_ID
         Config.GOOGLE_CLIENT_ID = 'mock-client-id'
 
-        res = client.post('/api/auth/google-login', json={'credential': 'mock-jwt-token'})
+        res = client.post('/api/v1/auth/google-login', json={'credential': 'mock-jwt-token'})
         assert res.status_code == 200
         data = res.get_json()
         assert 'access_token' in data
@@ -143,7 +143,7 @@ class TestGoogleOAuth:
         assert user.get('is_verified')
         assert user.get('google_oauth')
 
-        res2 = client.post('/api/auth/google-login', json={'credential': 'mock-jwt-token'})
+        res2 = client.post('/api/v1/auth/google-login', json={'credential': 'mock-jwt-token'})
         assert res2.status_code == 200
 
         Config.GOOGLE_CLIENT_ID = old_client_id
@@ -161,10 +161,10 @@ class TestGoogleOAuth:
         old_client_id = Config.GOOGLE_CLIENT_ID
         Config.GOOGLE_CLIENT_ID = 'mock-client-id'
 
-        client.post('/api/auth/google-login', json={'credential': 'mock-jwt-token'})
+        client.post('/api/v1/auth/google-login', json={'credential': 'mock-jwt-token'})
         Config.GOOGLE_CLIENT_ID = old_client_id
 
-        resend_res = client.post('/api/auth/resend-verification', json={
+        resend_res = client.post('/api/v1/auth/resend-verification', json={
             'email': 'google_user2@bidflow.com'
         })
         assert resend_res.status_code == 200

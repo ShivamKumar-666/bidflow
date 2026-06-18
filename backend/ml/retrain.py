@@ -2,7 +2,7 @@
 backend/ml/retrain.py
 ─────────────────────
 Live model retraining from real MongoDB bid outcomes.
-Uses best params from GridSearchCV and 14 features.
+Uses best params from GridSearchCV and 15 features.
 """
 
 import os
@@ -27,7 +27,7 @@ def _sign_binary(data: bytes) -> str:
 
 
 MIN_TRAINING_RECORDS = 50
-MIN_ACCURACY = 0.55
+MIN_ACCURACY = 0.50
 
 ML_DIR = os.path.dirname(os.path.abspath(__file__))
 MODEL_PATH = os.path.join(ML_DIR, "bid_model.pkl")
@@ -37,6 +37,7 @@ ENCODER_PATH = os.path.join(ML_DIR, "industry_encoder.pkl")
 def retrain_from_db(db) -> dict:
     import xgboost as xgb
     from sklearn.model_selection import train_test_split
+    from sklearn.metrics import balanced_accuracy_score
     from sklearn.preprocessing import LabelEncoder
     from collections import Counter
 
@@ -73,7 +74,7 @@ def retrain_from_db(db) -> dict:
     terminal_bids = list(db.Bids.find(
         {"status": {"$in": ["Order Received", "Rejected"]}},
         {"amount": 1, "submissionDate": 1, "assignedEmployee": 1,
-         "industry": 1, "status": 1, "history": 1, "enquiryId": 1}
+         "industry": 1, "status": 1, "history": 1, "enquiryId": 1, "comments": 1}
     ))
 
     if len(terminal_bids) < MIN_TRAINING_RECORDS:
@@ -184,7 +185,8 @@ def retrain_from_db(db) -> dict:
             else:
                 deadline_urgency = 0
 
-            priority_encoded = 1
+            priority_map = {"Low": 0, "Medium": 1, "High": 2, "Critical": 3}
+            priority_encoded = priority_map.get(bid.get("priority", "Medium"), 1)
             industry = bid.get("industry", "Other") or "Other"
             employee_win_rate = real_win_rate(bid.get("assignedEmployee", ""))
             employee_experience = emp_counts.get(bid.get("assignedEmployee", ""), 1)
@@ -197,9 +199,20 @@ def retrain_from_db(db) -> dict:
             product_series_encoded = 0
             regional_office_encoded = 0
             sales_price = 0.0
-            team_size = int(bid.get("teamSize", 1))
-            if team_size < 1:
-                team_size = 1
+
+            team_size = bid.get("teamSize")
+            if not team_size or team_size < 1:
+                commenters = set()
+                for comment in bid.get("comments", []):
+                    author = comment.get("author", "")
+                    if author:
+                        commenters.add(author)
+                assigned = bid.get("assignedEmployee", "")
+                if assigned:
+                    commenters.add(assigned)
+                team_size = max(1, len(commenters))
+            else:
+                team_size = int(team_size)
 
             # Encode industry (unseen → len(le.classes_) as fallback)
             if industry in le.classes_:
@@ -234,7 +247,8 @@ def retrain_from_db(db) -> dict:
         n_jobs=-1,
     )
     clf.fit(X_train, y_train)
-    accuracy = round(float(clf.score(X_test, y_test)), 4)
+    y_pred = clf.predict(X_test)
+    accuracy = round(float(balanced_accuracy_score(y_test, y_pred)), 4)
 
     if accuracy < MIN_ACCURACY:
         logger.warning("Model accuracy %.4f below threshold %.2f, not saving", accuracy, MIN_ACCURACY)

@@ -1,14 +1,10 @@
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, lazy, Suspense } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
-import { Bar, Doughnut } from "react-chartjs-2";
+import { formatCurrency } from "@/utils/formatCurrency";
 import {
-  Chart as ChartJS, CategoryScale, LinearScale, BarElement, ArcElement,
-  Title, Tooltip, Legend,
-} from "chart.js";
-import {
-  TrendingUp, TrendingDown, DollarSign, FileText, MessageSquare, CheckCircle2, Clock,
+  TrendingUp, TrendingDown, DollarSign, FileText, CheckCircle2,
   ArrowUpRight, Activity, Briefcase, BarChart3, Brain, Cpu, Database, Hash,
   Target, Percent,
 } from "lucide-react";
@@ -19,7 +15,16 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
+const Bar = lazy(() => import("react-chartjs-2").then(mod => ({ default: mod.Bar })));
+const Doughnut = lazy(() => import("react-chartjs-2").then(mod => ({ default: mod.Doughnut })));
+
+let chartRegistered = false;
+const registerChartJS = async () => {
+  if (chartRegistered) return;
+  const { Chart, CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend } = await import("chart.js");
+  Chart.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
+  chartRegistered = true;
+};
 
 const chartDefaults = (isDark) => ({
   color: isDark ? "oklch(0.66 0.02 248)" : "oklch(0.52 0.02 263)",
@@ -39,7 +44,7 @@ function MetricCard({ label, value, icon: Icon, trend, accent = "default", loadi
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-2">
           <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{label}</span>
-          {Icon && <Icon className="h-4 w-4 text-muted-foreground" />}
+          {Icon && <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />}
         </div>
         {loading ? (
           <Skeleton className="h-9 w-24" />
@@ -62,13 +67,18 @@ function MetricCard({ label, value, icon: Icon, trend, accent = "default", loadi
 }
 
 export default function Dashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const { user } = useAuth();
   const isDark = theme === "dark";
   const [metrics, setMetrics] = useState(null);
   const [modelStats, setModelStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [chartReady, setChartReady] = useState(false);
+
+  useEffect(() => {
+    registerChartJS().then(() => setChartReady(true));
+  }, []);
 
   useEffect(() => {
     const fetch = async () => {
@@ -79,7 +89,7 @@ export default function Dashboard() {
         ]);
         setMetrics(res.data);
         setModelStats(modelRes.data);
-      } catch (err) {
+      } catch {
         toast.error(t("dashboard.failedLoad"));
       } finally {
         setLoading(false);
@@ -88,7 +98,7 @@ export default function Dashboard() {
     fetch();
   }, [t]);
 
-  const fmt = useCallback((n) => "$" + Number(n || 0).toLocaleString(), []);
+  const fmt = useCallback((n) => formatCurrency(n), []);
 
   const barData = useMemo(() => ({
     labels: [
@@ -133,9 +143,9 @@ export default function Dashboard() {
   const isCompany = role === "Company";
 
   const getGreeting = () => {
-    if (isBidder) return "Track your bids and performance.";
-    if (isCompany) return "Monitor your enquiries and incoming bids.";
-    return "Welcome back — here's what's happening with your bids.";
+    if (isBidder) return t("dashboard.greetingBidder", "Track your bids and performance.");
+    if (isCompany) return t("dashboard.greetingCompany", "Monitor your enquiries and incoming bids.");
+    return t("dashboard.greetingDefault", "Welcome back — here's what's happening with your bids.");
   };
 
   return (
@@ -147,14 +157,14 @@ export default function Dashboard() {
         </div>
         <Badge variant="outline" className="font-mono text-[10px]">
           <Activity className="h-3 w-3 mr-1" />
-          LIVE
+          {t("dashboard.live", "LIVE")}
         </Badge>
       </div>
 
       {isBidder ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
-            label="Total Bids Submitted"
+            label={t("dashboard.totalBidsSubmitted", "Total Bids Submitted")}
             value={(metrics?.wonBids ?? 0) + (metrics?.lostBids ?? 0) + (metrics?.activeBids ?? 0)}
             icon={FileText}
             loading={loading}
@@ -174,7 +184,7 @@ export default function Dashboard() {
             loading={loading}
           />
           <MetricCard
-            label="Win Rate"
+            label={t("dashboard.winRate", "Win Rate")}
             value={`${metrics?.winRate ?? 0}%`}
             icon={Percent}
             accent={metrics?.winRate >= 50 ? "success" : "warning"}
@@ -184,7 +194,7 @@ export default function Dashboard() {
       ) : isCompany ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
-            label="Enquiries Posted"
+            label={t("dashboard.enquiriesPosted", "Enquiries Posted")}
             value={metrics?.totalEnquiries ?? 0}
             icon={Briefcase}
             loading={loading}
@@ -204,7 +214,7 @@ export default function Dashboard() {
             loading={loading}
           />
           <MetricCard
-            label="Conversion Rate"
+            label={t("dashboard.conversionRate", "Conversion Rate")}
             value={`${metrics?.winRate ?? 0}%`}
             icon={Target}
             accent={metrics?.winRate >= 50 ? "success" : "warning"}
@@ -259,13 +269,17 @@ export default function Dashboard() {
                   <BarChart3 className="h-4 w-4" />
                   {t("dashboard.performanceAnalytics")}
                 </CardTitle>
-                <CardDescription>Bid distribution across stages</CardDescription>
+                <CardDescription>{t("dashboard.bidDistributionDesc", "Bid distribution across stages")}</CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
-              {loading ? <Skeleton className="h-full w-full" /> : <Bar data={barData} options={barOpts} />}
+              {loading ? <Skeleton className="h-full w-full" /> : (
+                <Suspense fallback={<Skeleton className="h-full w-full" />}>
+                  {chartReady && <Bar data={barData} options={barOpts} aria-label="Bid distribution across stages bar chart" />}
+                </Suspense>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -274,34 +288,39 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4" />
-              Win Rate
+              {t("dashboard.winRate", "Win Rate")}
             </CardTitle>
-            <CardDescription>Conversion efficiency</CardDescription>
+            <CardDescription>{t("dashboard.conversionEfficiency", "Conversion efficiency")}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col items-center justify-center py-6">
               {loading ? (
                 <Skeleton className="h-32 w-32 rounded-full" />
               ) : (
-                <Doughnut
-                  data={{
-                    labels: ["Won", "Lost"],
-                    datasets: [{
-                      data: [metrics?.wonBids || 0, metrics?.lostBids || 0],
-                      backgroundColor: ["oklch(0.70 0.19 150)", "oklch(0.70 0.19 22)"],
-                      borderWidth: 0,
-                    }],
-                  }}
-                  options={{
-                    cutout: "75%",
-                    plugins: { legend: { display: false } },
-                  }}
-                  className="h-40 w-40"
-                />
+                <Suspense fallback={<Skeleton className="h-32 w-32 rounded-full" />}>
+                  {chartReady && (
+                    <Doughnut
+                      data={{
+                        labels: [t("dashboard.won", "Won"), t("dashboard.lost", "Lost")],
+                        datasets: [{
+                          data: [metrics?.wonBids || 0, metrics?.lostBids || 0],
+                          backgroundColor: ["oklch(0.70 0.19 150)", "oklch(0.70 0.19 22)"],
+                          borderWidth: 0,
+                        }],
+                      }}
+                      options={{
+                        cutout: "75%",
+                        plugins: { legend: { display: false } },
+                      }}
+                      className="h-40 w-40"
+                      aria-label="Win rate doughnut chart showing won and lost bids"
+                    />
+                  )}
+                </Suspense>
               )}
               <div className="text-center -mt-28 mb-20">
                 <div className="text-4xl font-bold text-emerald-600">{metrics?.winRate || 0}%</div>
-                <div className="text-xs text-muted-foreground">Win rate</div>
+                <div className="text-xs text-muted-foreground">{t("dashboard.winRate", "Win rate")}</div>
               </div>
             </div>
           </CardContent>
@@ -313,9 +332,9 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="h-4 w-4 text-primary" />
-              AI Model Status
+              {t("dashboard.aiModelStatus", "AI Model Status")}
             </CardTitle>
-            <CardDescription>XGBoost prediction engine</CardDescription>
+            <CardDescription>{t("dashboard.xgboostEngine", "XGBoost prediction engine")}</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -327,25 +346,25 @@ export default function Dashboard() {
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Model</span>
+                  <span className="text-xs text-muted-foreground">{t("dashboard.model", "Model")}</span>
                   <Badge variant="outline" className="font-mono text-[10px]">XGBoost</Badge>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Accuracy</span>
+                  <span className="text-xs text-muted-foreground">{t("dashboard.accuracy", "Accuracy")}</span>
                   <span className="text-sm font-bold text-emerald-600">
-                    {modelStats?.model?.accuracy ? `${(modelStats.model.accuracy * 100).toFixed(1)}%` : "N/A"}
+                    {modelStats?.model?.accuracy ? `${(modelStats.model.accuracy * 100).toFixed(1)}%` : t("common.na", "N/A")}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Predictions Made</span>
+                  <span className="text-xs text-muted-foreground">{t("dashboard.predictionsMade", "Predictions Made")}</span>
                   <span className="text-sm font-semibold">{modelStats?.totalPredictions || 0}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Avg Confidence</span>
+                  <span className="text-xs text-muted-foreground">{t("dashboard.avgConfidence", "Avg Confidence")}</span>
                   <span className="text-sm font-semibold">{modelStats?.avgConfidence || 0}%</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">Terminal Bids</span>
+                  <span className="text-xs text-muted-foreground">{t("dashboard.terminalBids", "Terminal Bids")}</span>
                   <span className="text-sm font-semibold">{modelStats?.terminalBids || 0}</span>
                 </div>
                 <div className="pt-2 border-t space-y-1.5">
@@ -353,26 +372,26 @@ export default function Dashboard() {
                     <Database className="h-3 w-3 text-muted-foreground" />
                     <span className="text-[10px] text-muted-foreground">
                       {modelStats?.model?.trainedAt
-                        ? `Last trained: ${new Date(modelStats.model.trainedAt).toLocaleDateString()}`
-                        : "No model trained yet"}
+                        ? `${t("dashboard.lastTrained", "Last trained")}: ${new Date(modelStats.model.trainedAt).toLocaleDateString(i18n.language)}`
+                        : t("dashboard.noModelTrained", "No model trained yet")}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <FileText className="h-3 w-3 text-muted-foreground" />
                     <span className="text-[10px] text-muted-foreground">
-                      Training Records: {modelStats?.model?.records?.toLocaleString() || 'N/A'}
+                      {t("dashboard.trainingRecords", "Training Records")}: {modelStats?.model?.records?.toLocaleString(i18n.language) || t("common.na", "N/A")}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Hash className="h-3 w-3 text-muted-foreground" />
                     <span className="text-[10px] text-muted-foreground">
-                      Model Version: v{modelStats?.model?.version ?? 'N/A'}
+                      {t("dashboard.modelVersion", "Model Version")}: v{modelStats?.model?.version ?? t("common.na", "N/A")}
                     </span>
                   </div>
                   {modelStats?.retrainReady && (
                     <Badge variant="success" className="mt-1.5 text-[10px]">
                       <Cpu className="h-2.5 w-2.5 mr-1" />
-                      Ready to retrain
+                      {t("dashboard.readyToRetrain", "Ready to retrain")}
                     </Badge>
                   )}
                 </div>

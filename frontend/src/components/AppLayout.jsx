@@ -1,4 +1,3 @@
-import React from "react";
 import { Sidebar, MobileSidebar } from "./Sidebar";
 import { Navbar } from "./Navbar";
 

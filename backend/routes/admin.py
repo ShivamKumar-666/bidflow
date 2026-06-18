@@ -5,8 +5,8 @@ Admin-only operations: model retraining, model status.
 
 Endpoints
 ─────────
-POST /api/admin/retrain       — trigger live model retraining from db.Bids
-GET  /api/admin/model-status  — show current model file metadata
+POST /api/v1/admin/retrain       — trigger live model retraining from db.Bids
+GET  /api/v1/admin/model-status  — show current model file metadata
 """
 
 from flask import Blueprint, jsonify, request, current_app

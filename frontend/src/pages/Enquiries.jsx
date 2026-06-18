@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { formatDate } from "@/utils/date";
 import { useTranslation } from "react-i18next";
 import {
   Tag as TagIcon, Share2, Search, Filter, X, MessageSquare, Globe, Lock,
@@ -9,13 +9,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter,
-  DialogHeader, DialogTitle, DialogTrigger, DialogClose,
+  DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -26,7 +25,6 @@ import {
 import { Empty, EmptyIcon, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TagInput } from "@/components/TagInput";
-import { cn } from "@/lib/utils";
 
 const priorityVariants = {
   High: "destructive", Medium: "review", Low: "info",
@@ -69,12 +67,14 @@ export default function Enquiries() {
     try {
       const tg = await api.get("/tags/");
       setUniqueTags(tg.data);
-    } catch {
+    } catch { /* ignore */
     }
     setLoading(false);
   }, [t]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { fetch(); }, [fetch]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -182,7 +182,7 @@ export default function Enquiries() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">{t("enquiries.title")}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {filtered.length} of {enquiries.length} enquiries
+            {filtered.length} {t("enquiries.of", "of")} {enquiries.length} {t("enquiries.enquiries", "enquiries")}
           </p>
         </div>
         <Dialog open={showModal} onOpenChange={setShowModal}>
@@ -194,7 +194,7 @@ export default function Enquiries() {
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle>{t("enquiries.createTitle")}</DialogTitle>
-              <DialogDescription>Capture a new customer enquiry.</DialogDescription>
+              <DialogDescription>{t("enquiries.captureNew", "Capture a new customer enquiry.")}</DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreate} className="space-y-3">
               <div className="space-y-1.5">
@@ -212,7 +212,7 @@ export default function Enquiries() {
               <div className="space-y-1.5">
                 <Label>{t("enquiries.priority")}</Label>
                 <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Priority"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Low">{t("enquiries.low")}</SelectItem>
                     <SelectItem value="Medium">{t("enquiries.medium")}</SelectItem>
@@ -221,12 +221,12 @@ export default function Enquiries() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Industry</Label>
+                <Label>{t("enquiries.industry", "Industry")}</Label>
                 <Select value={form.industry} onValueChange={(v) => {
                   const cleaned = form.tags.filter((t) => !INDUSTRIES.includes(t.toLowerCase().charAt(0).toUpperCase() + t.slice(1)));
                   setForm({ ...form, industry: v, tags: [v.toLowerCase(), ...cleaned] });
                 }}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger aria-label="Industry"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {INDUSTRIES.map((ind) => <SelectItem key={ind} value={ind}>{ind}</SelectItem>)}
                   </SelectContent>
@@ -234,17 +234,17 @@ export default function Enquiries() {
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="space-y-0.5">
-                  <Label className="text-sm font-medium">Allow Negotiation</Label>
-                  <p className="text-xs text-muted-foreground">Bids on this enquiry can be negotiated</p>
+                  <Label className="text-sm font-medium">{t("enquiries.allowNegotiation", "Allow Negotiation")}</Label>
+                  <p className="text-xs text-muted-foreground">{t("enquiries.negotiationDesc", "Bids on this enquiry can be negotiated")}</p>
                 </div>
-                <Switch checked={form.negotiable} onCheckedChange={(v) => setForm({ ...form, negotiable: v })} />
+                <Switch checked={form.negotiable} onCheckedChange={(v) => setForm({ ...form, negotiable: v })} aria-label="Allow negotiation" />
               </div>
               <div className="flex items-center justify-between rounded-lg border p-3">
                 <div className="space-y-0.5">
-                  <Label className="text-sm font-medium">List on Marketplace</Label>
-                  <p className="text-xs text-muted-foreground">Visible to bidders when enabled</p>
+                  <Label className="text-sm font-medium">{t("enquiries.listMarketplace", "List on Marketplace")}</Label>
+                  <p className="text-xs text-muted-foreground">{t("enquiries.marketplaceDesc", "Visible to bidders when enabled")}</p>
                 </div>
-                <Switch checked={form.visibility} onCheckedChange={(v) => setForm({ ...form, visibility: v })} />
+                <Switch checked={form.visibility} onCheckedChange={(v) => setForm({ ...form, visibility: v })} aria-label="List on marketplace" />
               </div>
               <div className="space-y-1.5">
                 <Label>{t("common.tags")}</Label>
@@ -270,7 +270,7 @@ export default function Enquiries() {
         <CardContent className="p-3 flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <Filter className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("enquiries.filter", "Filter")}</span>
           </div>
           <div className="relative flex-1 min-w-[200px] max-w-xs">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -280,10 +280,11 @@ export default function Enquiries() {
               onKeyDown={handleSearchKeyDown}
               placeholder="Search or type a tag + Enter..."
               className="pl-8 h-8"
+              aria-label="Search enquiries"
             />
           </div>
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="h-8 w-[160px]">
+            <SelectTrigger className="h-8 w-[160px]" aria-label="Sort enquiries">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -375,7 +376,7 @@ export default function Enquiries() {
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
-                      {format(new Date(e.date), "MMM dd, yyyy")}
+                      {formatDate(new Date(e.date), "MMM dd, yyyy")}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
@@ -384,6 +385,7 @@ export default function Enquiries() {
                           size="sm"
                           onClick={() => toggleVisibility(e._id, e.visibility)}
                           title={e.visibility === "public" ? "Remove from marketplace" : "List on marketplace"}
+                          aria-label={e.visibility === "public" ? "Remove from marketplace" : "List on marketplace"}
                         >
                           {e.visibility === "public" ? (
                             <Globe className="h-3.5 w-3.5 text-emerald-600" />
@@ -395,6 +397,7 @@ export default function Enquiries() {
                           variant="ghost"
                           size="sm"
                           onClick={() => { setSelected(e); setEditTags(e.tags || []); setShowTagsModal(true); }}
+                          aria-label="Edit tags"
                         >
                           <TagIcon className="h-3.5 w-3.5" />
                         </Button>
@@ -402,6 +405,7 @@ export default function Enquiries() {
                           variant="ghost"
                           size="sm"
                           onClick={() => share(e._id)}
+                          aria-label="Share enquiry"
                         >
                           <Share2 className="h-3.5 w-3.5" />
                         </Button>

@@ -6,7 +6,7 @@ from database import db
 class TestNotifications:
     def test_get_notifications_empty(self, client, auth_headers):
         headers = auth_headers('Notif User', 'notif@bidflow.com', 'Notif1234!')
-        res = client.get('/api/notifications/', headers=headers)
+        res = client.get('/api/v1/notifications/', headers=headers)
         assert res.status_code == 200
         assert res.get_json() == []
 
@@ -22,7 +22,7 @@ class TestNotifications:
             'isRead': False,
             'createdAt': datetime.datetime.now(datetime.UTC)
         })
-        res = client.get('/api/notifications/', headers=headers)
+        res = client.get('/api/v1/notifications/', headers=headers)
         assert res.status_code == 200
         data = res.get_json()
         assert len(data) == 1
@@ -40,7 +40,7 @@ class TestNotifications:
             'isRead': False,
             'createdAt': datetime.datetime.now(datetime.UTC)
         }).inserted_id
-        res = client.post(f'/api/notifications/{notif_id}/read', headers=headers)
+        res = client.post(f'/api/v1/notifications/{notif_id}/read', headers=headers)
         assert res.status_code == 200
         assert res.get_json()['msg'] == 'Marked as read'
         notif = db.Notifications.find_one({'_id': notif_id})
@@ -59,7 +59,7 @@ class TestNotifications:
                 'isRead': False,
                 'createdAt': datetime.datetime.now(datetime.UTC)
             })
-        res = client.post('/api/notifications/read-all', headers=headers)
+        res = client.post('/api/v1/notifications/read-all', headers=headers)
         assert res.status_code == 200
         assert 'All notifications marked as read' in res.get_json()['msg']
         unread = db.Notifications.count_documents({'userId': user_id, 'isRead': False})

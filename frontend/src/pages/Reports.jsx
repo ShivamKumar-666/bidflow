@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useCallback, useContext } from "react";
+import { useState, useEffect, useCallback, useContext } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { useTranslation } from "react-i18next";
+import { formatCurrency } from "@/utils/formatCurrency";
 import {
   Brain, Cpu, Play, Calendar, AlertTriangle, RefreshCw, History, Undo2,
   CheckCircle, FileDown, FileSpreadsheet, TrendingUp, Wallet, Clock,
@@ -44,7 +43,7 @@ const MetricCard = ({ title, value, icon: Icon, tone = "default" }) => {
 };
 
 const Reports = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useContext(AuthContext);
   const [metrics, setMetrics] = useState(null);
   const [modelStatus, setModelStatus] = useState(null);
@@ -114,6 +113,7 @@ const Reports = () => {
     }
   };
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const controller = new AbortController();
     const fetchMetrics = async () => {
@@ -135,6 +135,7 @@ const Reports = () => {
     }
     return () => controller.abort();
   }, [t, isAdmin, fetchSlaReport, fetchModelStatus, fetchModelVersions]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleRollback = async (version) => {
     setRollingBack(version);
@@ -179,7 +180,7 @@ const Reports = () => {
       link.click();
       link.remove();
       toast.success(t("reports.csvSuccess"));
-    } catch (err) {
+    } catch {
       toast.error(t("reports.csvFailed"));
     } finally {
       if (url) window.URL.revokeObjectURL(url);
@@ -188,6 +189,13 @@ const Reports = () => {
 
   const handleExportPDF = async () => {
     try {
+      const [jsPDFModule, autoTableModule] = await Promise.all([
+        import("jspdf"),
+        import("jspdf-autotable"),
+      ]);
+      const { default: jsPDF } = jsPDFModule;
+      const { default: autoTable } = autoTableModule;
+
       const res = await api.get("/bids/");
       const bidsData = Array.isArray(res.data) ? res.data : (res.data.items || []);
 
@@ -223,7 +231,7 @@ const Reports = () => {
       doc.save("bids_report.pdf");
       toast.success(t("reports.pdfSuccess"));
     } catch (err) {
-      console.error("PDF export failed:", err);
+      if (import.meta.env.DEV) console.error("PDF export failed:", err);
       toast.error(err.message || t("reports.pdfFailed"));
     }
   };
@@ -266,7 +274,7 @@ const Reports = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t("reports.title")}</h1>
-          <p className="text-sm text-muted-foreground mt-1">Performance metrics, SLA analysis and AI model management</p>
+          <p className="text-sm text-muted-foreground mt-1">{t("reports.subtitle", "Performance metrics, SLA analysis and AI model management")}</p>
         </div>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleExportPDF}>
@@ -301,13 +309,13 @@ const Reports = () => {
           />
           <MetricCard
             title={t("reports.avgBidSize")}
-            value={`$${Math.round(metrics.avgBidSize || 0).toLocaleString()}`}
+            value={formatCurrency(metrics.avgBidSize || 0)}
             icon={Activity}
             tone="info"
           />
           <MetricCard
             title={t("reports.totalRevenue")}
-            value={`$${(metrics.revenueGenerated || 0).toLocaleString()}`}
+            value={formatCurrency(metrics.revenueGenerated || 0)}
             icon={Wallet}
             tone="default"
           />
@@ -330,7 +338,7 @@ const Reports = () => {
                 </div>
                 <div>
                   <CardTitle className="text-lg">{t("reports.slaReport", "SLA Breach Analysis")}</CardTitle>
-                  <CardDescription>Identify overdue bids and bottlenecks</CardDescription>
+                  <CardDescription>{t("reports.slaDesc", "Identify overdue bids and bottlenecks")}</CardDescription>
                 </div>
               </div>
               <Button
@@ -468,7 +476,7 @@ const Reports = () => {
                   <>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Calendar className="h-4 w-4" />
-                      <span>{t("mlModel.lastUpdated", { time: new Date(modelStatus.model.last_modified).toLocaleString() })}</span>
+                      <span>{t("mlModel.lastUpdated", { time: new Date(modelStatus.model.last_modified).toLocaleString(i18n.language) })}</span>
                     </div>
                     <div className="text-sm text-muted-foreground">
                       {t("mlModel.modelSize", { size: modelStatus.model.size_kb })}
@@ -597,7 +605,7 @@ const Reports = () => {
                           {v.records ?? "N/A"}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
-                          {v.trainedAt ? new Date(v.trainedAt).toLocaleString() : "N/A"}
+                          {v.trainedAt ? new Date(v.trainedAt).toLocaleString(i18n.language) : "N/A"}
                         </TableCell>
                         <TableCell className="text-right">
                           {!v.isActive ? (

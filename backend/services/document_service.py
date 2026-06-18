@@ -35,8 +35,16 @@ class DocumentService:
             return True
         if not bid or not user_id:
             return False
+        if str(bid.get('createdBy', '')) == str(user_id):
+            return True
         user = db.Users.find_one({"_id": ObjectId(user_id)}, {"name": 1})
-        return bool(user and user.get('name') == bid.get('assignedEmployee'))
+        if user and user.get('name') == bid.get('assignedEmployee'):
+            return True
+        if bid.get('enquiryId'):
+            enquiry = db.Enquiries.find_one({"enquiryId": bid['enquiryId']}, {"createdBy": 1})
+            if enquiry and str(enquiry.get('createdBy', '')) == str(user_id):
+                return True
+        return False
 
     @classmethod
     def check_enquiry_is_public(cls, enquiry_id: str) -> bool:
@@ -131,5 +139,28 @@ class DocumentService:
 
     @classmethod
     def delete_bid_documents(cls, bid_id: str) -> int:
+        docs = list(db.Documents.find({"bidId": bid_id}))
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+        for doc in docs:
+            file_path = os.path.join(upload_folder, doc.get("path", ""))
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except OSError:
+                current_app.logger.warning(f"Failed to delete file: {file_path}")
         result = db.Documents.delete_many({"bidId": bid_id})
+        return result.deleted_count
+
+    @classmethod
+    def delete_enquiry_documents(cls, enquiry_id: str) -> int:
+        docs = list(db.Documents.find({"enquiryId": enquiry_id}))
+        upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+        for doc in docs:
+            file_path = os.path.join(upload_folder, doc.get("path", ""))
+            try:
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+            except OSError:
+                current_app.logger.warning(f"Failed to delete file: {file_path}")
+        result = db.Documents.delete_many({"enquiryId": enquiry_id})
         return result.deleted_count

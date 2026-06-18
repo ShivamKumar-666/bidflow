@@ -185,8 +185,8 @@
                     {% endif %}
                 </td>
                 <td style="text-align: center;">{{ item.qty }}</td>
-                <td class="price-cell">${{ "{:,.2f}".format(item.price) }}</td>
-                <td class="price-cell">${{ "{:,.2f}".format(item.total) }}</td>
+                <td class="price-cell">{{ currency_symbol }}{{ "{:,.2f}".format(item.price) }}</td>
+                <td class="price-cell">{{ currency_symbol }}{{ "{:,.2f}".format(item.total) }}</td>
             </tr>
             {% endfor %}
             
@@ -194,7 +194,7 @@
             <tr class="total-row">
                 <td colspan="2"></td>
                 <td class="price-cell">Total Amount:</td>
-                <td class="price-cell">${{ "{:,.2f}".format(bid.amount) }}</td>
+                <td class="price-cell">{{ currency_symbol }}{{ "{:,.2f}".format(bid.amount) }}</td>
             </tr>
         </tbody>
     </table>

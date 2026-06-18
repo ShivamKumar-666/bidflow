@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
+import { formatCurrency } from "@/utils/formatCurrency";
 
 const defaultIndustryTags = {
   Technology: ["software", "saas", "hardware", "consulting", "cloud", "devops", "cybersecurity"],
@@ -18,7 +19,7 @@ const defaultIndustryTags = {
 export { defaultIndustryTags };
 
 export function useBids() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [bids, setBids] = useState([]);
   const [enquiries, setEnquiries] = useState([]);
   const [uniqueTags, setUniqueTags] = useState([]);
@@ -40,17 +41,19 @@ export function useBids() {
     try {
       const e = await api.get("/enquiries/");
       setEnquiries(Array.isArray(e.data) ? e.data : (e.data.items || []));
-    } catch {
+    } catch { /* ignore */
     }
     try {
       const tg = await api.get("/tags/");
       setUniqueTags(tg.data);
-    } catch {
+    } catch { /* ignore */
     }
     setLoading(false);
   }, [t]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { fetchAll(); }, [fetchAll]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -76,14 +79,15 @@ export function useBids() {
     setDateFilter("all");
   };
 
-  const fmt = (n) => new Intl.NumberFormat(i18n.language || "en-US", { style: "currency", currency: "USD" }).format(n);
+  const fmt = (n, currency = "USD") => formatCurrency(n, currency);
 
+  /* eslint-disable react-hooks/purity */
   const filtered = useMemo(() => {
     let result = bids.filter((b) => {
       if (industryFilters.length > 0 && !industryFilters.includes(b.industry)) return false;
       if (dateFilter !== "all") {
         const now = Date.now();
-        const created = new Date(b.createdAt || b.history?.[0]?.date || 0).getTime();
+        const created = new Date(b.createdAt || b.history?.[0]?.date || Date.now()).getTime();
         const daysMap = { "7d": 7, "30d": 30, "90d": 90 };
         const days = daysMap[dateFilter] || 30;
         if (now - created > days * 86400000) return false;
@@ -118,6 +122,7 @@ export function useBids() {
     }
     return result;
   }, [bids, search, sortBy, industryFilters, dateFilter]);
+  /* eslint-enable react-hooks/purity */
 
   return {
     bids, setBids,

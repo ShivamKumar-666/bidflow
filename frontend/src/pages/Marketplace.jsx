@@ -1,10 +1,9 @@
-import React, { useState, useContext } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Search, Filter, Clock, DollarSign, Users, ArrowUpDown,
-  Handshake, Ban, Tag, ChevronRight, Loader2,
+  Search, Users, ArrowUpDown,
+  Handshake, Ban, Tag, ChevronRight,
 } from "lucide-react";
-import { AuthContext } from "@/contexts/AuthContext";
 import useMarketplace from "@/hooks/useMarketplace";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +23,6 @@ const priorityColors = {
 
 const Marketplace = () => {
   const { t } = useTranslation();
-  const { user } = useContext(AuthContext);
   const {
     enquiries, loading, total, page, setPage,
     search, setSearch, sort, setSort,
@@ -36,7 +34,6 @@ const Marketplace = () => {
   const [selectedEnquiry, setSelectedEnquiry] = useState(null);
   const [bidDialogOpen, setBidDialogOpen] = useState(false);
 
-  const isBidder = user?.role === "Bidder";
   const totalPages = Math.ceil(total / 20);
 
   const handleBidClick = (enquiry) => {
@@ -61,11 +58,12 @@ const Marketplace = () => {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
+            aria-label="Search enquiries"
           />
         </div>
 
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[140px]" aria-label="Filter by priority">
             <SelectValue placeholder={t("marketplace.allPriorities", "All Priorities")} />
           </SelectTrigger>
           <SelectContent>
@@ -78,7 +76,7 @@ const Marketplace = () => {
         </Select>
 
         <Select value={industryFilter || "all"} onValueChange={(v) => setIndustryFilter(v === "all" ? "" : v)}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[160px]" aria-label="Filter by industry">
             <SelectValue placeholder={t("marketplace.allIndustries", "All Industries")} />
           </SelectTrigger>
           <SelectContent>
@@ -96,7 +94,7 @@ const Marketplace = () => {
         </Select>
 
         <Select value={sort} onValueChange={setSort}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="w-[160px]" aria-label="Sort enquiries">
             <ArrowUpDown className="h-3 w-3 mr-1" />
             <SelectValue />
           </SelectTrigger>
@@ -142,8 +140,17 @@ const Marketplace = () => {
             {enquiries.map((enq) => (
               <Card
                 key={enq._id}
-                className="group hover:border-primary/50 hover:shadow-md transition-all cursor-pointer"
+                className="group hover:border-primary/50 hover:shadow-md transition-all cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                 onClick={() => handleBidClick(enq)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleBidClick(enq);
+                  }
+                }}
+                tabIndex={0}
+                role="button"
+                aria-label={`View enquiry ${enq.enquiryId} from ${enq.customerName}`}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">

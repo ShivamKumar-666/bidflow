@@ -1,4 +1,4 @@
-import React from "react";
+import { useState, useEffect } from "react";
 import api from "@/services/api";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -11,13 +11,15 @@ import { defaultIndustryTags } from "@/hooks/useBids";
 
 export default function TagsDialog({ open, onOpenChange, selected, uniqueTags, onTagsUpdated }) {
   const { t } = useTranslation();
-  const [editTags, setEditTags] = React.useState([]);
+  const [editTags, setEditTags] = useState([]);
 
-  React.useEffect(() => {
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
     if (selected) {
       setEditTags(selected.tags || []);
     }
   }, [selected]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleUpdateTags = async (e) => {
     e.preventDefault();

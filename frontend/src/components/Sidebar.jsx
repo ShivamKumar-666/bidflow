@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, FileText, CalendarDays,
@@ -26,7 +25,6 @@ const adminNav = [
 export function Sidebar() {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const location = useLocation();
 
   return (
     <aside className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0 md:z-30 border-r border-border bg-sidebar text-sidebar-foreground">
@@ -40,7 +38,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin" aria-label="Main navigation">
         <ul className="space-y-1">
           {navConfig.filter((item) => !item.roles || item.roles.includes(user?.role)).map((item) => {
             const Icon = item.icon;
@@ -86,7 +84,7 @@ export function Sidebar() {
           {user?.role === "Admin" && (
             <>
               <li className="pt-4 pb-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                Administration
+                {t("sidebar.administration", "Administration")}
               </li>
               {adminNav.map((item) => {
                 const Icon = item.icon;
@@ -120,7 +118,7 @@ export function Sidebar() {
             <Shield className="h-4 w-4 text-sidebar-primary" />
             <div className="flex flex-col">
               <span className="text-xs font-semibold">{t("sidebar.adminPrivileges")}</span>
-              <span className="text-[10px] text-muted-foreground">Full system access</span>
+              <span className="text-[10px] text-muted-foreground">{t("sidebar.fullSystemAccess", "Full system access")}</span>
             </div>
           </div>
         </div>
@@ -130,12 +128,11 @@ export function Sidebar() {
 }
 
 export function MobileSidebar() {
-  const { user } = useAuth();
   const { t } = useTranslation();
   const location = useLocation();
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-border bg-background/95 backdrop-blur" aria-label="Mobile navigation">
       <div className="grid grid-cols-5 gap-1 px-2 py-1">
         {navConfig.slice(0, 5).map((item) => {
           const Icon = item.icon;

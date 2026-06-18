@@ -11,7 +11,7 @@ function getCookie(name) {
 }
 
 const api = axios.create({
-  baseURL: `${import.meta.env.VITE_API_BASE_URL}/api`,
+  baseURL: `${import.meta.env.VITE_API_BASE_URL}/api/v1`,
   withCredentials: true,   // SEC-01: send httpOnly JWT cookie automatically
 });
 
@@ -30,14 +30,21 @@ let isRefreshing = false;
 let pendingQueue = [];
 
 function enqueueAfterRefresh(config) {
-  return new Promise((resolve) => {
-    pendingQueue.push({ config, resolve });
+  return new Promise((resolve, reject) => {
+    pendingQueue.push({ config, resolve, reject });
   });
 }
 
 function drainQueue() {
   pendingQueue.forEach(({ config, resolve }) => {
     resolve(api(config));
+  });
+  pendingQueue = [];
+}
+
+function rejectQueue(error) {
+  pendingQueue.forEach(({ reject }) => {
+    reject(error);
   });
   pendingQueue = [];
 }
@@ -67,13 +74,13 @@ api.interceptors.response.use(
           drainQueue();
           isRefreshing = false;
           return api(originalRequest);
-        } catch {
+        } catch (refreshError) {
           isRefreshing = false;
-          pendingQueue = [];
+          rejectQueue(refreshError);
           if (!window.location.pathname.startsWith("/login")) {
             window.location.href = "/login";
           }
-          return Promise.reject(error);
+          return Promise.reject(refreshError);
         }
       } else {
         // A refresh is already in flight — queue this request.

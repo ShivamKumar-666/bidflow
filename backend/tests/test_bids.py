@@ -7,7 +7,7 @@ from database import db
 class TestBidCreation:
     def test_create_bid(self, client, auth_headers):
         headers = auth_headers()
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Test Client',
             'contactInformation': 'client@example.com',
             'productServiceRequired': 'Consulting',
@@ -16,7 +16,7 @@ class TestBidCreation:
         assert enq_res.status_code == 201
         enquiry_id = enq_res.get_json()['enquiryId']
 
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enquiry_id, 'amount': 5000,
             'submissionDate': '2026-09-01', 'industry': 'Technology'
         }, headers=headers)
@@ -30,12 +30,12 @@ class TestBidCreation:
     def test_create_bid_with_assigned_employee(self, client, auth_headers):
         headers = auth_headers('Expert User', 'expert@bidflow.com', 'Expert123!')
 
-        client.put('/api/auth/profile', json={
+        client.put('/api/v1/auth/profile', json={
             'name': 'Expert User', 'industry': 'Construction',
             'winRate': 90, 'targetBidValue': 500000
         }, headers=headers)
 
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Big Developer',
             'contactInformation': 'big@dev.com',
             'productServiceRequired': 'Skyscraper'
@@ -43,7 +43,7 @@ class TestBidCreation:
         assert enq_res.status_code == 201
         enquiry_id = enq_res.get_json()['enquiryId']
 
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enquiry_id, 'amount': 250000,
             'submissionDate': '2026-09-01',
             'assignedEmployee': 'Expert User',
@@ -56,25 +56,108 @@ class TestBidCreation:
 
     def test_create_bid_invalid_amount(self, client, auth_headers):
         headers = auth_headers()
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Test',
             'contactInformation': 'test@test.com',
             'productServiceRequired': 'Testing'
         }, headers=headers)
         enquiry_id = enq_res.get_json()['enquiryId']
 
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enquiry_id, 'amount': -100,
             'submissionDate': '2026-09-01'
         }, headers=headers)
         assert bid_res.status_code == 400
+
+    def test_create_bid_with_currency(self, client, auth_headers):
+        headers = auth_headers()
+        enq_res = client.post('/api/v1/enquiries/', json={
+            'customerName': 'Currency Test',
+            'contactInformation': 'curr@test.com',
+            'productServiceRequired': 'Testing'
+        }, headers=headers)
+        enquiry_id = enq_res.get_json()['enquiryId']
+
+        bid_res = client.post('/api/v1/bids/', json={
+            'enquiryId': enquiry_id, 'amount': 10000,
+            'currency': 'EUR',
+            'submissionDate': '2026-09-01'
+        }, headers=headers)
+        assert bid_res.status_code == 201
+        bid_data = bid_res.get_json()
+        assert bid_data.get('currency') == 'EUR'
+
+    def test_create_bid_invalid_currency(self, client, auth_headers):
+        headers = auth_headers()
+        enq_res = client.post('/api/v1/enquiries/', json={
+            'customerName': 'Currency Test 2',
+            'contactInformation': 'curr2@test.com',
+            'productServiceRequired': 'Testing'
+        }, headers=headers)
+        enquiry_id = enq_res.get_json()['enquiryId']
+
+        bid_res = client.post('/api/v1/bids/', json={
+            'enquiryId': enquiry_id, 'amount': 10000,
+            'currency': 'XYZ',
+            'submissionDate': '2026-09-01'
+        }, headers=headers)
+        assert bid_res.status_code == 201
+        bid_data = bid_res.get_json()
+        assert bid_data.get('currency') == 'USD'
+
+
+class TestBidUpdateCurrency:
+    def test_update_bid_currency(self, client, auth_headers):
+        headers = auth_headers()
+        enq_res = client.post('/api/v1/enquiries/', json={
+            'customerName': 'Update Curr',
+            'contactInformation': 'ucurr@test.com',
+            'productServiceRequired': 'Testing'
+        }, headers=headers)
+        enquiry_id = enq_res.get_json()['enquiryId']
+
+        bid_res = client.post('/api/v1/bids/', json={
+            'enquiryId': enquiry_id, 'amount': 10000,
+            'submissionDate': '2026-09-01'
+        }, headers=headers)
+        bid_id = bid_res.get_json()['_id']
+
+        update_res = client.put(f'/api/v1/bids/{bid_id}', json={
+            'currency': 'GBP'
+        }, headers=headers)
+        assert update_res.status_code == 200
+
+        from database import db
+        from bson import ObjectId
+        updated = db.Bids.find_one({'_id': ObjectId(bid_id)})
+        assert updated['currency'] == 'GBP'
+
+    def test_update_bid_invalid_currency(self, client, auth_headers):
+        headers = auth_headers()
+        enq_res = client.post('/api/v1/enquiries/', json={
+            'customerName': 'Update Curr 2',
+            'contactInformation': 'ucurr2@test.com',
+            'productServiceRequired': 'Testing'
+        }, headers=headers)
+        enquiry_id = enq_res.get_json()['enquiryId']
+
+        bid_res = client.post('/api/v1/bids/', json={
+            'enquiryId': enquiry_id, 'amount': 10000,
+            'submissionDate': '2026-09-01'
+        }, headers=headers)
+        bid_id = bid_res.get_json()['_id']
+
+        update_res = client.put(f'/api/v1/bids/{bid_id}', json={
+            'currency': 'INVALID'
+        }, headers=headers)
+        assert update_res.status_code == 400
 
 
 class TestAIPredictions:
     def test_predict_endpoint(self, client, auth_headers):
         headers = auth_headers()
 
-        predict_res = client.post('/api/bids/predict', json={
+        predict_res = client.post('/api/v1/bids/predict', json={
             'amount': 25000, 'days_to_deadline': 15,
             'priority_encoded': 2, 'industry': 'Technology'
         }, headers=headers)
@@ -94,13 +177,13 @@ class TestWinRateIsolation:
     def test_win_rate_from_history_not_profile(self, client, auth_headers):
         headers = auth_headers('Inflated User', 'inflated@bidflow.com', 'Pass1234!')
 
-        profile_res = client.put('/api/auth/profile', json={
+        profile_res = client.put('/api/v1/auth/profile', json={
             'winRate': 100
         }, headers=headers)
         assert profile_res.status_code == 200
         assert profile_res.get_json()['winRate'] == 100
 
-        predict_res = client.post('/api/bids/predict', json={
+        predict_res = client.post('/api/v1/bids/predict', json={
             'amount': 10000, 'days_to_deadline': 30,
             'assignedEmployee': 'Inflated User'
         }, headers=headers)
@@ -114,25 +197,25 @@ class TestWinRateIsolation:
 class TestBidStatus:
     def test_update_status(self, client, auth_headers):
         headers = auth_headers()
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Status Test',
             'contactInformation': 'status@test.com',
             'productServiceRequired': 'Testing'
         }, headers=headers)
         enquiry_id = enq_res.get_json()['enquiryId']
 
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enquiry_id, 'amount': 10000,
             'submissionDate': '2026-07-01', 'industry': 'Technology'
         }, headers=headers)
         bid_id = bid_res.get_json()['_id']
 
-        status_res = client.put(f'/api/bids/{bid_id}/status', json={
+        status_res = client.put(f'/api/v1/bids/{bid_id}/status', json={
             'status': 'Order Received', 'note': 'Deal won'
         }, headers=headers)
         assert status_res.status_code == 200
 
-        invalid_res = client.put(f'/api/bids/{bid_id}/status', json={
+        invalid_res = client.put(f'/api/v1/bids/{bid_id}/status', json={
             'status': 'InvalidStatus', 'note': 'Bad'
         }, headers=headers)
         assert invalid_res.status_code == 400
@@ -142,21 +225,21 @@ class TestCommentsAndSocketIO:
     def test_comments_and_socketio(self, client, auth_headers, mock_socketio):
         headers = auth_headers()
 
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Client Comment',
             'contactInformation': 'comment@client.com',
             'productServiceRequired': 'Chat Server'
         }, headers=headers)
         enquiry_id = enq_res.get_json()['enquiryId']
 
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enquiry_id, 'amount': 8000,
             'submissionDate': '2026-07-01',
             'assignedEmployee': 'Exec User', 'industry': 'Technology'
         }, headers=headers)
         bid_db_id = bid_res.get_json()['_id']
 
-        comment_res = client.post(f'/api/bids/{bid_db_id}/comments', json={
+        comment_res = client.post(f'/api/v1/bids/{bid_db_id}/comments', json={
             'text': 'This is a real-time negotiation comment.'
         }, headers=headers)
         assert comment_res.status_code == 201
@@ -178,7 +261,7 @@ class TestCustomTags:
     def test_tags_on_enquiry_and_bid(self, client, auth_headers):
         headers = auth_headers()
 
-        enq_res = client.post('/api/enquiries/', json={
+        enq_res = client.post('/api/v1/enquiries/', json={
             'customerName': 'Tagged Corp',
             'contactInformation': 'tagged@example.com',
             'productServiceRequired': 'Tag Consulting',
@@ -189,7 +272,7 @@ class TestCustomTags:
         enq_data = enq_res.get_json()
         assert enq_data['tags'] == ['repeat-client', 'construction']
 
-        bid_res = client.post('/api/bids/', json={
+        bid_res = client.post('/api/v1/bids/', json={
             'enquiryId': enq_data['enquiryId'], 'amount': 15000,
             'submissionDate': '2026-11-20',
             'assignedEmployee': 'Exec User',
@@ -199,12 +282,12 @@ class TestCustomTags:
         bid_data = bid_res.get_json()
         assert bid_data['tags'] == ['construction', 'high-risk']
 
-        update_res = client.put(f'/api/bids/{bid_data["_id"]}', json={
+        update_res = client.put(f'/api/v1/bids/{bid_data["_id"]}', json={
             'tags': ['construction', 'high-risk', 'updated-tag']
         }, headers=headers)
         assert update_res.status_code == 200
 
-        tags_res = client.get('/api/tags/', headers=headers)
+        tags_res = client.get('/api/v1/tags/', headers=headers)
         assert tags_res.status_code == 200
         unique_tags = tags_res.get_json()
         assert 'construction' in unique_tags

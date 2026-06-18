@@ -31,5 +31,7 @@ pytest-cov==6.0.0
 pytest-env==1.1.5
 celery==5.4.0
 redis==5.2.1
+flask-swagger-ui==5.32.6
+sentry-sdk[flask,celery]==2.0.1
 
 

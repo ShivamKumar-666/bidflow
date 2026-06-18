@@ -1,4 +1,5 @@
 import datetime
+import re
 
 from bson.objectid import ObjectId
 from flask import Blueprint, jsonify, request
@@ -23,8 +24,11 @@ def list_marketplace():
     if role not in ('Admin', 'Bidder', 'Company', 'Sales Executive'):
         return jsonify({"msg": "Forbidden"}), 403
 
-    page = min(int(request.args.get('page', 1)), 100)
-    size = min(int(request.args.get('size', 20)), 100)
+    try:
+        page = min(int(request.args.get('page', 1)), 100)
+        size = min(int(request.args.get('size', 20)), 100)
+    except ValueError:
+        return jsonify({"msg": "Invalid pagination parameters"}), 400
     skip = (page - 1) * size
 
     enq_filter = {"visibility": "public"}
@@ -35,16 +39,19 @@ def list_marketplace():
 
     search = request.args.get('search', '').strip()
     if search:
+        search_escaped = re.escape(search)
         and_clauses.append({"$or": [
-            {"customerName": {"$regex": search, "$options": "i"}},
-            {"productServiceRequired": {"$regex": search, "$options": "i"}},
+            {"customerName": {"$regex": search_escaped, "$options": "i"}},
+            {"productServiceRequired": {"$regex": search_escaped, "$options": "i"}},
         ]})
 
     industry = request.args.get('industry', '').strip()
     if industry:
+        industry_escaped = re.escape(industry.lower())
+        industry_exact = re.escape(industry)
         and_clauses.append({"$or": [
-            {"tags": {"$regex": f"\\b{industry.lower()}\\b", "$options": "i"}},
-            {"industry": {"$regex": f"^{industry}$", "$options": "i"}},
+            {"tags": {"$regex": f"\\b{industry_escaped}\\b", "$options": "i"}},
+            {"industry": {"$regex": f"^{industry_exact}$", "$options": "i"}},
         ]})
 
     if len(and_clauses) == 1:
@@ -243,6 +250,7 @@ def submit_marketplace_bid(enquiry_id):
             "_id": str(new_bid["_id"]),
             "bidId": new_bid.get("bidId"),
             "amount": new_bid.get("amount"),
+            "currency": new_bid.get("currency", "USD"),
             "status": new_bid.get("status"),
             "aiPrediction": new_bid.get("aiPrediction"),
             "shapExplanations": new_bid.get("shapExplanations", []),

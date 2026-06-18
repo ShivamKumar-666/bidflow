@@ -2,6 +2,7 @@ import re
 import secrets
 
 import bcrypt
+import bleach
 from database import db
 from datetime import timedelta
 from flask import current_app
@@ -154,11 +155,11 @@ class AuthService:
         if name is not None:
             if not name.strip():
                 return None, "Name cannot be empty"
-            update_data["name"] = name.strip()
+            update_data["name"] = bleach.clean(name.strip(), strip=True)[:100]
 
         industry = data.get('industry')
         if industry is not None:
-            update_data["industry"] = industry
+            update_data["industry"] = bleach.clean(industry, strip=True)[:100]
 
         win_rate = data.get('winRate')
         if win_rate is not None:
@@ -182,7 +183,7 @@ class AuthService:
 
         bio = data.get('bio')
         if bio is not None:
-            update_data["bio"] = bio
+            update_data["bio"] = bleach.clean(bio, strip=True)[:500]
 
         if not update_data:
             return None, "No update fields provided"

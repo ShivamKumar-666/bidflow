@@ -33,9 +33,11 @@ export default function useMarketplace() {
     }
   }, [page, sort, search, industryFilter, priorityFilter]);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchMarketplace();
   }, [fetchMarketplace]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   return {
     enquiries,

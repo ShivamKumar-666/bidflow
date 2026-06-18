@@ -1,9 +1,8 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
 import { Shield, ArrowLeft, AlertCircle, Eye, EyeOff, Sparkles, Mail, Lock, UserPlus, LogIn, Check, X, Store, Building2 } from "lucide-react";
 import { toast } from "sonner";
-import api from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,19 +17,20 @@ function parseError(err, isRegistering, t) {
     return serverMsg || t("login.registerFailed");
   }
   if (!err?.response) return t("errors.cannotReachServer");
-  if (status >= 500) return `Server error (${status}). Check the backend terminal for details.`;
+  if (status >= 500) return t("login.serverError", "Server error ({{status}}). Check the backend terminal for details.", { status });
   return serverMsg || (isRegistering ? t("login.registerFailed") : t("login.loginFailed"));
 }
 
-function PasswordStrength({ password }) {
+function PasswordStrength({ password, t }) {
   const checks = [
-    { label: "8+ characters", pass: password.length >= 8 },
-    { label: "One uppercase letter", pass: /[A-Z]/.test(password) },
-    { label: "One number", pass: /[0-9]/.test(password) },
-    { label: "One special character", pass: /[^a-zA-Z0-9]/.test(password) },
+    { label: t("login.checkLength", "8+ characters"), pass: password.length >= 8 },
+    { label: t("login.checkUppercase", "One uppercase letter"), pass: /[A-Z]/.test(password) },
+    { label: t("login.checkNumber", "One number"), pass: /[0-9]/.test(password) },
+    { label: t("login.checkSpecial", "One special character"), pass: /[^a-zA-Z0-9]/.test(password) },
   ];
   const passed = checks.filter((c) => c.pass).length;
-  const strengthLabel = ["", "Weak", "Fair", "Good", "Strong"][passed];
+  const strengthLabels = ["", t("login.weak", "Weak"), t("login.fair", "Fair"), t("login.good", "Good"), t("login.strong", "Strong")];
+  const strengthLabel = strengthLabels[passed];
   const strengthColor = ["", "bg-rose-500", "bg-amber-500", "bg-cyan-500", "bg-emerald-500"][passed];
 
   if (!password) return null;
@@ -43,7 +43,7 @@ function PasswordStrength({ password }) {
         ))}
       </div>
       <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">Password strength</span>
+        <span className="text-muted-foreground">{t("login.passwordStrength", "Password strength")}</span>
         <span className={cn("font-semibold", passed === 4 ? "text-emerald-600" : passed >= 2 ? "text-amber-600" : "text-rose-600")}>
           {strengthLabel}
         </span>
@@ -64,7 +64,7 @@ function PasswordStrength({ password }) {
   );
 }
 
-function GoogleButton({ onClick, isRegistering }) {
+function GoogleButton({ onClick, isRegistering, t }) {
   return (
     <Button
       type="button"
@@ -78,7 +78,7 @@ function GoogleButton({ onClick, isRegistering }) {
         <path fill="#FBBC05" d="M5.4 14.26a7.14 7.14 0 0 1 0-4.52V6.51H1.31a12 12 0 0 0 0 10.98l4.09-3.23z"/>
         <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42A11.92 11.92 0 0 0 12 0 12 12 0 0 0 1.31 6.51l4.09 3.23c.93-2.8 3.53-4.99 6.6-4.99z"/>
       </svg>
-      {isRegistering ? "Sign up with Google" : "Sign in with Google"}
+      {isRegistering ? t("login.signUpGoogle", "Sign up with Google") : t("login.signInGoogle", "Sign in with Google")}
     </Button>
   );
 }
@@ -102,9 +102,11 @@ export default function Login() {
 
   const isRegistering = mode === "register";
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (twoFAPending) setMode("2fa");
   }, [twoFAPending]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (mode === "2fa" && otpRefs.current[0]) {
@@ -125,7 +127,7 @@ export default function Login() {
     try {
       const result = await loginWithGoogle(response.credential);
       if (result?.step === "setup") {
-        toast("Please set up Two-Factor Authentication to secure your Admin account.", { icon: "🔐" });
+        toast(t("login.twoFactorSetup", "Please set up Two-Factor Authentication to secure your Admin account."), { icon: "🔐" });
       }
     } catch (err) {
       setError(parseError(err, false, t));
@@ -133,7 +135,7 @@ export default function Login() {
       setLoading(false);
     }
   };
-  googleCallbackRef.current = handleGoogleCredentialResponse;
+  googleCallbackRef.current = handleGoogleCredentialResponse; // eslint-disable-line react-hooks/refs
 
   useEffect(() => {
     const initGoogle = async () => {
@@ -169,15 +171,17 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (isRegistering && !name.trim()) {
+      setError(t("login.nameRequired", "Please enter your full name."));
+      return;
+    }
+
     setLoading(true);
     try {
       if (isRegistering) {
-        if (!name.trim()) {
-          setError("Please enter your full name.");
-          return;
-        }
         const result = await register(name.trim(), email.trim().toLowerCase(), password, role);
-        toast.success(result?.msg || "Account created. Please check your email to verify your account.");
+        toast.success(result?.msg || t("login.accountCreated", "Account created. Please check your email to verify your account."));
         setMode("login");
         setName("");
         setEmail("");
@@ -185,7 +189,7 @@ export default function Login() {
       } else {
         const result = await login(email.trim().toLowerCase(), password);
         if (result?.step === "setup") {
-          toast("Please set up Two-Factor Authentication to secure your Admin account.", { icon: "🔐" });
+          toast(t("login.twoFactorSetup", "Please set up Two-Factor Authentication to secure your Admin account."), { icon: "🔐" });
         }
       }
     } catch (err) {
@@ -236,10 +240,10 @@ export default function Login() {
     try {
       const result = await verify2FA(code);
       if (result.backupCodeUsed) {
-        toast.success(`✅ Backup code used. ${result.backupCodesRemaining} remaining.`);
+        toast.success(t("login.backupCodeUsed", "✅ Backup code used. {{remaining}} remaining.", { remaining: result.backupCodesRemaining }));
       }
     } catch (err) {
-      setError(err?.response?.data?.msg || "Invalid code. Please try again.");
+      setError(err?.response?.data?.msg || t("login.invalidCode", "Invalid code. Please try again."));
       setOtpDigits(["", "", "", "", "", ""]);
       otpRefs.current[0]?.focus();
     } finally {
@@ -377,10 +381,12 @@ export default function Login() {
 
             {isRegistering && (
               <div className="space-y-2">
-                <Label>I want to</Label>
-                <div className="grid grid-cols-2 gap-2">
+                <Label id="role-label">I want to</Label>
+                <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-labelledby="role-label">
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={role === "Bidder"}
                     onClick={() => setRole("Bidder")}
                     className={cn(
                       "flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm font-medium transition-all",
@@ -397,6 +403,8 @@ export default function Login() {
                   </button>
                   <button
                     type="button"
+                    role="radio"
+                    aria-checked={role === "Company"}
                     onClick={() => setRole("Company")}
                     className={cn(
                       "flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm font-medium transition-all",
@@ -456,7 +464,7 @@ export default function Login() {
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {isRegistering && <PasswordStrength password={password} />}
+              {isRegistering && <PasswordStrength password={password} t={t} />}
             </div>
 
             <Button
@@ -466,7 +474,7 @@ export default function Login() {
               size="lg"
             >
               {loading ? (
-                isRegistering ? "Creating account…" : "Signing in…"
+                isRegistering ? t("login.creatingAccount", "Creating account…") : t("login.signingIn", "Signing in…")
               ) : isRegistering ? (
                 <><UserPlus className="h-4 w-4" /> {t("login.registerBtn")}</>
               ) : (
@@ -480,7 +488,7 @@ export default function Login() {
               <div className="w-full border-t" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="bg-card px-2 text-muted-foreground">or</span>
+              <span className="bg-card px-2 text-muted-foreground">{t("login.or", "or")}</span>
             </div>
           </div>
 
@@ -488,8 +496,9 @@ export default function Login() {
             <div id="google-signin-btn" className="flex justify-center" />
           ) : (
             <GoogleButton
+              t={t}
               isRegistering={isRegistering}
-              onClick={() => toast.error("Google Client ID is not configured on the server. Set GOOGLE_CLIENT_ID env var.")}
+              onClick={() => toast.error(t("login.googleNotConfigured", "Google Client ID is not configured on the server. Set GOOGLE_CLIENT_ID env var."))}
             />
           )}
 
@@ -506,7 +515,7 @@ export default function Login() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground mt-6">
-          By continuing you agree to BidFlow's Terms of Service
+          {t("login.termsAgree", "By continuing you agree to BidFlow's Terms of Service")}
         </p>
       </div>
     </div>

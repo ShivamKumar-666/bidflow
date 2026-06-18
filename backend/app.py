@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory, current_app
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from config import Config
@@ -18,6 +18,21 @@ from extensions import socketio, limiter, mail, get_allowed_origins
 from database import db
 import os
 import logging
+
+# ── Sentry error tracking (optional, requires SENTRY_DSN env var) ─────────────
+if os.environ.get('SENTRY_DSN'):
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.flask import FlaskIntegration
+        from sentry_sdk.integrations.celery import CeleryIntegration
+        sentry_sdk.init(
+            dsn=os.environ['SENTRY_DSN'],
+            integrations=[FlaskIntegration(), CeleryIntegration()],
+            traces_sample_rate=0.1,
+            environment=os.environ.get('FLASK_ENV', 'development'),
+        )
+    except ImportError:
+        pass
 
 
 def create_app():
@@ -84,7 +99,7 @@ def create_app():
             if room == f"user_{user_id}":
                 join_room(room)
         except Exception:
-            pass  # Invalid token — silently reject
+            current_app.logger.debug("SocketIO join rejected", exc_info=True)
 
     # ── 2FA temp token guard (C-01) ──────────────────────────────────────────
     @app.before_request
@@ -94,7 +109,7 @@ def create_app():
             verify_jwt_in_request(optional=True)
             claims = get_jwt()
             if claims and claims.get('sub_type') == '2fa_pending':
-                if not request.path.startswith('/api/2fa/verify'):
+                if not request.path.startswith('/api/v1/2fa/verify'):
                     return jsonify({"msg": "2FA verification required"}), 403
         except Exception:
             pass
@@ -161,18 +176,32 @@ def create_app():
         return response
 
     # ── Blueprints ────────────────────────────────────────────────────────────
-    app.register_blueprint(auth_bp,          url_prefix='/api/auth')
-    app.register_blueprint(enquiries_bp,     url_prefix='/api/enquiries')
-    app.register_blueprint(bids_bp,          url_prefix='/api/bids')
-    app.register_blueprint(documents_bp,     url_prefix='/api/documents')
-    app.register_blueprint(analytics_bp,     url_prefix='/api/analytics')
-    app.register_blueprint(audit_bp,         url_prefix='/api/audit')
-    app.register_blueprint(twofa_bp,         url_prefix='/api/2fa')
-    app.register_blueprint(admin_bp,         url_prefix='/api/admin')
-    app.register_blueprint(search_bp,        url_prefix='/api/search')
-    app.register_blueprint(tags_bp,          url_prefix='/api/tags')
-    app.register_blueprint(notifications_bp, url_prefix='/api/notifications')
-    app.register_blueprint(marketplace_bp,     url_prefix='/api/marketplace')
+    app.register_blueprint(auth_bp,          url_prefix='/api/v1/auth')
+    app.register_blueprint(enquiries_bp,     url_prefix='/api/v1/enquiries')
+    app.register_blueprint(bids_bp,          url_prefix='/api/v1/bids')
+    app.register_blueprint(documents_bp,     url_prefix='/api/v1/documents')
+    app.register_blueprint(analytics_bp,     url_prefix='/api/v1/analytics')
+    app.register_blueprint(audit_bp,         url_prefix='/api/v1/audit')
+    app.register_blueprint(twofa_bp,         url_prefix='/api/v1/2fa')
+    app.register_blueprint(admin_bp,         url_prefix='/api/v1/admin')
+    app.register_blueprint(search_bp,        url_prefix='/api/v1/search')
+    app.register_blueprint(tags_bp,          url_prefix='/api/v1/tags')
+    app.register_blueprint(notifications_bp, url_prefix='/api/v1/notifications')
+    app.register_blueprint(marketplace_bp,     url_prefix='/api/v1/marketplace')
+
+    # ── Swagger UI ────────────────────────────────────────────────────────────
+    @app.route('/api/v1/docs/openapi.yaml')
+    def openapi_spec():
+        docs_dir = os.path.join(os.path.dirname(__file__), 'docs')
+        return send_from_directory(docs_dir, 'openapi.yaml')
+
+    from flask_swagger_ui import get_swaggerui_blueprint
+    swaggerui_blueprint = get_swaggerui_blueprint(
+        '/api/v1/docs',
+        '/api/v1/docs/openapi.yaml',
+        config={'app_name': 'BidFlow API v1'}
+    )
+    app.register_blueprint(swaggerui_blueprint, url_prefix='/api/v1/docs')
 
     @app.route('/')
     def index():
@@ -180,11 +209,24 @@ def create_app():
 
     @app.route('/health')
     def health():
+        checks = {}
         try:
             db.client.admin.command('ping')
-            return jsonify({"status": "healthy"}), 200
+            checks["mongodb"] = "ok"
         except Exception:
-            return jsonify({"status": "unhealthy"}), 503
+            checks["mongodb"] = "fail"
+
+        try:
+            import redis
+            r = redis.from_url(Config.REDIS_URL, socket_timeout=2)
+            r.ping()
+            checks["redis"] = "ok"
+        except Exception:
+            checks["redis"] = "fail"
+
+        status = "healthy" if all(v == "ok" for v in checks.values()) else "degraded"
+        code = 200 if status == "healthy" else 503
+        return jsonify({"status": status, "checks": checks}), code
 
     return app
 

@@ -7,6 +7,7 @@ import random
 import re
 import secrets
 
+import bleach
 import joblib
 import numpy as np
 from bson.objectid import ObjectId
@@ -27,6 +28,13 @@ except ImportError:
 
 class BidService:
     """Business logic for bid management, ML predictions, and SHAP explanations."""
+
+    ALLOWED_CURRENCIES = ["USD", "EUR", "GBP", "INR", "JPY", "CAD", "AUD"]
+
+    CURRENCY_SYMBOLS = {
+        "USD": "$", "EUR": "€", "GBP": "£", "INR": "₹",
+        "JPY": "¥", "CAD": "C$", "AUD": "A$",
+    }
 
     _model = None
     _industry_encoder = None
@@ -351,8 +359,8 @@ class BidService:
     # Templates use {val} for formatted value and {shap} for absolute SHAP percentage
     _SHAP_TEMPLATES = {
         "amount": {
-            "positive": ("Competitive amount (${val:,.0f}) adds +{shap}% to probability", lambda v: round(v, 2)),
-            "negative": ("Amount (${val:,.0f}) reduces probability by {shap}%", lambda v: round(v, 2)),
+            "positive": ("Competitive amount ({currency}{val:,.0f}) adds +{shap}% to probability", lambda v: round(v, 2)),
+            "negative": ("Amount ({currency}{val:,.0f}) reduces probability by {shap}%", lambda v: round(v, 2)),
         },
         "amount_log": {
             "positive": ("Log-scaled amount ({val:.1f}) adds +{shap}% to probability", lambda v: round(v, 2)),
@@ -403,8 +411,8 @@ class BidService:
             "negative": ("Regional office reduces probability by {shap}%", lambda v: round(v, 2)),
         },
         "sales_price": {
-            "positive": ("Sales price (${val:,.0f}) adds +{shap}% to probability", lambda v: round(v, 2)),
-            "negative": ("Sales price (${val:,.0f}) reduces probability by {shap}%", lambda v: round(v, 2)),
+            "positive": ("Sales price ({currency}{val:,.0f}) adds +{shap}% to probability", lambda v: round(v, 2)),
+            "negative": ("Sales price ({currency}{val:,.0f}) reduces probability by {shap}%", lambda v: round(v, 2)),
         },
         "team_size": {
             "positive": ("Team of {val} people adds +{shap}% to probability", lambda v: int(v)),
@@ -413,7 +421,7 @@ class BidService:
     }
 
     @classmethod
-    def _explain_prediction(cls, features_array, shap_values, feature_names):
+    def _explain_prediction(cls, features_array, shap_values, feature_names, currency_symbol="$"):
         explanations = []
         pairs = []
         for name, val, s_val in zip(feature_names, features_array[0], shap_values):
@@ -436,13 +444,13 @@ class BidService:
                 "value": formatted_val,
                 "shap_value": shap_pct,
                 "impact": direction,
-                "text": text_template.format(val=formatted_val, shap=abs(shap_pct)),
+                "text": text_template.format(val=formatted_val, shap=abs(shap_pct), currency=currency_symbol),
             })
 
         return explanations
 
     @classmethod
-    def compute_shap_explanations(cls, clf, features_array):
+    def compute_shap_explanations(cls, clf, features_array, currency_symbol="$"):
         try:
             explainer = cls._get_shap_explainer(clf)
             shap_out = explainer.shap_values(features_array)
@@ -457,13 +465,13 @@ class BidService:
                 else:
                     shap_vals = shap_out
 
-            return cls._explain_prediction(features_array, shap_vals, cls.FEATURE_NAMES)
+            return cls._explain_prediction(features_array, shap_vals, cls.FEATURE_NAMES, currency_symbol)
         except Exception as e:
             current_app.logger.warning("SHAP explanation calculation failed: %s", e)
             return []
 
     @classmethod
-    def predict(cls, data: dict, employee_name: str, industry: str):
+    def predict(cls, data: dict, employee_name: str, industry: str, currency_symbol="$"):
         clf, encoder = cls.get_model_and_encoder()
         if not clf:
             return None, []
@@ -475,11 +483,11 @@ class BidService:
             features = features[:, :n_model_features]
         prediction_prob = clf.predict_proba(features)[0][1]
         prediction = int(prediction_prob * 100)
-        explanations = cls.compute_shap_explanations(clf, features)
+        explanations = cls.compute_shap_explanations(clf, features, currency_symbol)
         return prediction, explanations
 
     @classmethod
-    def predict_live(cls, data: dict, employee_name: str, industry: str):
+    def predict_live(cls, data: dict, employee_name: str, industry: str, currency_symbol="$"):
         clf, encoder = cls.get_model_and_encoder()
         if not clf:
             return None, None, []
@@ -490,7 +498,7 @@ class BidService:
         if features.shape[1] > n_model_features:
             features = features[:, :n_model_features]
         probability = clf.predict_proba(features)[0][1]
-        explanations = cls.compute_shap_explanations(clf, features)
+        explanations = cls.compute_shap_explanations(clf, features, currency_symbol)
         employee_win_rate = cls.get_computed_win_rate(employee_name)
         return float(probability) * 100, float(employee_win_rate) * 100, explanations
 
@@ -568,9 +576,13 @@ class BidService:
 
         employee_win_rate = cls.get_computed_win_rate(assigned_employee)
         clf, encoder = cls.get_model_and_encoder()
+        currency = data.get("currency", "USD")
+        if currency not in cls.ALLOWED_CURRENCIES:
+            currency = "USD"
+        currency_symbol = cls.CURRENCY_SYMBOLS.get(currency, "$")
 
         if clf:
-            prediction, explanations = cls.predict(data, assigned_employee, industry)
+            prediction, explanations = cls.predict(data, assigned_employee, industry, currency_symbol)
         else:
             base_prob = 80 if amount < 10000 else 40
             win_rate_diff = (employee_win_rate * 100) - 50.0
@@ -588,17 +600,19 @@ class BidService:
             "enquiryId": data.get("enquiryId"),
             "status": "Quotation Prepared",
             "amount": amount,
+            "currency": data.get("currency", "USD") if data.get("currency") in cls.ALLOWED_CURRENCIES else "USD",
             "industry": industry,
             "submissionDate": data.get("submissionDate"),
             "assignedEmployee": data.get("assignedEmployee"),
             "teamSize": int(data.get("teamSize", 1)),
-            "remarks": data.get("remarks", ""),
+            "remarks": bleach.clean(data.get("remarks", ""), strip=True)[:2000],
             "aiPrediction": prediction,
             "shapExplanations": explanations,
             "tags": tags,
             "comments": [],
             "createdBy": user_id,
             "bidderType": bidder_type,
+            "createdAt": now_utc(),
             "history": [{
                 "status": "Quotation Prepared",
                 "date": now_utc(),
@@ -608,11 +622,12 @@ class BidService:
         db.Bids.insert_one(new_bid)
 
         db.Enquiries.update_one(
+            {"enquiryId": new_bid["enquiryId"], "status": "Under Review"},
+            {"$set": {"status": "Quotation Prepared"}}
+        )
+        db.Enquiries.update_one(
             {"enquiryId": new_bid["enquiryId"]},
-            {
-                "$set": {"status": "Quotation Prepared"},
-                "$inc": {"bidCount": 1}
-            }
+            {"$inc": {"bidCount": 1}}
         )
 
         return new_bid
@@ -661,10 +676,27 @@ class BidService:
                     {"$set": {"status": "Rejected"}}
                 )
         else:
-            # Other statuses update normally
+            STATUS_PRIORITY = {
+                "Order Received": 5,
+                "Negotiation": 4,
+                "Under Review": 3,
+                "Quotation Prepared": 2,
+                "Rejected": 1,
+            }
+            all_bids = list(db.Bids.find(
+                {"enquiryId": enquiry_id},
+                {"status": 1}
+            ))
+            best_priority = 0
+            best_status = new_status
+            for b in all_bids:
+                p = STATUS_PRIORITY.get(b.get("status", ""), 0)
+                if p > best_priority:
+                    best_priority = p
+                    best_status = b.get("status")
             db.Enquiries.update_one(
                 {"enquiryId": enquiry_id},
-                {"$set": {"status": new_status}}
+                {"$set": {"status": best_status}}
             )
 
         return bid, None
@@ -709,10 +741,14 @@ class BidService:
 
         items = cls.get_quotation_items(bid, enquiry)
         date_str = now_utc().strftime("%B %d, %Y")
+        currency = bid.get("currency", "USD")
+        if currency not in cls.ALLOWED_CURRENCIES:
+            currency = "USD"
+        currency_symbol = cls.CURRENCY_SYMBOLS.get(currency, "$")
 
         html_content = render_template(
             'quotation_template.html',
-            bid=bid, enquiry=enquiry, items=items, date_str=date_str
+            bid=bid, enquiry=enquiry, items=items, date_str=date_str, currency_symbol=currency_symbol
         )
 
         pdf_buffer = io.BytesIO()

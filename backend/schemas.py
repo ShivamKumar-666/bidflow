@@ -201,6 +201,11 @@ BIDS_SCHEMA = {
             "minimum": 0,
             "description": "Bid amount (non-negative)"
         },
+        "currency": {
+            "bsonType": ["string", "null"],
+            "enum": ["USD", "EUR", "GBP", "INR", "JPY", "CAD", "AUD", None],
+            "description": "Currency code (ISO 4217)"
+        },
         "industry": {
             "bsonType": ["string", "null"],
             "description": "Industry sector"
@@ -292,6 +297,10 @@ BIDS_SCHEMA = {
             "bsonType": "string",
             "enum": ["internal", "external"],
             "description": "internal = org employee, external = marketplace bidder"
+        },
+        "createdAt": {
+            "bsonType": "date",
+            "description": "Timestamp when the bid was created"
         }
     }
 }

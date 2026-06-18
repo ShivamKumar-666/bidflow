@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import {
   Mail, CheckCircle, AlertTriangle, XCircle, ArrowRight, Loader2,
@@ -55,6 +55,7 @@ export default function VerifyEmail() {
   const [resendSent, setResendSent] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const token = searchParams.get("token");
     if (!token) {
@@ -72,6 +73,7 @@ export default function VerifyEmail() {
         }
       });
   }, [searchParams]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (status === "success") {

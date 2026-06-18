@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import api from "@/services/api";
 import { useAuth } from "./AuthContext";
 import { useSocket } from "./SocketContext";
@@ -7,14 +7,18 @@ const NotificationContext = createContext(null);
 
 export function NotificationProvider({ children }) {
   const { user } = useAuth();
-  const socketRef = useSocket();
+  const socket = useSocket();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  const unreadCount = notifications.filter((n) => !n.isRead).length;
+  const unreadCount = useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications]
+  );
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!user) {
+    if (!user?._id) {
       setNotifications([]);
       return;
     }
@@ -25,26 +29,28 @@ export function NotificationProvider({ children }) {
         const res = await api.get("/notifications/");
         setNotifications(res.data);
       } catch (err) {
-        console.error("Failed to fetch notifications", err);
+        if (import.meta.env.DEV) console.error("Failed to fetch notifications", err);
       } finally {
         setLoading(false);
       }
     };
     fetchNotifications();
-  }, [user]);
+  }, [user?._id]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
-    const socket = socketRef.current;
     if (!socket) return;
 
-    socket.on("notification", (newNotif) => {
+    const handleNotification = (newNotif) => {
       setNotifications((prev) => [newNotif, ...prev]);
-    });
+    };
+
+    socket.on("notification", handleNotification);
 
     return () => {
-      socket.off("notification");
+      socket.off("notification", handleNotification);
     };
-  }, [socketRef]);
+  }, [socket]);
 
   const markAsRead = async (id) => {
     try {
@@ -53,7 +59,7 @@ export function NotificationProvider({ children }) {
         prev.map((n) => (n._id === id ? { ...n, isRead: true } : n))
       );
     } catch (err) {
-      console.error("Failed to mark notification as read", err);
+      if (import.meta.env.DEV) console.error("Failed to mark notification as read", err);
     }
   };
 
@@ -62,7 +68,7 @@ export function NotificationProvider({ children }) {
       await api.post("/notifications/read-all");
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (err) {
-      console.error("Failed to mark all notifications as read", err);
+      if (import.meta.env.DEV) console.error("Failed to mark all notifications as read", err);
     }
   };
 
@@ -71,7 +77,7 @@ export function NotificationProvider({ children }) {
       await api.delete(`/notifications/${id}`);
       setNotifications((prev) => prev.filter((n) => n._id !== id));
     } catch (err) {
-      console.error("Failed to delete notification", err);
+      if (import.meta.env.DEV) console.error("Failed to delete notification", err);
     }
   };
 
@@ -84,4 +90,5 @@ export function NotificationProvider({ children }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const useNotifications = () => useContext(NotificationContext);

@@ -1,4 +1,4 @@
-import React from "react";
+import { Component } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, RotateCw } from "lucide-react";
@@ -7,7 +7,7 @@ import { AlertTriangle, RotateCw } from "lucide-react";
  * Root error boundary. A render-time exception anywhere in the tree
  * shows this fallback instead of a white screen (FE-01 fix).
  */
-export class ErrorBoundary extends React.Component {
+export class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { err: null };
@@ -20,7 +20,7 @@ export class ErrorBoundary extends React.Component {
   componentDidCatch(err, info) {
     // In dev, mirror to the console. In prod, swap with Sentry/Datadog.
     if (import.meta.env.DEV) {
-      // eslint-disable-next-line no-console
+       
       console.error("ErrorBoundary caught:", err, info);
     }
   }

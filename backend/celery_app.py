@@ -13,11 +13,18 @@ from celery.schedules import crontab
 from config import Config
 from utils.auth_helpers import now_utc
 
+_redis_url = os.environ.get('REDIS_URL', Config.REDIS_URL)
+_use_tls = _redis_url.startswith('rediss://')
+
 celery = Celery(
     'bidflow_tasks',
-    broker=os.environ.get('CELERY_BROKER', Config.REDIS_URL),
-    backend=os.environ.get('CELERY_BACKEND', Config.REDIS_URL),
+    broker=_redis_url,
+    backend=_redis_url,
 )
+
+if _use_tls:
+    celery.conf.broker_use_ssl = {'ssl_cert_reqs': 'none'}
+    celery.conf.redis_backend_use_ssl = {'ssl_cert_reqs': 'none'}
 
 logger = logging.getLogger(__name__)
 
@@ -43,12 +50,14 @@ def check_sla_breaches(self):
     try:
         terminal_statuses = ["Order Received", "Rejected"]
 
-        active_bids = list(db.Bids.find({"status": {"$nin": terminal_statuses}}).limit(1000))
-        breach_count  = 0
-        checked_count = len(active_bids)
-        now           = now_utc_naive()
+        BATCH_SIZE = 500
+        breach_count = 0
+        checked_count = 0
+        now = now_utc_naive()
 
-        for bid in active_bids:
+        cursor = db.Bids.find({"status": {"$nin": terminal_statuses}}).batch_size(BATCH_SIZE)
+        for bid in cursor:
+            checked_count += 1
             current_status  = bid.get("status")
             threshold_days  = SLA_CONFIG.get(current_status)
 

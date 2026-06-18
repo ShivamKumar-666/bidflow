@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 
 export function TagInput({ tags = [], onChange, suggestions = [], placeholder = "Add tags..." }) {
   const [inputValue, setInputValue] = useState("");
@@ -10,7 +9,7 @@ export function TagInput({ tags = [], onChange, suggestions = [], placeholder = 
   const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef(null);
 
-  useEffect(() => {
+  useEffect(() => {  
     const onClick = (e) => {
       if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
         setShowDropdown(false);
@@ -67,6 +66,7 @@ export function TagInput({ tags = [], onChange, suggestions = [], placeholder = 
               type="button"
               onClick={() => removeTag(idx)}
               className="ml-0.5 hover:bg-blue-500/20 rounded-full p-0.5"
+              aria-label={`Remove tag ${tag}`}
             >
               <X className="h-2.5 w-2.5" />
             </button>
@@ -80,6 +80,10 @@ export function TagInput({ tags = [], onChange, suggestions = [], placeholder = 
           onChange={(e) => { setInputValue(e.target.value); setShowDropdown(true); setActiveIndex(-1); }}
           onFocus={() => setShowDropdown(true)}
           onKeyDown={handleKey}
+          role="combobox"
+          aria-label="Add tags"
+          aria-expanded={showDropdown && filtered.length > 0}
+          aria-autocomplete="list"
         />
       </div>
       {showDropdown && (inputValue || filtered.length > 0) && (
