@@ -64,7 +64,11 @@ def download_file(doc_id):
     user_id = get_jwt_identity()
     role = get_jwt().get('role')
     if not DocumentService.check_user_bid_access(user_id, role, bid):
-        if not DocumentService.check_enquiry_is_public(doc.get("enquiryId")):
+        # The public-enquiry bypass only applies to enquiry-level attachments
+        # (no bidId). Bid documents stay confidential for sealed bidding — they
+        # must pass the per-bid access check above regardless of enquiry status.
+        is_enquiry_level = not doc.get("bidId")
+        if not (is_enquiry_level and DocumentService.check_enquiry_is_public(doc.get("enquiryId"))):
             return jsonify({"msg": "Forbidden"}), 403
 
     return send_from_directory(

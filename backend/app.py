@@ -208,6 +208,7 @@ def create_app():
         return {"message": "BidFlow API is running"}
 
     @app.route('/health')
+    @app.route('/api/health')
     def health():
         checks = {}
         try:

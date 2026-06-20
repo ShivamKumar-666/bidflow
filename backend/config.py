@@ -13,13 +13,21 @@ from datetime import timedelta
 from urllib.parse import quote_plus
 
 
-_PLACEHOLDER_SUBSTRINGS = ("change-this", "dev-only", "not-for-production")
+_PLACEHOLDER_SUBSTRINGS = (
+    "change-this", "change_me", "dev-only", "not-for-production",
+    "your-", "example", "placeholder", "secrets.token_hex",
+)
 
 
 def _is_weak(value: str | None) -> bool:
     if not value:
         return True
-    return any(s in value for s in _PLACEHOLDER_SUBSTRINGS)
+    lowered = value.lower()
+    # Obvious placeholders (case-insensitive) or anything too short to be a
+    # real 32-byte hex secret are rejected in production.
+    if len(value) < 32:
+        return True
+    return any(s in lowered for s in _PLACEHOLDER_SUBSTRINGS)
 
 
 def _build_mongo_uri():

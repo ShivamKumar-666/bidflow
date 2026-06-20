@@ -25,8 +25,8 @@ def list_marketplace():
         return jsonify({"msg": "Forbidden"}), 403
 
     try:
-        page = min(int(request.args.get('page', 1)), 100)
-        size = min(int(request.args.get('size', 20)), 100)
+        page = max(min(int(request.args.get('page', 1)), 100), 1)
+        size = max(min(int(request.args.get('size', 20)), 100), 1)
     except ValueError:
         return jsonify({"msg": "Invalid pagination parameters"}), 400
     skip = (page - 1) * size
@@ -124,9 +124,22 @@ def get_marketplace_enquiry(enquiry_id):
     my_bids = [b for b in bids if b.get("createdBy") == user_id] if role == 'Bidder' else []
     all_bids_for_company = bids if (role == 'Company' and enquiry.get("createdBy") == user_id) or role == 'Admin' else []
 
-    enquiry_docs = list(db.Documents.find({"enquiryId": enquiry_id}))
-    bid_ids = [b.get("bidId") for b in bids if b.get("bidId")]
-    bid_docs = list(db.Documents.find({"bidId": {"$in": bid_ids}})) if bid_ids else []
+    # Document visibility for sealed bidding:
+    #   - Enquiry-level documents are visible to every marketplace participant.
+    #   - Bid documents are confidential: only the enquiry owner / Admin may see
+    #     all of them; a Bidder may only see documents on their OWN bids.
+    is_owner_or_admin = role == 'Admin' or (
+        role == 'Company' and enquiry.get("createdBy") == user_id
+    )
+    enquiry_docs = list(db.Documents.find({"enquiryId": enquiry_id, "bidId": None}))
+    if is_owner_or_admin:
+        visible_bid_ids = [b.get("bidId") for b in bids if b.get("bidId")]
+    else:
+        visible_bid_ids = [
+            b.get("bidId") for b in bids
+            if b.get("bidId") and b.get("createdBy") == user_id
+        ]
+    bid_docs = list(db.Documents.find({"bidId": {"$in": visible_bid_ids}})) if visible_bid_ids else []
     all_docs = []
     seen = set()
     for doc in enquiry_docs + bid_docs:

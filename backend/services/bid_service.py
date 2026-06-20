@@ -172,12 +172,12 @@ class BidService:
 
     @classmethod
     def generate_bid_id(cls) -> str:
-        for _ in range(3):
-            token = secrets.token_hex(4)
-            bid_id = f"BID-{token}"
+        # Always emit BID-<8 hex chars> to satisfy the BIDS_SCHEMA pattern.
+        for _ in range(8):
+            bid_id = f"BID-{secrets.token_hex(4)}"
             if not db.Bids.find_one({"bidId": bid_id}):
                 return bid_id
-        return f"BID-{secrets.token_hex(6)}"
+        raise RuntimeError("Could not generate a unique bid ID after 8 attempts")
 
     @classmethod
     def get_computed_win_rate(cls, employee_name: str) -> float:

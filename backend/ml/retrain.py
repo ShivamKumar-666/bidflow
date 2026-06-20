@@ -74,7 +74,8 @@ def retrain_from_db(db) -> dict:
     terminal_bids = list(db.Bids.find(
         {"status": {"$in": ["Order Received", "Rejected"]}},
         {"amount": 1, "submissionDate": 1, "assignedEmployee": 1,
-         "industry": 1, "status": 1, "history": 1, "enquiryId": 1, "comments": 1}
+         "industry": 1, "status": 1, "history": 1, "enquiryId": 1,
+         "comments": 1, "teamSize": 1, "priority": 1}
     ))
 
     if len(terminal_bids) < MIN_TRAINING_RECORDS:

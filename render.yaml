@@ -19,12 +19,10 @@ services:
         value: production
       - key: MONGO_URI
         sync: false  # Set manually in Render dashboard (Atlas URI)
-      - key: SECRET_KEY
-        generateValue: true
-      - key: JWT_SECRET_KEY
-        generateValue: true
-      - key: EMAIL_TOKEN_SECRET
-        generateValue: true
+      # SECRET_KEY / JWT_SECRET_KEY / EMAIL_TOKEN_SECRET come from the shared
+      # group below. They MUST match across backend + celery: the worker signs
+      # retrained ML models with SECRET_KEY (HMAC) and the backend verifies them.
+      - fromGroup: bidflow-secrets
       - key: FRONTEND_URL
         sync: false  # Set to your frontend URL after deployment
       - key: CORS_ALLOWED_ORIGINS
@@ -59,12 +57,9 @@ services:
         sync: false  # Same as backend
       - key: REDIS_URL
         sync: false  # Set to rediss://... (TLS required for Upstash)
-      - key: SECRET_KEY
-        generateValue: true
-      - key: JWT_SECRET_KEY
-        generateValue: true
-      - key: EMAIL_TOKEN_SECRET
-        generateValue: true
+      # Same shared secrets as the backend (see note above) — critical so the
+      # worker-signed model binaries verify against the backend's SECRET_KEY.
+      - fromGroup: bidflow-secrets
 
   # ── Frontend (Static Site) ──────────────────────────────────────────────────
   - type: static_site
@@ -82,3 +77,16 @@ services:
         sync: false  # Set to your backend URL after deployment
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false  # Set to your Google OAuth Client ID (optional)
+
+# ── Shared secrets ────────────────────────────────────────────────────────────
+# Generated once and shared by backend + celery so JWT verification and ML model
+# HMAC signatures are consistent across every service.
+envVarGroups:
+  - name: bidflow-secrets
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: EMAIL_TOKEN_SECRET
+        generateValue: true

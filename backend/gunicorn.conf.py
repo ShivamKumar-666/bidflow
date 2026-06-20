@@ -14,9 +14,11 @@ import os
 bind        = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 
 # ── Workers ───────────────────────────────────────────────────────────────────
-# gevent workers are co-routine based — one process handles many
-# concurrent connections.  Keep worker count at 1 unless behind a load balancer.
-worker_class = "gevent"
+# Flask-SocketIO needs the gevent-websocket worker (not the plain "gevent"
+# worker) for native WebSocket upgrades; otherwise clients silently fall back
+# to slower HTTP long-polling. gevent-websocket is already a dependency.
+# Keep worker count at 1 — SocketIO requires sticky sessions for >1 worker.
+worker_class = "geventwebsocket.gunicorn.workers.GeventWebSocketWorker"
 workers      = int(os.environ.get("GUNICORN_WORKERS", "1"))
 
 # ── Timeouts ──────────────────────────────────────────────────────────────────

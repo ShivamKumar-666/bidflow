@@ -20,12 +20,13 @@ const monthNames = ["January", "February", "March", "April", "May", "June", "Jul
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 const priorityColors = {
+  Critical: "bg-red-600 text-white",
   High: "bg-rose-500 text-white",
   Medium: "bg-amber-500 text-white",
   Low: "bg-blue-500 text-white",
 };
 
-const priorityBadge = { High: "destructive", Medium: "warning", Low: "info" };
+const priorityBadge = { Critical: "destructive", High: "destructive", Medium: "warning", Low: "info" };
 
 export default function CalendarView() {
   const navigate = useNavigate();
@@ -226,7 +227,7 @@ export default function CalendarView() {
                     key={cell.key}
                     role="gridcell"
                     tabIndex={hasEvents && cell.current ? 0 : -1}
-                    aria-label={`${cell.current ? `${monthNames[cell.month]} ${cell.day}` : ''}${hasEvents ? `, ${dayEvents.length} events` : ''}`}
+                    aria-label={`${cell.current ? `${monthNames[currentMonth]} ${cell.day}` : ''}${hasEvents ? `, ${dayEvents.length} events` : ''}`}
                     className={cn(
                       "min-h-24 rounded-md border p-1.5 text-xs transition-colors",
                       cell.current ? "bg-card" : "bg-muted/20 text-muted-foreground/50",

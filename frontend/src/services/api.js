@@ -37,6 +37,9 @@ function enqueueAfterRefresh(config) {
 
 function drainQueue() {
   pendingQueue.forEach(({ config, resolve }) => {
+    // Mark as retried so a second 401 on the replayed request falls through to
+    // logout instead of triggering another refresh cycle.
+    config._retry = true;
     resolve(api(config));
   });
   pendingQueue = [];
