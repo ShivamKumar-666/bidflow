@@ -419,7 +419,7 @@ docker buildx build \
 
 ### Environment Variables (Backend & Celery)
 ```bash
-MONGO_URI=mongodb+srv://shivam258467_db_user:PASSWORD@bidflow.xixl0yd.mongodb.net/bidflow?retryWrites=true&w=majority
+MONGO_URI="MONGO_DB_URL"
 REDIS_URL=rediss://default:PASSWORD@on-seasnail-85102.upstash.io:6379
 SECRET_KEY=your-production-secret
 JWT_SECRET_KEY=your-production-jwt-secret
