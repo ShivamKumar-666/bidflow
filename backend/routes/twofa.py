@@ -77,7 +77,7 @@ def setup_2fa():
     # Generate QR code as base64 PNG
     img = qrcode.make(otp_uri)
     buf = io.BytesIO()
-    img.save(buf, format='PNG')
+    img.save(buf, format='PNG')  # type: ignore[arg-type]
     qr_b64 = base64.b64encode(buf.getvalue()).decode()
 
     return jsonify({

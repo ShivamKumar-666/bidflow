@@ -246,7 +246,7 @@ def submit_marketplace_bid(enquiry_id):
             notif_type="status_change",
             ref_id=str(new_bid["_id"])
         )
-        socketio.emit('notification', notif, room=f"user_{enquiry_creator_id}")
+        socketio.emit('notification', notif, room=f"user_{enquiry_creator_id}")  # type: ignore[call-arg]
 
     return jsonify({
         "msg": "Bid submitted successfully",

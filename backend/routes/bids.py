@@ -89,7 +89,7 @@ def create_bid():
                 notif_type="status_change",
                 ref_id=str(new_bid["_id"])
             )
-            socketio.emit('notification', notif, room=f"user_{enquiry_creator_id}")
+            socketio.emit('notification', notif, room=f"user_{enquiry_creator_id}")  # type: ignore[call-arg]
 
     new_bid['_id'] = str(new_bid['_id'])
     return jsonify(new_bid), 201
@@ -131,7 +131,7 @@ def update_bid_status(id):
                 notif_type="status_change",
                 ref_id=str(bid["_id"])
             )
-            socketio.emit('notification', notif, room=f"user_{target_user_id}")
+            socketio.emit('notification', notif, room=f"user_{target_user_id}")  # type: ignore[call-arg]
 
     bid_creator_id = bid.get("createdBy")
     if bid_creator_id and bid_creator_id != user_id:
@@ -159,7 +159,7 @@ def update_bid_status(id):
             notif_type="status_change",
             ref_id=str(bid["_id"])
         )
-        socketio.emit('notification', notif, room=f"user_{bid_creator_id}")
+        socketio.emit('notification', notif, room=f"user_{bid_creator_id}")  # type: ignore[call-arg]
 
     return jsonify({"msg": "Bid status updated"}), 200
 
@@ -225,7 +225,7 @@ def add_comment(id):
             }
         }
         for uid in relevant_user_ids:
-            socketio.emit('new_comment', comment_data, room=f"user_{uid}")
+            socketio.emit('new_comment', comment_data, room=f"user_{uid}")  # type: ignore[call-arg]
 
         if bid:
             commenter_name = user.get("name", "") if user else ""
@@ -240,7 +240,7 @@ def add_comment(id):
                         notif_type="new_comment",
                         ref_id=str(bid["_id"])
                     )
-                    socketio.emit('notification', notif, room=f"user_{target_user_id}")
+                    socketio.emit('notification', notif, room=f"user_{target_user_id}")  # type: ignore[call-arg]
     except Exception as e:
         current_app.logger.error(f"Post-comment side effects failed for bid {id}: {e}")
 
@@ -599,7 +599,7 @@ def delete_comment(id, comment_id):
             'comment_id': comment_id
         }
         for uid in relevant_user_ids:
-            socketio.emit('delete_comment', delete_data, room=f"user_{uid}")
+            socketio.emit('delete_comment', delete_data, room=f"user_{uid}")  # type: ignore[call-arg]
 
         log_audit("DELETE_COMMENT", f"Deleted comment from bid {bid.get('bidId', id)}")
         return jsonify({"msg": "Comment deleted"}), 200
