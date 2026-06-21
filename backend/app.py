@@ -1,6 +1,11 @@
+import logging
+import os
+
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory, current_app
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+
 from config import Config
 from routes.auth import auth_bp
 from routes.enquiries import enquiries_bp
@@ -16,8 +21,9 @@ from routes.notifications import notifications_bp
 from routes.marketplace import marketplace_bp
 from extensions import socketio, limiter, mail, get_allowed_origins
 from database import db
-import os
-import logging
+
+# Load .env file before anything else
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # ── Sentry error tracking (optional, requires SENTRY_DSN env var) ─────────────
 if os.environ.get('SENTRY_DSN'):
