@@ -2,6 +2,10 @@ import logging
 import os
 
 from dotenv import load_dotenv
+
+# Load .env BEFORE Config reads os.environ at import time
+load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
+
 from flask import Flask, jsonify, request, send_from_directory, current_app
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
@@ -21,9 +25,6 @@ from routes.notifications import notifications_bp
 from routes.marketplace import marketplace_bp
 from extensions import socketio, limiter, mail, get_allowed_origins
 from database import db
-
-# Load .env file before anything else
-load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
 
 # ── Sentry error tracking (optional, requires SENTRY_DSN env var) ─────────────
 if os.environ.get('SENTRY_DSN'):
