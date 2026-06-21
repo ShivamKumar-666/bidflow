@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import { Shield, ArrowLeft, AlertCircle, Eye, EyeOff, Sparkles, Mail, Lock, UserPlus, LogIn, Check, X, Store, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,10 @@ function parseError(err, isRegistering, t) {
 
 function PasswordStrength({ password, t }) {
   const checks = [
-    { label: t("login.checkLength", "8+ characters"), pass: password.length >= 8 },
-    { label: t("login.checkUppercase", "One uppercase letter"), pass: /[A-Z]/.test(password) },
-    { label: t("login.checkNumber", "One number"), pass: /[0-9]/.test(password) },
-    { label: t("login.checkSpecial", "One special character"), pass: /[^a-zA-Z0-9]/.test(password) },
+    { label: t("login.checkLength", "8+ chars"), pass: password.length >= 8 },
+    { label: t("login.checkUppercase", "Uppercase"), pass: /[A-Z]/.test(password) },
+    { label: t("login.checkNumber", "Number"), pass: /[0-9]/.test(password) },
+    { label: t("login.checkSpecial", "Special"), pass: /[^a-zA-Z0-9]/.test(password) },
   ];
   const passed = checks.filter((c) => c.pass).length;
   const strengthLabels = ["", t("login.weak", "Weak"), t("login.fair", "Fair"), t("login.good", "Good"), t("login.strong", "Strong")];
@@ -36,25 +37,25 @@ function PasswordStrength({ password, t }) {
   if (!password) return null;
 
   return (
-    <div className="mt-3 space-y-2">
-      <div className="flex gap-1.5">
+    <div className="mt-2 space-y-1.5">
+      <div className="flex gap-1">
         {[1, 2, 3, 4].map((i) => (
           <div key={i} className={cn("h-1 flex-1 rounded-full transition-colors", i <= passed ? strengthColor : "bg-muted")} />
         ))}
       </div>
-      <div className="flex items-center justify-between text-xs">
-        <span className="text-muted-foreground">{t("login.passwordStrength", "Password strength")}</span>
+      <div className="flex items-center justify-between text-[11px]">
+        <span className="text-muted-foreground">{t("login.passwordStrength", "Strength")}</span>
         <span className={cn("font-semibold", passed === 4 ? "text-emerald-600" : passed >= 2 ? "text-amber-600" : "text-rose-600")}>
           {strengthLabel}
         </span>
       </div>
-      <div className="space-y-1">
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
         {checks.map(({ label, pass }) => (
-          <div key={label} className="flex items-center gap-2 text-xs">
+          <div key={label} className="flex items-center gap-1.5 text-[11px]">
             {pass ? (
-              <Check className="h-3.5 w-3.5 text-emerald-600" />
+              <Check className="h-3 w-3 text-emerald-600 flex-shrink-0" />
             ) : (
-              <X className="h-3.5 w-3.5 text-muted-foreground" />
+              <X className="h-3 w-3 text-muted-foreground flex-shrink-0" />
             )}
             <span className={pass ? "text-foreground" : "text-muted-foreground"}>{label}</span>
           </div>
@@ -96,6 +97,7 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleInitialized, setGoogleInitialized] = useState(false);
+  const [googleConfigured, setGoogleConfigured] = useState(false);
   const [otpDigits, setOtpDigits] = useState(["", "", "", "", "", ""]);
   const otpRefs = useRef([]);
   const googleCallbackRef = useRef(null);
@@ -141,6 +143,7 @@ export default function Login() {
     const initGoogle = async () => {
       try {
         const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+        setGoogleConfigured(!!clientId);
         if (clientId && window.google) {
           window.google.accounts.id.initialize({
             client_id: clientId,
@@ -256,7 +259,7 @@ export default function Login() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="w-full max-w-md">
-          <div className="flex items-center justify-center gap-2 mb-8">
+        <div className="flex items-center justify-center gap-2 mb-3">
             <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-sidebar-primary to-chart-2 flex items-center justify-center text-white">
               <Sparkles className="h-5 w-5" />
             </div>
@@ -345,8 +348,8 @@ export default function Login() {
           <span className="text-xl font-bold tracking-tight">BidFlow</span>
         </div>
 
-        <div className="rounded-2xl border bg-card p-8 shadow-xl">
-          <div className="mb-6">
+        <div className="rounded-2xl border bg-card p-5 shadow-xl">
+          <div className="mb-3">
             <h1 className="text-2xl font-bold tracking-tight">{t("login.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
               {isRegistering ? t("login.subtitleRegister") : t("login.subtitleLogin")}
@@ -360,7 +363,7 @@ export default function Login() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-2.5">
             {isRegistering && (
               <div className="space-y-2">
                 <Label htmlFor="name" className="flex items-center gap-1.5">
@@ -389,15 +392,15 @@ export default function Login() {
                     aria-checked={role === "Bidder"}
                     onClick={() => setRole("Bidder")}
                     className={cn(
-                      "flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                      "flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-sm font-medium transition-all",
                       role === "Bidder"
                         ? "border-primary bg-primary/5 text-primary"
                         : "border-muted hover:border-primary/50"
                     )}
                   >
-                    <Store className="h-5 w-5" />
+                    <Store className="h-4 w-4" />
                     <span>{t("login.roleBidder", "Bid on Projects")}</span>
-                    <span className="text-[10px] text-muted-foreground font-normal">
+                    <span className="text-[9px] text-muted-foreground font-normal leading-tight">
                       {t("login.roleBidderDesc", "Browse & submit competitive bids")}
                     </span>
                   </button>
@@ -407,15 +410,15 @@ export default function Login() {
                     aria-checked={role === "Company"}
                     onClick={() => setRole("Company")}
                     className={cn(
-                      "flex flex-col items-center gap-1.5 rounded-lg border-2 p-3 text-sm font-medium transition-all",
+                      "flex flex-col items-center gap-1 rounded-lg border-2 p-2 text-sm font-medium transition-all",
                       role === "Company"
                         ? "border-primary bg-primary/5 text-primary"
                         : "border-muted hover:border-primary/50"
                     )}
                   >
-                    <Building2 className="h-5 w-5" />
+                    <Building2 className="h-4 w-4" />
                     <span>{t("login.roleCompany", "Post Projects")}</span>
-                    <span className="text-[10px] text-muted-foreground font-normal">
+                    <span className="text-[9px] text-muted-foreground font-normal leading-tight">
                       {t("login.roleCompanyDesc", "Create enquiries & pick winners")}
                     </span>
                   </button>
@@ -467,6 +470,14 @@ export default function Login() {
               {isRegistering && <PasswordStrength password={password} t={t} />}
             </div>
 
+            {!isRegistering && (
+              <div className="text-right">
+                <Link to="/forgot-password" state={{ email }} className="text-xs text-primary hover:underline font-medium">
+                  {t("login.forgotPassword", "Forgot Password?")}
+                </Link>
+              </div>
+            )}
+
             <Button
               type="submit"
               disabled={loading || !allChecksPassed}
@@ -483,26 +494,30 @@ export default function Login() {
             </Button>
           </form>
 
-          <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs">
-              <span className="bg-card px-2 text-muted-foreground">{t("login.or", "or")}</span>
-            </div>
-          </div>
+          {googleConfigured && (
+            <>
+              <div className="relative my-3">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-card px-2 text-muted-foreground">{t("login.or", "or")}</span>
+                </div>
+              </div>
 
-          {googleInitialized ? (
-            <div id="google-signin-btn" className="flex justify-center" />
-          ) : (
-            <GoogleButton
-              t={t}
-              isRegistering={isRegistering}
-              onClick={() => toast.error(t("login.googleNotConfigured", "Google Client ID is not configured on the server. Set GOOGLE_CLIENT_ID env var."))}
-            />
+              {googleInitialized ? (
+                <div id="google-signin-btn" className="flex justify-center" />
+              ) : (
+                <GoogleButton
+                  t={t}
+                  isRegistering={isRegistering}
+                  onClick={() => toast.error(t("login.googleNotConfigured", "Google Client ID is not configured on the server. Set GOOGLE_CLIENT_ID env var."))}
+                />
+              )}
+            </>
           )}
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
+          <p className="text-center text-sm text-muted-foreground mt-3">
             {isRegistering ? t("login.alreadyHaveAccount") : t("login.dontHaveAccount")}
             <button
               type="button"
@@ -514,7 +529,7 @@ export default function Login() {
           </p>
         </div>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
+        <p className="text-center text-xs text-muted-foreground mt-2">
           {t("login.termsAgree", "By continuing you agree to BidFlow's Terms of Service")}
         </p>
       </div>

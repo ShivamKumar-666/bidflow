@@ -15,12 +15,15 @@ import Enquiries from "@/pages/Enquiries";
 import Bids from "@/pages/Bids";
 import Marketplace from "@/pages/Marketplace";
 import Reports from "@/pages/Reports";
+import AdminUsers from "@/pages/AdminUsers";
 import AuditLogs from "@/pages/AuditLogs";
 import Profile from "@/pages/Profile";
 import TwoFASetup from "@/pages/TwoFASetup";
 import CalendarView from "@/pages/CalendarView";
 import CustomerPortal from "@/pages/CustomerPortal";
 import VerifyEmail from "@/pages/VerifyEmail";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 
 const AppRoutes = () => {
   const { user, loading, twoFASetup, dismissTwoFASetup } = useContext(AuthContext);
@@ -50,6 +53,8 @@ const AppRoutes = () => {
 
         <Route path="/share/:token" element={<CustomerPortal />} />
         <Route path="/verify-email" element={<VerifyEmail />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
 
         <Route
           path="/dashboard"
@@ -112,6 +117,17 @@ const AppRoutes = () => {
             <ProtectedRoute>
               <AppLayout>
                 <Profile />
+              </AppLayout>
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin-users"
+          element={
+            <ProtectedRoute adminOnly>
+              <AppLayout>
+                <AdminUsers />
               </AppLayout>
             </ProtectedRoute>
           }

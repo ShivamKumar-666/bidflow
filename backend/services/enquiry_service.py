@@ -30,12 +30,11 @@ class EnquiryService:
 
     @classmethod
     def generate_enquiry_id(cls) -> str:
-        for _ in range(3):
-            token = secrets.token_hex(4)
-            enq_id = f"ENQ-{token}"
+        for _ in range(8):
+            enq_id = f"ENQ-{secrets.token_hex(4)}"
             if not db.Enquiries.find_one({"enquiryId": enq_id}):
                 return enq_id
-        return f"ENQ-{secrets.token_hex(6)}"
+        raise RuntimeError("Could not generate a unique enquiry ID after 8 attempts")
 
     @classmethod
     def get_visibility_filter(cls, user_id: str, role: str) -> dict:

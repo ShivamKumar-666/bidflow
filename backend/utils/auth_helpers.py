@@ -15,25 +15,43 @@ def now_utc():
 
 def current_user_and_role():
     """
-    Resolve the current user from the JWT and return (user_doc, role) or (None, role).
-    Uses the JWT's `sub` claim + `role` additional claim — does NOT round-trip
-    to MongoDB for the role (avoids the SEC-29 stale-privilege / extra-DB-hit issue).
+    Resolve the current user from the JWT and return (user_doc, role).
+    Reads role from the DB (not the JWT) so role changes take effect immediately.
     """
     verify_jwt_in_request()
     user_id = get_jwt_identity()
-    role    = get_jwt().get('role')
     user    = None
+    role    = None
     if user_id and ObjectId.is_valid(user_id):
-        user = db.Users.find_one({"_id": ObjectId(user_id)})
+        user = db.Users.find_one({"_id": ObjectId(user_id)}, {"role": 1})
+        if user:
+            role = user.get('role')
+    if role is None:
+        role = get_jwt().get('role')
     return user, role
 
 
+def get_user_role():
+    """Read the current user's role from the DB (not the JWT).
+    Falls back to the JWT claim if the user document is not found."""
+    user_id = get_jwt_identity()
+    if user_id and ObjectId.is_valid(user_id):
+        user = db.Users.find_one({"_id": ObjectId(user_id)}, {"role": 1})
+        if user:
+            return user.get('role')
+    return get_jwt().get('role')
+
+
 def admin_required(fn):
-    """Decorator: returns 403 unless the JWT carries role=Admin."""
+    """Decorator: returns 403 unless the user has role=Admin in the DB."""
     @wraps(fn)
     def wrapper(*args, **kwargs):
         verify_jwt_in_request()
-        if get_jwt().get('role') != 'Admin':
+        user_id = get_jwt_identity()
+        if not user_id or not ObjectId.is_valid(user_id):
+            return jsonify({"msg": "Invalid token"}), 401
+        user = db.Users.find_one({"_id": ObjectId(user_id)}, {"role": 1})
+        if not user or user.get('role') != 'Admin':
             return jsonify({"msg": "Admin access required"}), 403
         return fn(*args, **kwargs)
     return wrapper
@@ -53,7 +71,9 @@ def bid_access_required(fn):
             return jsonify({"msg": "Bid not found"}), 404
         role = get_jwt().get('role')
         user_id = get_jwt_identity()
-        user = db.Users.find_one({"_id": ObjectId(user_id)}, {"name": 1}) if ObjectId.is_valid(user_id) else None
+        user = db.Users.find_one({"_id": ObjectId(user_id)}, {"name": 1, "role": 1}) if ObjectId.is_valid(user_id) else None
+        if user:
+            role = user.get('role', role)
         is_admin = role == 'Admin'
         assigned = bid.get('assignedEmployee')
         is_owner = bool(user and (user.get('name') == assigned or str(user['_id']) == str(assigned)))

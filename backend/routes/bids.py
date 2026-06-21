@@ -6,10 +6,10 @@ from bson.objectid import ObjectId
 from database import db
 from extensions import socketio, limiter
 from flask import Blueprint, current_app, jsonify, make_response, request
-from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
+from flask_jwt_extended import get_jwt_identity, jwt_required
 from services import BidService, DocumentService, NotificationService
 from utils import log_audit
-from utils.auth_helpers import now_utc, require_oid, bid_access_required
+from utils.auth_helpers import now_utc, require_oid, bid_access_required, get_user_role
 
 bids_bp = Blueprint('bids', __name__)
 
@@ -18,7 +18,7 @@ bids_bp = Blueprint('bids', __name__)
 @jwt_required()
 def get_bids():
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     filter_query = BidService.get_bid_filter(user_id, role)
 
     try:
@@ -64,6 +64,14 @@ def create_bid():
     if amount < 0:
         return jsonify({"msg": "amount must be non-negative"}), 400
 
+    try:
+        team_size = int(data.get("teamSize", 1))
+        if team_size < 1:
+            team_size = 1
+    except (TypeError, ValueError):
+        return jsonify({"msg": "teamSize must be a valid integer"}), 400
+    data["teamSize"] = team_size
+
     new_bid = BidService.create_bid(data, get_jwt_identity())
 
     log_audit("CREATE_BID", f"Created bid {new_bid['bidId']} for enquiry {new_bid['enquiryId']}")
@@ -101,7 +109,7 @@ def update_bid_status(id):
         return jsonify({"msg": "Bid not found"}), 404
 
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     if not BidService.can_update_bid_status(user_id, role, bid):
         return jsonify({"msg": "Only the enquiry owner can update bid status"}), 403
 
@@ -260,7 +268,7 @@ def predict_bid():
         if not current_user:
             return jsonify({"msg": "User not found"}), 404
         current_name = current_user.get("name", "")
-        role = get_jwt().get('role')
+        role = get_user_role()
 
         override_name = data.get("assignedEmployee", current_name)
         if role != 'Admin' and override_name != current_name:
@@ -301,7 +309,7 @@ def get_calendar_bids():
     try:
         month_param = request.args.get('month')
         user_id = get_jwt_identity()
-        role = get_jwt().get('role')
+        role = get_user_role()
 
         bid_filter = BidService.get_calendar_filter(user_id, role)
 
@@ -473,7 +481,7 @@ def delete_bid(id):
         bid_id_str = bid.get("bidId", id)
 
         # Bidder-specific: only allow delete if status is Rejected or bid is > 30 days old
-        role = get_jwt().get('role')
+        role = get_user_role()
         user_id = get_jwt_identity()
         if role == 'Bidder' and bid.get('createdBy') == user_id:
             is_rejected = bid.get('status') == 'Rejected'

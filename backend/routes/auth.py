@@ -7,8 +7,8 @@ from database import db
 from extensions import limiter
 from services import AuthService
 from utils.auth_helpers import now_utc, admin_required
-from utils.email_tokens import generate_verification_token, confirm_verification_token
-from utils.email_sender import send_verification_email
+from utils.email_tokens import generate_verification_token, confirm_verification_token, generate_reset_token, confirm_reset_token
+from utils.email_sender import send_verification_email, send_password_reset_email
 from itsdangerous import SignatureExpired, BadSignature
 
 
@@ -183,10 +183,44 @@ def me():
 @jwt_required()
 @admin_required
 def list_users():
-    users = list(db.Users.find({}, {"name": 1, "role": 1, "industry": 1}))
+    users = list(db.Users.find({}, {
+        "name": 1, "email": 1, "role": 1, "industry": 1,
+        "is_verified": 1, "totp_enabled": 1, "created_at": 1
+    }))
     for u in users:
         u['_id'] = str(u['_id'])
     return jsonify(users), 200
+
+
+@auth_bp.route('/admin/reset-password', methods=['POST'])
+@jwt_required()
+@admin_required
+def admin_reset_password():
+    data = request.get_json() or {}
+    user_id = data.get('user_id')
+    new_password = data.get('new_password')
+
+    if not user_id or not new_password:
+        return jsonify({"msg": "Missing user_id or new_password"}), 400
+
+    from bson.objectid import ObjectId, InvalidId
+    try:
+        oid = ObjectId(user_id)
+    except (InvalidId, TypeError):
+        return jsonify({"msg": "Invalid user ID"}), 400
+
+    user = db.Users.find_one({"_id": oid})
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    pw_error = AuthService.validate_password(new_password)
+    if pw_error:
+        return jsonify({"msg": pw_error}), 400
+
+    hashed = AuthService.hash_password(new_password)
+    db.Users.update_one({"_id": oid}, {"$set": {"password": hashed}})
+
+    return jsonify({"msg": "Password has been reset successfully"}), 200
 
 
 @auth_bp.route('/profile', methods=['PUT'])
@@ -261,6 +295,65 @@ def resend_verification():
     except Exception as e:
         current_app.logger.error(f"Failed to resend verification to {email}: {e}")
     return jsonify({"msg": "If that email exists and is unverified, a new link has been sent."}), 200
+
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+@limiter.limit("5 per hour")
+def forgot_password():
+    data = request.get_json() or {}
+    email = data.get('email', '').strip().lower()
+
+    if not email:
+        return jsonify({"msg": "Email is required"}), 400
+
+    user = db.Users.find_one({"email": email})
+    if not user:
+        return jsonify({"msg": "If that email exists, a password reset link has been sent."}), 200
+
+    try:
+        token = generate_reset_token(email)
+        send_password_reset_email(email, token)
+    except Exception as e:
+        current_app.logger.error(f"Failed to send password reset to {email}: {e}")
+
+    return jsonify({"msg": "If that email exists, a password reset link has been sent."}), 200
+
+
+@auth_bp.route('/reset-password', methods=['POST'])
+@limiter.limit("10 per hour")
+def reset_password():
+    data = request.get_json() or {}
+    token = data.get('token')
+    new_password = data.get('new_password')
+
+    if not token or not new_password:
+        return jsonify({"msg": "Missing token or new_password"}), 400
+
+    try:
+        email = confirm_reset_token(token)
+    except SignatureExpired:
+        return jsonify({
+            "msg": "Reset link has expired. Please request a new one.",
+            "error": "token_expired"
+        }), 400
+    except BadSignature:
+        return jsonify({
+            "msg": "Invalid or tampered reset link.",
+            "error": "token_invalid"
+        }), 400
+
+    user = db.Users.find_one({"email": email})
+    if not user:
+        return jsonify({"msg": "User not found"}), 404
+
+    pw_error = AuthService.validate_password(new_password)
+    if pw_error:
+        return jsonify({"msg": pw_error}), 400
+
+    hashed = AuthService.hash_password(new_password)
+    db.Users.update_one({"email": email}, {"$set": {"password": hashed}})
+
+    return jsonify({"msg": "Password has been reset successfully. You can now log in."}), 200
 
 
 @auth_bp.route('/google-client-id', methods=['GET'])

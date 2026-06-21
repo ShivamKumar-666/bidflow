@@ -1,7 +1,7 @@
 import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, FileText, CalendarDays,
-  BarChart3, Activity, User, Shield, Sparkles, Store,
+  BarChart3, Activity, User, Shield, Sparkles, Store, Users,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTranslation } from "react-i18next";
@@ -19,6 +19,7 @@ const navConfig = [
 const marketplaceNav = { to: "/marketplace", icon: Store, key: "sidebar.marketplace" };
 
 const adminNav = [
+  { to: "/admin-users", icon: Users, key: "sidebar.users" },
   { to: "/reports", icon: BarChart3, key: "sidebar.reports" },
 ];
 

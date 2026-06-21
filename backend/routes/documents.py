@@ -1,8 +1,8 @@
 from flask import Blueprint, request, jsonify, send_from_directory, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from database import db
 from services import DocumentService
-from utils.auth_helpers import require_oid
+from utils.auth_helpers import require_oid, get_user_role
 from extensions import limiter
 
 documents_bp = Blueprint('documents', __name__)
@@ -34,7 +34,7 @@ def upload_file():
         return jsonify({"msg": "Bid not found"}), 404
 
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     if not DocumentService.check_user_bid_access(user_id, role, bid):
         return jsonify({"msg": "Forbidden: you are not assigned to this bid"}), 403
 
@@ -62,7 +62,7 @@ def download_file(doc_id):
     bid = db.Bids.find_one({"_id": bid_oid}) if bid_oid else None
 
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     if not DocumentService.check_user_bid_access(user_id, role, bid):
         if not DocumentService.check_enquiry_is_public(doc.get("enquiryId")):
             return jsonify({"msg": "Forbidden"}), 403
@@ -87,7 +87,7 @@ def get_bid_documents(bid_id):
         return jsonify({"msg": "Bid not found"}), 404
 
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     if not DocumentService.check_user_bid_access(user_id, role, bid):
         return jsonify({"msg": "Forbidden"}), 403
 

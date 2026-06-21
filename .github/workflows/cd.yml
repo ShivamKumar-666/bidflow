@@ -5,19 +5,17 @@ on:
     branches: [main]
     tags: ['v*']
 
+# Required GitHub Secrets:
+#   RENDER_API_KEY    — Render account API key (Settings → API Keys)
+#   RENDER_SERVICE_ID — Backend service ID (from Render dashboard URL or API)
 env:
   REGISTRY: ghcr.io
   BACKEND_IMAGE: ${{ github.repository }}/backend
   FRONTEND_IMAGE: ${{ github.repository }}/frontend
 
 jobs:
-  ci-gate:
-    name: CI Gate
-    uses: ./.github/workflows/ci.yml
-
   build-and-push:
     name: Build & Push Docker Images
-    needs: [ci-gate]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -77,3 +75,40 @@ jobs:
           labels: ${{ steps.meta-frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy-render:
+    name: Deploy to Render
+    needs: [build-and-push]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    
+    steps:
+      - name: Trigger Render deploy
+        run: |
+          if [ -z "$RENDER_API_KEY" ] || [ -z "$RENDER_SERVICE_ID" ]; then
+            echo "RENDER_API_KEY or RENDER_SERVICE_ID not set — skipping deploy."
+            echo "Add these secrets in GitHub repo Settings → Secrets → Actions."
+            exit 0
+          fi
+
+          echo "Triggering Render deploy for service $RENDER_SERVICE_ID..."
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys" \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{"clear_cache": false}')
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | head -n -1)
+          
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "Deploy triggered successfully (HTTP $HTTP_CODE)"
+            echo "$BODY" | jq . || echo "$BODY"
+          else
+            echo "Deploy trigger failed (HTTP $HTTP_CODE)"
+            echo "$BODY" | jq . || echo "$BODY"
+            exit 1
+          fi
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}

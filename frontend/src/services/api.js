@@ -10,6 +10,12 @@ function getCookie(name) {
   return null;
 }
 
+// Public pages that don't require authentication — skip 401 redirects here.
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password", "/verify-email"];
+function isPublicPage() {
+  return PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p));
+}
+
 const api = axios.create({
   baseURL: `${import.meta.env.VITE_API_BASE_URL}/api/v1`,
   withCredentials: true,   // SEC-01: send httpOnly JWT cookie automatically
@@ -59,7 +65,7 @@ api.interceptors.response.use(
     if (response && response.status === 401 && !originalRequest._retry) {
       if (originalRequest.url === "/auth/refresh") {
         // Already on the refresh endpoint — don't loop.
-        if (!window.location.pathname.startsWith("/login")) {
+        if (!window.location.pathname.startsWith("/login") && !isPublicPage()) {
           window.location.href = "/login";
         }
         return Promise.reject(error);
@@ -77,7 +83,7 @@ api.interceptors.response.use(
         } catch (refreshError) {
           isRefreshing = false;
           rejectQueue(refreshError);
-          if (!window.location.pathname.startsWith("/login")) {
+          if (!window.location.pathname.startsWith("/login") && !isPublicPage()) {
             window.location.href = "/login";
           }
           return Promise.reject(refreshError);
@@ -103,7 +109,7 @@ api.interceptors.response.use(
 
     // Auto-logout on 401 — token revoked or expired and refresh failed.
     if (response && response.status === 401) {
-      if (!window.location.pathname.startsWith("/login")) {
+      if (!window.location.pathname.startsWith("/login") && !isPublicPage()) {
         window.location.href = "/login";
       }
     }

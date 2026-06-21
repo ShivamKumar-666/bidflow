@@ -36,7 +36,7 @@ export default function CalendarView() {
   const [selected, setSelected] = useState(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
-  const monthRef = useRef(null);
+  const [decadeStart, setDecadeStart] = useState(Math.floor(new Date().getFullYear() / 10) * 10); const monthRef = useRef(null);
   const yearRef = useRef(null);
 
   const currentYear = currentDate.getFullYear();
@@ -103,9 +103,9 @@ export default function CalendarView() {
       result.push({ day: result.length - daysInMonth - firstDay + 1, current: false, key: `n${result.length}` });
     }
     return result;
-  }, [firstDay, daysInPrev, daysInMonth]); // eslint-disable-line react-hooks/preserve-manual-memoization
+  }, [firstDay, daysInPrev, daysInMonth]);
 
-  const today = useMemo(() => new Date(), []);  
+  const today = useMemo(() => new Date(), []);
   const isToday = (day, current) => {
     if (!current) return false;
     return day === today.getDate() && currentMonth === today.getMonth() && currentYear === today.getFullYear();
@@ -124,9 +124,9 @@ export default function CalendarView() {
     }
     (acc[dateKey] = acc[dateKey] || []).push(e);
     return acc;
-  }, {}), [events]);  
+  }, {}), [events]);
 
-  const years = useMemo(() => Array.from({ length: 11 }, (_, i) => currentYear - 5 + i), [currentYear]); // eslint-disable-line react-hooks/preserve-manual-memoization
+  const years = useMemo(() => Array.from({ length: 12 }, (_, i) => decadeStart + i), [decadeStart]);
 
   return (
     <div className="space-y-6">
@@ -189,20 +189,41 @@ export default function CalendarView() {
                     {currentYear}
                   </button>
                   {showYearPicker && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-32 rounded-md border bg-popover text-popover-foreground shadow-md p-2 grid grid-cols-2 gap-1 max-h-48 overflow-y-auto">
-                      {years.map((y) => (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-40 rounded-md border bg-popover text-popover-foreground shadow-md p-2">
+                      <div className="flex items-center justify-between mb-2">
                         <button
-                          key={y}
                           type="button"
-                          onClick={() => { setCurrentDate(new Date(y, currentMonth, 1)); setShowYearPicker(false); }}
-                          className={cn(
-                            "text-xs px-2 py-1.5 rounded hover:bg-accent transition-colors",
-                            y === currentYear && "bg-primary text-primary-foreground"
-                          )}
+                          onClick={() => setDecadeStart((d) => d - 10)}
+                          className="p-1 rounded hover:bg-accent"
+                          aria-label="Previous decade"
                         >
-                          {y}
+                          <ChevronLeft className="h-4 w-4" />
                         </button>
-                      ))}
+                        <span className="text-xs font-medium">{decadeStart + 1}–{decadeStart + 12}</span>
+                        <button
+                          type="button"
+                          onClick={() => setDecadeStart((d) => d + 10)}
+                          className="p-1 rounded hover:bg-accent"
+                          aria-label="Next decade"
+                        >
+                          <ChevronRight className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        {years.map((y) => (
+                          <button
+                            key={y}
+                            type="button"
+                            onClick={() => { setCurrentDate(new Date(y, currentMonth, 1)); setShowYearPicker(false); }}
+                            className={cn(
+                              "text-xs px-2 py-1.5 rounded hover:bg-accent transition-colors",
+                              y === currentYear && "bg-primary text-primary-foreground"
+                            )}
+                          >
+                            {y}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

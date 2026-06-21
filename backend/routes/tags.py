@@ -1,8 +1,9 @@
 from flask import Blueprint, current_app, jsonify
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from database import db
 from bson.objectid import ObjectId
 from extensions import limiter
+from utils.auth_helpers import get_user_role
 
 tags_bp = Blueprint('tags', __name__)
 
@@ -14,7 +15,7 @@ def get_unique_tags():
     """Get unique tags scoped to the user's visible enquiries and bids."""
     try:
         user_id = get_jwt_identity()
-        role = get_jwt().get('role')
+        role = get_user_role()
 
         if role == 'Admin':
             enq_filter = {}

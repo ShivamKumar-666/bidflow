@@ -17,9 +17,9 @@ function ShapBar({ explanation }) {
       <div className="relative h-2 rounded-full bg-muted overflow-hidden">
         <div
           className={cn("absolute top-0 h-full rounded-full transition-all", isPositive ? "bg-emerald-500" : "bg-rose-500")}
-          style={{ width: `${pct}%`, left: isPositive ? "50%" : `${50 - pct}%` }}
+          style={{ width: `${pct}%`, insetInlineStart: isPositive ? "50%" : `${50 - pct}%` }}
         />
-        <div className="absolute top-0 left-1/2 w-px h-full bg-border" />
+        <div className="absolute top-0 start-1/2 w-px h-full bg-border" />
       </div>
       <p className="text-[10px] text-muted-foreground leading-tight">{explanation.text}</p>
     </div>
@@ -57,7 +57,7 @@ export default function LivePrediction({ livePredict, loading }) {
       </div>
       {!loading && explanations.length > 0 && (
         <>
-          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+          <div className="space-y-2">
             {visibleExplanations.map((ex, i) => (
               <ShapBar key={i} explanation={ex} />
             ))}

@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from database import db
 from extensions import limiter
+from utils.auth_helpers import get_user_role
 
 audit_bp = Blueprint('audit', __name__)
 
@@ -12,7 +13,7 @@ audit_bp = Blueprint('audit', __name__)
 def get_audit_logs():
     """Return audit log entries. Admin sees all, others see only their own."""
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
 
     try:
         limit = min(int(request.args.get('limit', 100)), 500)

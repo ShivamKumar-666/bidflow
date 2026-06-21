@@ -29,6 +29,7 @@
     "bids": "Bids",
     "calendar": "Calendar",
     "profile": "Profile",
+    "users": "Users",
     "reports": "Reports",
     "auditLogs": "Audit Logs",
     "adminPrivileges": "Admin Privileges Active",
@@ -58,6 +59,7 @@
     "nameLabel": "Full Name",
     "emailLabel": "Email Address",
     "passwordLabel": "Password",
+    "forgotPassword": "Forgot Password?",
     "signInBtn": "Sign In",
     "registerBtn": "Register",
     "alreadyHaveAccount": "Already have an account? ",
@@ -422,6 +424,29 @@
   "errors": {
     "tooManyAttempts": "Too many attempts. Please wait a moment before trying again.",
     "cannotReachServer": "Cannot reach the server. Make sure the backend is running (python app.py) and try again."
+  },
+  "forgotPassword": {
+    "title": "Forgot Password",
+    "subtitle": "Enter your email and we'll send you a reset link",
+    "sendLink": "Send Reset Link",
+    "sending": "Sending...",
+    "sent": "If that email exists, a password reset link has been sent. Check your inbox.",
+    "backToLogin": "Back to Login",
+    "failed": "Something went wrong. Please try again."
+  },
+  "resetPassword": {
+    "title": "Set New Password",
+    "subtitle": "Choose a strong password for your account",
+    "newPassword": "New Password",
+    "confirmPassword": "Confirm Password",
+    "resetBtn": "Reset Password",
+    "resetting": "Resetting...",
+    "mismatch": "Passwords do not match",
+    "successDesc": "Your password has been reset. You can now log in with your new password.",
+    "successToast": "Password reset successfully!",
+    "failed": "Failed to reset password. Please try again.",
+    "invalidLink": "Invalid Reset Link",
+    "invalidLinkDesc": "This password reset link is invalid or missing. Please request a new one."
   },
   "calendar": {
     "title": "Calendar & Deadlines",

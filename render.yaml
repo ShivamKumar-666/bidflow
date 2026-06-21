@@ -3,7 +3,8 @@
 #
 # Prerequisites:
 # - MongoDB Atlas cluster (free tier)
-# - Atlas connection string set as RENDER_MONGO_URI secret
+# - Render env group "bidflow-secrets" with auto-generated keys
+# - Gmail App Password for MAIL_USERNAME / MAIL_PASSWORD
 
 services:
   # ── Backend API ─────────────────────────────────────────────────────────────
@@ -13,38 +14,38 @@ services:
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     plan: free
+    autoDeploy: false
     healthCheckPath: /health
     envVars:
       - key: FLASK_ENV
         value: production
       - key: MONGO_URI
-        sync: false  # Set manually in Render dashboard (Atlas URI)
-      - key: SECRET_KEY
-        generateValue: true
-      - key: JWT_SECRET_KEY
-        generateValue: true
-      - key: EMAIL_TOKEN_SECRET
-        generateValue: true
+        sync: false  # Set to your MongoDB Atlas connection string
+      - fromGroup: bidflow-secrets
       - key: FRONTEND_URL
-        sync: false  # Set to your frontend URL after deployment
+        sync: false  # Set to your frontend URL (e.g. https://bidflow-frontend.onrender.com)
       - key: CORS_ALLOWED_ORIGINS
-        sync: false  # Set to your frontend URL after deployment
+        sync: false  # Set to your frontend URL (same as FRONTEND_URL)
+      # ── Email (Gmail SMTP) ──────────────────────────────────────────────────
       - key: MAIL_SERVER
         value: smtp.gmail.com
       - key: MAIL_PORT
         value: "587"
       - key: MAIL_USE_TLS
         value: "true"
+      - key: MAIL_USERNAME
+        sync: false  # Your Gmail address (e.g. you@gmail.com)
+      - key: MAIL_PASSWORD
+        sync: false  # Gmail App Password (16 chars, no spaces)
       - key: MAIL_DEFAULT_SENDER
-        sync: false  # Set to your sender email in Render dashboard
-      # Set these in Render dashboard:
-      # MAIL_USERNAME
-      # MAIL_PASSWORD
-      # GOOGLE_CLIENT_ID (optional)
+        sync: false  # Same as MAIL_USERNAME
+      # ── Optional ────────────────────────────────────────────────────────────
+      # - key: GOOGLE_CLIENT_ID
+      #   sync: false
       - key: REDIS_URL
-        sync: false  # Set to rediss://... (TLS required for Upstash)
+        sync: false  # Upstash Redis URL (rediss://... with TLS)
 
-  # ── Celery Worker (Background Tasks) ────────────────────────────────────────
+  # ── Celery Worker (Background Tasks) ───────────────────────────────────────
   - type: worker
     name: bidflow-celery
     env: docker
@@ -52,33 +53,43 @@ services:
     dockerContext: ./backend
     dockerCommand: celery -A celery_app.celery worker --beat --loglevel=info
     plan: free
+    autoDeploy: false
     envVars:
       - key: FLASK_ENV
         value: production
       - key: MONGO_URI
         sync: false  # Same as backend
       - key: REDIS_URL
-        sync: false  # Set to rediss://... (TLS required for Upstash)
-      - key: SECRET_KEY
-        generateValue: true
-      - key: JWT_SECRET_KEY
-        generateValue: true
-      - key: EMAIL_TOKEN_SECRET
-        generateValue: true
+        sync: false  # Same as backend
+      - fromGroup: bidflow-secrets
 
   # ── Frontend (Static Site) ──────────────────────────────────────────────────
   - type: static_site
     name: bidflow-frontend
-    buildCommand: cd frontend && npm install && npm run build
+    buildCommand: cd frontend && npm install && npm run lint && npm run build
     staticPublishPath: frontend/dist
+    autoDeploy: false
     routes:
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: VITE_API_BASE_URL
-        sync: false  # Set to your backend URL after deployment
+        sync: false  # Set to your backend URL (e.g. https://bidflow-backend.onrender.com)
       - key: VITE_SOCKET_URL
-        sync: false  # Set to your backend URL after deployment
+        sync: false  # Set to your backend URL (same as VITE_API_BASE_URL)
       - key: VITE_GOOGLE_CLIENT_ID
-        sync: false  # Set to your Google OAuth Client ID (optional)
+        sync: false  # Optional
+
+# ── Shared secrets ────────────────────────────────────────────────────────────
+# Generated once and shared by backend + celery so JWT verification and ML model
+# HMAC signatures are consistent across every service.
+envVarGroups:
+  - name: bidflow-secrets
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: EMAIL_TOKEN_SECRET
+        generateValue: true

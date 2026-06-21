@@ -33,5 +33,6 @@ celery==5.4.0
 redis==5.2.1
 flask-swagger-ui==5.32.6
 sentry-sdk[flask,celery]==2.0.1
+python-magic-bin==0.4.14
 
 

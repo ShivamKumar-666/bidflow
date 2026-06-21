@@ -32,6 +32,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libevent-2.1-7 \
     libxml2 \
     libxslt1.1 \
+    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN useradd -r -s /bin/false appuser

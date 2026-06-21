@@ -1,8 +1,9 @@
 from flask import Blueprint, request, jsonify, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson.objectid import ObjectId
 from database import db
 from extensions import limiter
+from utils.auth_helpers import get_user_role
 import re
 
 search_bp = Blueprint('search', __name__)
@@ -25,7 +26,7 @@ def global_search():
             return jsonify({"msg": "Query too long (max 200 characters)"}), 400
 
         user_id = get_jwt_identity()
-        role    = get_jwt().get('role')
+        role    = get_user_role()
 
         if role == 'Admin':
             bid_filter = {}

@@ -217,6 +217,32 @@ curl -X POST http://localhost:5000/api/v1/admin/check-sla \
   -H "Authorization: Bearer <token>"
 ```
 
+### Auth — Password Reset
+```bash
+# Forgot password (sends reset email)
+curl -X POST http://localhost:5000/api/v1/auth/forgot-password \
+  -H "Content-Type: application/json" \
+  -d '{"email": "user@example.com"}'
+
+# Reset password (called from frontend with token from email)
+curl -X POST http://localhost:5000/api/v1/auth/reset-password \
+  -H "Content-Type: application/json" \
+  -d '{"token": "<reset-token>", "new_password": "NewP@ss123"}'
+```
+
+### Admin — User Management
+```bash
+# List all users (admin only)
+curl http://localhost:5000/api/v1/auth/users \
+  -H "Authorization: Bearer <admin-token>"
+
+# Reset a user's password (admin only)
+curl -X POST http://localhost:5000/api/v1/auth/admin/reset-password \
+  -H "Authorization: Bearer <admin-token>" \
+  -H "Content-Type: application/json" \
+  -d '{"user_id": "<user-object-id>", "new_password": "NewP@ss123"}'
+```
+
 ---
 
 ## 3. `bidflow/backend/ml/`
@@ -419,10 +445,11 @@ docker buildx build \
 
 ### Environment Variables (Backend & Celery)
 ```bash
-MONGO_URI=mongodb+srv://shivam258467_db_user:PASSWORD@bidflow.xixl0yd.mongodb.net/bidflow?retryWrites=true&w=majority
-REDIS_URL=rediss://default:PASSWORD@on-seasnail-85102.upstash.io:6379
+MONGO_URI=mongodb+srv://<db-user>:<password>@<cluster>.mongodb.net/bidflow?retryWrites=true&w=majority
+REDIS_URL=rediss://default:<password>@<redis-host>:6379
 SECRET_KEY=your-production-secret
 JWT_SECRET_KEY=your-production-jwt-secret
+FRONTEND_URL=https://bidflow-frontend.onrender.com
 MAIL_USERNAME=your-gmail@gmail.com
 MAIL_PASSWORD=your-app-password
 MAIL_DEFAULT_SENDER=your-gmail@gmail.com
@@ -502,4 +529,4 @@ python backup.py
 
 ---
 
-*Last updated: June 17, 2026*
+*Last updated: June 21, 2026*

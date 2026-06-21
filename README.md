@@ -38,12 +38,15 @@ Enterprise-grade bid management platform with ML-powered win predictions, real-t
 | KPI Analytics | Revenue, win rate, pipeline metrics with CSV export |
 | Document Management | Secure file attachments with access control |
 | Real-Time Notifications | WebSocket push for status changes and comments |
+| Admin User Management | User table with search, role badges, and password reset |
 
 ### Security
 
 | Feature | Description |
 |---------|-------------|
 | Two-Factor Auth | Google Authenticator TOTP with backup codes |
+| Forgot Password | Email-based reset with 1-hour token, Gmail-compatible HTML emails |
+| Admin Password Reset | Admin can reset any user's password from the Users panel |
 | JWT + CSRF | httpOnly cookies, refresh tokens, server-side revocation |
 | Rate Limiting | Flask-Limiter with Redis backend for production |
 | RBAC | Role-based access with ownership enforcement |
@@ -140,7 +143,7 @@ bidflow/
 │   └── utils/              # Helpers (email, auth, audit, date)
 ├── frontend/
 │   └── src/
-│       ├── pages/          # 12 pages (Dashboard, Bids, Enquiries, Marketplace, etc.)
+│       ├── pages/          # 15 pages (Dashboard, Bids, Enquiries, Marketplace, AdminUsers, ForgotPassword, ResetPassword, etc.)
 │       ├── components/     # BidTable, CreateBidDialog, CommentsDialog, etc.
 │       ├── contexts/       # Auth, Theme, Notification, Socket contexts
 │       ├── hooks/          # useBids, useMarketplace, useUsers
@@ -195,6 +198,13 @@ BidFlow deploys on **Render** (free tier) with **MongoDB Atlas** (free tier).
 - Cache: Upstash Redis (TLS)
 
 See [DEPLOYMENT.md](DEPLOYMENT.md) for step-by-step guide.
+
+---
+
+## Security Notes
+
+- **JWT role caching**: User roles are read from the JWT claim (not the database) for performance. If a user's role changes (promotion/demotion), the change takes effect after the current token expires (≤1 hour). To force immediate re-auth, revoke the user's refresh token.
+- **TOTP**: Standard TOTP with `valid_window=1`. Backup codes are single-use and deleted after redemption.
 
 ---
 

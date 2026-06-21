@@ -1,9 +1,9 @@
 from flask import Blueprint, request, jsonify, current_app, send_from_directory
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from database import db
 from services import EnquiryService, DocumentService
 from utils import log_audit
-from utils.auth_helpers import require_oid, admin_required
+from utils.auth_helpers import require_oid, admin_required, get_user_role
 from extensions import limiter
 
 enquiries_bp = Blueprint('enquiries', __name__)
@@ -14,7 +14,7 @@ enquiries_bp = Blueprint('enquiries', __name__)
 @limiter.limit("60 per minute")
 def get_enquiries():
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     if role == 'Bidder':
         return jsonify({"msg": "Bidders must use the marketplace"}), 403
     filter_query = EnquiryService.get_visibility_filter(user_id, role)
@@ -46,7 +46,7 @@ def get_enquiries():
 @jwt_required()
 @limiter.limit("30 per minute")
 def create_enquiry():
-    role = get_jwt().get('role')
+    role = get_user_role()
     if role == 'Bidder':
         return jsonify({"msg": "Bidders must use the marketplace"}), 403
     data = request.get_json() or {}
@@ -66,7 +66,7 @@ def create_enquiry():
 @limiter.limit("30 per minute")
 def update_enquiry(id):
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     if role == 'Bidder':
         return jsonify({"msg": "Bidders must use the marketplace"}), 403
     enq_oid = require_oid(id)
@@ -94,7 +94,7 @@ def update_enquiry(id):
 @limiter.limit("10 per minute")
 def delete_enquiry(id):
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     enq_oid = require_oid(id)
     if enq_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
@@ -119,7 +119,7 @@ def delete_enquiry(id):
 @limiter.limit("10 per minute")
 def generate_share_token(id):
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     enq_oid = require_oid(id)
     if enq_oid is None:
         return jsonify({"msg": "Invalid id"}), 400
@@ -191,8 +191,11 @@ def download_public_share_file(token, doc_id):
 
 
 @enquiries_bp.route('/public/share/<token>/upload', methods=['POST'])
+@jwt_required()
 @limiter.limit("10 per minute")
 def upload_public_share_file(token):
+    user_id = get_jwt_identity()
+    role = get_user_role()
     try:
         enq, error = EnquiryService.validate_share_token(token)
         if error:
@@ -207,7 +210,7 @@ def upload_public_share_file(token):
             status = 413 if "too large" in error else 400
             return jsonify({"msg": error}), status
 
-        document, error = DocumentService.upload_enquiry_document(file, enq.get("enquiryId"), "portal")
+        document, error = DocumentService.upload_enquiry_document(file, enq.get("enquiryId"), user_id)
         if error:
             return jsonify({"msg": error}), 400
 
@@ -223,7 +226,7 @@ def upload_public_share_file(token):
 @limiter.limit("30 per minute")
 def upload_enquiry_file(id):
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
     enq_oid = require_oid(id)
     if enq_oid is None:
         return jsonify({"msg": "Invalid id"}), 400

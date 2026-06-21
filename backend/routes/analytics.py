@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, Response, current_app
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from services import AnalyticsService
 from extensions import limiter
+from utils.auth_helpers import get_user_role
 
 analytics_bp = Blueprint('analytics', __name__)
 
@@ -12,7 +13,7 @@ analytics_bp = Blueprint('analytics', __name__)
 def get_dashboard_metrics():
     try:
         user_id = get_jwt_identity()
-        role = get_jwt().get('role')
+        role = get_user_role()
         metrics = AnalyticsService.get_dashboard_metrics(user_id, role)
         return jsonify(metrics), 200
     except Exception:
@@ -26,7 +27,7 @@ def get_dashboard_metrics():
 def export_bids_excel():
     try:
         user_id = get_jwt_identity()
-        role = get_jwt().get('role')
+        role = get_user_role()
         csv_data = AnalyticsService.export_bids_csv(user_id, role)
 
         return Response(

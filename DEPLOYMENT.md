@@ -189,6 +189,16 @@ You should see the BidFlow login page.
 3. You should receive a verification email (if SMTP is configured)
 4. Verify your account and log in
 
+### 4.4 Test Forgot Password
+
+1. Go to login page, click **"Forgot Password?"**
+2. Enter the email of a registered user
+3. Click **"Send Reset Link"**
+4. Check your inbox (and spam folder) for the reset email
+5. Click the **"Reset Password"** button in the email
+6. Enter a new password and confirm
+7. Log in with the new password
+
 ---
 
 ## Step 5: Custom Domain (Optional)
@@ -253,6 +263,15 @@ You should see the BidFlow login page.
 1. Check `MAIL_USERNAME` and `MAIL_PASSWORD` are set correctly
 2. For Gmail, use an **App Password** (not your regular password)
 3. Check Render logs for SMTP errors
+
+### Password reset email not received
+
+**Solution**:
+1. Verify `MAIL_USERNAME` and `MAIL_PASSWORD` are set in Render dashboard
+2. Check spam/junk folder — Gmail may flag automated emails
+3. Verify `FRONTEND_URL` is set correctly (reset links use this URL)
+4. Check Render logs for SMTP connection errors
+5. Rate limit: forgot-password is limited to 5 requests per hour per email
 
 ### Celery worker can't connect to Redis
 

@@ -3,11 +3,11 @@ import re
 
 from bson.objectid import ObjectId
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from database import db
 from extensions import limiter, socketio
 from services import BidService, EnquiryService, NotificationService
-from utils.auth_helpers import now_utc
+from utils.auth_helpers import now_utc, get_user_role
 from utils import log_audit
 
 
@@ -19,7 +19,7 @@ marketplace_bp = Blueprint('marketplace', __name__)
 @limiter.limit("60 per minute")
 def list_marketplace():
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
 
     if role not in ('Admin', 'Bidder', 'Company', 'Sales Executive'):
         return jsonify({"msg": "Forbidden"}), 403
@@ -111,7 +111,7 @@ def list_marketplace():
 @limiter.limit("60 per minute")
 def get_marketplace_enquiry(enquiry_id):
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
 
     enquiry = db.Enquiries.find_one({"enquiryId": enquiry_id})
     if not enquiry:
@@ -138,17 +138,21 @@ def get_marketplace_enquiry(enquiry_id):
                 "uploadDate": doc.get("uploadDate").isoformat() if isinstance(doc.get("uploadDate"), datetime.datetime) else doc.get("uploadDate"),
             })
 
+    enquiry_creator = enquiry.get("createdBy")
+    is_owner = str(enquiry_creator) == user_id if enquiry_creator else False
+    is_admin = role == 'Admin'
+
     return jsonify({
         "enquiry": {
             "_id": str(enquiry["_id"]),
             "enquiryId": enquiry.get("enquiryId"),
             "customerName": enquiry.get("customerName"),
-            "contactInformation": enquiry.get("contactInformation"),
+            "contactInformation": enquiry.get("contactInformation") if (is_owner or is_admin) else None,
             "productServiceRequired": enquiry.get("productServiceRequired"),
             "priority": enquiry.get("priority"),
             "status": enquiry.get("status"),
             "negotiable": enquiry.get("negotiable", True),
-            "notes": enquiry.get("notes", ""),
+            "notes": enquiry.get("notes", "") if (is_owner or is_admin) else "",
             "tags": enquiry.get("tags", []),
             "industry": enquiry.get("industry"),
             "bidCount": enquiry.get("bidCount", 0),
@@ -186,7 +190,7 @@ def get_marketplace_enquiry(enquiry_id):
 @limiter.limit("10 per minute")
 def submit_marketplace_bid(enquiry_id):
     user_id = get_jwt_identity()
-    role = get_jwt().get('role')
+    role = get_user_role()
 
     if role not in ('Bidder', 'Sales Executive', 'Company'):
         return jsonify({"msg": "Only bidders can submit bids on marketplace enquiries"}), 403

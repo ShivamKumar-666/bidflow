@@ -1,10 +1,22 @@
 import os
 
+import magic
 from bson.objectid import ObjectId
 from database import db
 from flask import current_app
 from utils.auth_helpers import now_utc
 from werkzeug.utils import secure_filename
+
+
+MAGIC_SIGNATURES = {
+    '%PDF': {'pdf'},
+    '\x89PNG': {'png'},
+    '\xff\xd8\xff': {'jpg', 'jpeg'},
+    '\xd0\xcf\x11\xe0': {'doc', 'xls'},
+    'PK\x03\x04': {'docx', 'xlsx'},
+}
+
+MAGIC_HEADER_BYTES = 8
 
 
 class DocumentService:
@@ -69,6 +81,25 @@ class DocumentService:
 
         if file.content_type and file.content_type not in cls.ALLOWED_MIMES:
             return None, "File type not allowed"
+
+        header = file.read(MAGIC_HEADER_BYTES)
+        file.seek(0)
+
+        if not header:
+            return None, "Empty file"
+
+        ext = file.filename.rsplit('.', 1)[1].lower()
+
+        if ext != 'txt':
+            matched = False
+            for signature, valid_exts in MAGIC_SIGNATURES.items():
+                if header.startswith(signature.encode('utf-8', errors='ignore')) and ext in valid_exts:
+                    matched = True
+                    break
+            if not matched:
+                mime = magic.from_buffer(header, mime=True)
+                if mime not in cls.ALLOWED_MIMES:
+                    return None, "File content does not match claimed type"
 
         return file, None
 

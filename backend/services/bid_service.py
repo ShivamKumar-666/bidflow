@@ -172,12 +172,11 @@ class BidService:
 
     @classmethod
     def generate_bid_id(cls) -> str:
-        for _ in range(3):
-            token = secrets.token_hex(4)
-            bid_id = f"BID-{token}"
+        for _ in range(8):
+            bid_id = f"BID-{secrets.token_hex(4)}"
             if not db.Bids.find_one({"bidId": bid_id}):
                 return bid_id
-        return f"BID-{secrets.token_hex(6)}"
+        raise RuntimeError("Could not generate a unique bid ID after 8 attempts")
 
     @classmethod
     def get_computed_win_rate(cls, employee_name: str) -> float:
@@ -330,7 +329,10 @@ class BidService:
 
         sales_price = float(data.get("salesPrice", 0.0))
 
-        team_size = int(data.get("teamSize", 1))
+        try:
+            team_size = int(data.get("teamSize", 1))
+        except (TypeError, ValueError):
+            team_size = 1
         if team_size < 1:
             team_size = 1
 
@@ -562,6 +564,14 @@ class BidService:
     def create_bid(cls, data: dict, user_id: str) -> dict:
         amount = float(data.get("amount", 0))
 
+        try:
+            team_size = int(data.get("teamSize", 1))
+            if team_size < 1:
+                team_size = 1
+        except (TypeError, ValueError):
+            team_size = 1
+        data["teamSize"] = team_size
+
         assigned_employee = data.get("assignedEmployee")
         assigned_user = None
         if assigned_employee:
@@ -604,7 +614,7 @@ class BidService:
             "industry": industry,
             "submissionDate": data.get("submissionDate"),
             "assignedEmployee": data.get("assignedEmployee"),
-            "teamSize": int(data.get("teamSize", 1)),
+            "teamSize": data["teamSize"],
             "remarks": bleach.clean(data.get("remarks", ""), strip=True)[:2000],
             "aiPrediction": prediction,
             "shapExplanations": explanations,

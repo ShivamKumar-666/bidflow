@@ -1,7 +1,7 @@
 # BidFlow — Project Report
 
 > **Last Updated**: June 17, 2026
-> **Version**: Production-ready (103 tests, 0 critical issues)
+> **Version**: Production-ready (103 tests)
 
 ---
 
@@ -66,6 +66,7 @@ ML Pipeline (XGBoost + SHAP)
 | Customer Portal | Token-based links for external bid status tracking without exposing internal data |
 | KPI Analytics | Live revenue, win rate, pipeline metrics with Chart.js and CSV export |
 | Document Management | Secure PDF/DOCX/image attachments with access control |
+| Admin User Management | User table with search, role badges, and admin password reset |
 
 ### Security
 
@@ -73,6 +74,8 @@ ML Pipeline (XGBoost + SHAP)
 |---------|---------------|
 | Authentication | bcrypt + JWT httpOnly cookies + refresh tokens |
 | Two-Factor Auth | Google Authenticator TOTP, QR code, 8 backup codes |
+| Forgot Password | Email-based reset with 1-hour token, rate-limited (5/hr per email) |
+| Admin Password Reset | Admin can reset any user's password from the Users panel |
 | Rate Limiting | Flask-Limiter: login 10/min, register 5/min, 2FA 3/min |
 | RBAC | 4 roles with ownership enforcement on all endpoints |
 | Input Sanitization | bleach.clean() on all user text fields |
@@ -81,7 +84,7 @@ ML Pipeline (XGBoost + SHAP)
 | Audit Logging | Every action logged with userId for governance |
 | Security Headers | CSP, X-Frame-Options, HSTS, X-Content-Type-Options |
 | IDOR Prevention | `@bid_access_required` decorator, ownership checks |
-| Non-Sequential IDs | `secrets.token_hex(6)` → `BID-3a7f9c2b1d4e` format |
+| Non-Sequential IDs | `secrets.token_hex(4)` → `BID-3a7f9c2b` format (8 hex chars) |
 | CORS | Env-driven allowed origins |
 
 ### User Experience
@@ -207,9 +210,9 @@ Triggers on push to `main`/`develop` and pull requests:
 ### CD (`.github/workflows/cd.yml`)
 Triggers on push to `main` and version tags:
 
-1. Runs full CI as gate
-2. Builds backend + frontend Docker images
-3. Pushes to GitHub Container Registry (GHCR) with semver/branch/SHA tags
+1. Builds backend + frontend Docker images
+2. Pushes to GitHub Container Registry (GHCR) with semver/branch/SHA tags
+3. Triggers Render deploy via API (after GHCR push)
 
 ---
 
@@ -323,4 +326,4 @@ Public enquiry listing with sealed bidding for multi-party procurement.
 - Multi-stage Docker builds for minimal image size
 - GitHub Actions CI/CD with security scanning (pip-audit, npm audit)
 - 103 tests with 0 warnings
-- All 37 audit issues resolved (0 CRITICAL, 0 HIGH remaining)
+- 23 of 23 audit issues fixed

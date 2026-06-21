@@ -83,7 +83,11 @@ export default function Profile() {
     e.preventDefault();
     setLoading(true);
     try {
-      await updateProfile(form);
+      await updateProfile({
+        ...form,
+        winRate: parseInt(form.winRate) || 0,
+        targetBidValue: parseFloat(form.targetBidValue) || 0,
+      });
       toast.success(t("profile.successMessage"));
     } catch (err) {
       toast.error(err.response?.data?.msg || t("profile.failedMessage"));
@@ -365,11 +369,11 @@ export default function Profile() {
                     <>
                       <div className="space-y-1.5">
                         <Label htmlFor="winRate">{t("profile.winRate")}</Label>
-                        <Input id="winRate" type="number" min="0" max="100" value={form.winRate} onChange={(e) => setForm({ ...form, winRate: parseInt(e.target.value) || 0 })} />
+                        <Input id="winRate" type="number" min="0" max="100" value={form.winRate} onChange={(e) => setForm({ ...form, winRate: e.target.value })} />
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="targetBidValue">{t("profile.targetBidValue")}</Label>
-                        <Input id="targetBidValue" type="number" min="0" value={form.targetBidValue} onChange={(e) => setForm({ ...form, targetBidValue: parseFloat(e.target.value) || 0 })} />
+                        <Input id="targetBidValue" type="number" min="0" value={form.targetBidValue} onChange={(e) => setForm({ ...form, targetBidValue: e.target.value })} />
                       </div>
                     </>
                   )}

@@ -12,6 +12,7 @@ import io
 import base64
 import secrets
 import string
+from datetime import datetime, timezone
 import bcrypt
 from database import db
 from bson.objectid import ObjectId
@@ -109,6 +110,8 @@ def enable_2fa():
     if not totp.verify(code, valid_window=1):
         return jsonify({'msg': 'Invalid verification code. Please try again.'}), 400
 
+    current_counter = totp.timecode(datetime.now(timezone.utc))
+
     # Generate backup codes
     plain_codes, hashed_codes = _generate_backup_codes()
 
@@ -118,7 +121,8 @@ def enable_2fa():
             '$set': {
                 'totp_secret': secret,
                 'totp_enabled': True,
-                'backup_codes': hashed_codes
+                'backup_codes': hashed_codes,
+                'last_totp_counter': current_counter
             },
             '$unset': {'totp_secret_pending': ''}
         }
@@ -162,7 +166,17 @@ def verify_2fa():
 
     # Try TOTP first
     totp = pyotp.TOTP(user['totp_secret'])
+    current_counter = totp.timecode(datetime.now(timezone.utc))
+    stored_counter = user.get('last_totp_counter', 0)
+
+    if current_counter <= stored_counter:
+        return jsonify({'msg': 'Code already used. Please wait for the next code.'}), 401
+
     if totp.verify(code, valid_window=1):
+        db.Users.update_one(
+            {'_id': ObjectId(user_id)},
+            {'$set': {'last_totp_counter': current_counter}}
+        )
         # Issue full access token + refresh token (SEC-01, SEC-06)
         full_token = create_access_token(
             identity=user_id,
@@ -283,8 +297,19 @@ def regenerate_backup_codes():
         return jsonify({'msg': '2FA is not enabled'}), 400
 
     totp = pyotp.TOTP(user['totp_secret'])
+    current_counter = totp.timecode(datetime.now(timezone.utc))
+    stored_counter = user.get('last_totp_counter', 0)
+
+    if current_counter <= stored_counter:
+        return jsonify({'msg': 'Code already used. Please wait for the next code.'}), 401
+
     if not totp.verify(totp_code, valid_window=1):
         return jsonify({'msg': 'Invalid TOTP code'}), 401
+
+    db.Users.update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {'last_totp_counter': current_counter}}
+    )
 
     plain_codes, hashed_codes = _generate_backup_codes()
     db.Users.update_one(
