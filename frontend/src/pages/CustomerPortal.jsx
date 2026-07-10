@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams } from "react-router-dom";
-import axios from "axios";
+import { publicApi } from "@/services/api";
 import { formatDate } from "@/utils/date";
 import { useTranslation } from "react-i18next";
 import {
@@ -42,7 +42,7 @@ const CustomerPortal = () => {
   const fetchPublicData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/v1/enquiries/public/share/${token}`);
+      const res = await publicApi.get(`/enquiries/public/share/${token}`);
       setData(res.data);
       setError(null);
     } catch (err) {
@@ -56,11 +56,9 @@ const CustomerPortal = () => {
     }
   }, [t, token]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     fetchPublicData();
   }, [fetchPublicData]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleUpload = async (e) => {
     const file = e.target.files?.[0];
@@ -70,7 +68,7 @@ const CustomerPortal = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/v1/enquiries/public/share/${token}/upload`, formData, {
+      await publicApi.post(`/enquiries/public/share/${token}/upload`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       await fetchPublicData();
@@ -197,7 +195,7 @@ const CustomerPortal = () => {
                   <Clock className="h-4 w-4 text-primary" />
                   {t("common.timeline", "Status Timeline")}
                 </CardTitle>
-                <CardDescription>Track every update to your proposal</CardDescription>
+                <CardDescription>{t("portal.timelineDesc", "Track every update to your proposal")}</CardDescription>
               </CardHeader>
               <CardContent>
                 {bid?.history && bid.history.length > 0 ? (
@@ -269,12 +267,12 @@ const CustomerPortal = () => {
                     >
                       {uploading ? (
                         <>
-                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent mr-2" />
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent me-2" />
                           Uploading...
                         </>
                       ) : (
                         <>
-                          <Upload className="h-3.5 w-3.5 mr-2" />
+                          <Upload className="h-3.5 w-3.5 me-2" />
                           Upload Document
                         </>
                       )}
@@ -355,7 +353,7 @@ const InfoRow = ({ icon: Icon, label, value, mono = false, badge }) => (
     {badge ? (
       <Badge variant={badge} className="text-xs">{value || "—"}</Badge>
     ) : (
-      <span className={cn("text-sm font-medium text-right truncate max-w-[60%]", mono && "font-mono")}>
+      <span className={cn("text-sm font-medium text-end truncate max-w-[60%]", mono && "font-mono")}>
         {value || "—"}
       </span>
     )}

@@ -1,3 +1,7 @@
+# 🔴 DEPENDENCY GOVERNANCE POLICY
+# No new dependencies may be added to this project without human justification.
+# Please open a GitHub Issue to propose new dependencies before adding them.
+# 
 Flask==3.0.3
 Flask-CORS==4.0.1
 Flask-JWT-Extended==4.6.0
@@ -33,6 +37,7 @@ celery==5.4.0
 redis==5.2.1
 flask-swagger-ui==5.32.6
 sentry-sdk[flask,celery]==2.0.1
-python-magic-bin==0.4.14
+python-magic==0.4.27; sys_platform != "win32"
+python-magic-bin==0.4.14; sys_platform == "win32"
 
 

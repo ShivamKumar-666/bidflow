@@ -4,7 +4,7 @@
 ![React](https://img.shields.io/badge/React-19-61dafb)
 ![MongoDB](https://img.shields.io/badge/MongoDB-7-green)
 ![XGBoost](https://img.shields.io/badge/XGBoost-2.1-orange)
-![Tests](https://img.shields.io/badge/Tests-103-brightgreen)
+![Tests](https://img.shields.io/badge/Tests-109-brightgreen)
 ![Languages](https://img.shields.io/badge/Languages-7-purple)
 
 Enterprise-grade bid management platform with ML-powered win predictions, real-time collaboration, and role-based access control. Built with Flask + React.
@@ -13,13 +13,13 @@ Enterprise-grade bid management platform with ML-powered win predictions, real-t
 
 ## Key Stats
 
-- **103** pytest tests, 0 warnings, ~20s
+- **109** pytest tests, 0 warnings, ~20s
 - **88.6%** balanced accuracy on ML predictions
 - **7** languages (EN, HI, GU, ES, FR, DE, AR with RTL)
 - **4** user roles (Admin, Company, Sales Executive, Bidder)
 - **15** engineered features for bid win prediction
 - **6** backend services (business logic layer)
-- **0** critical vulnerabilities remaining
+- **0** critical vulnerabilities (Strict CI gating enabled)
 
 ---
 
@@ -52,6 +52,8 @@ Enterprise-grade bid management platform with ML-powered win predictions, real-t
 | RBAC | Role-based access with ownership enforcement |
 | Audit Logging | Every action logged for governance |
 | MongoDB Schema | JSON Schema validation on all 8 collections |
+| PII Protection | Email redaction in application logs & strict logging policy |
+| Supply Chain | Strict version locking (`npm ci`) & blocking CI audits (`pip-audit`) |
 
 ### UX
 

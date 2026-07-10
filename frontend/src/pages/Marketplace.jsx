@@ -44,7 +44,7 @@ const Marketplace = () => {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold tracking-tight">{t("marketplace.title", "Marketplace")}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{t("marketplace.title", "Marketplace")}</h1>
         <p className="text-sm text-muted-foreground">
           {t("marketplace.subtitle", "Browse public enquiries and submit competitive bids")}
         </p>
@@ -52,12 +52,12 @@ const Marketplace = () => {
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px] max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={t("marketplace.searchPlaceholder", "Search enquiries...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="ps-9"
             aria-label="Search enquiries"
           />
         </div>
@@ -95,7 +95,7 @@ const Marketplace = () => {
 
         <Select value={sort} onValueChange={setSort}>
           <SelectTrigger className="w-[160px]" aria-label="Sort enquiries">
-            <ArrowUpDown className="h-3 w-3 mr-1" />
+            <ArrowUpDown className="h-3 w-3 me-1" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -105,7 +105,7 @@ const Marketplace = () => {
           </SelectContent>
         </Select>
 
-        <div className="ml-auto text-sm text-muted-foreground">
+        <div className="ms-auto text-sm text-muted-foreground">
           {total} {t("marketplace.enquiries", "enquiries")}
         </div>
       </div>
@@ -173,7 +173,7 @@ const Marketplace = () => {
                   <div className="flex flex-wrap gap-1.5 mb-3">
                     {(enq.tags || []).slice(0, 3).map((tag) => (
                       <Badge key={tag} variant="secondary" className="text-[10px]">
-                        <Tag className="h-2.5 w-2.5 mr-1" />
+                        <Tag className="h-2.5 w-2.5 me-1" />
                         {tag}
                       </Badge>
                     ))}

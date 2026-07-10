@@ -1,5 +1,9 @@
 """Database client + index initialization."""
 
+# 🔴 SECURITY POLICY: Do not log PII (Personally Identifiable Information).
+# Never log request headers, cookies, raw tokens, passwords, or full request bodies.
+# Redact emails and use ObjectIds/UUIDs for tracing.
+
 import logging
 import os
 import sys

@@ -122,8 +122,8 @@ export default function ResetPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-sidebar-primary/10 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-chart-2/10 blur-3xl" />
+        <div className="absolute -top-32 -end-32 h-96 w-96 rounded-full bg-sidebar-primary/10 blur-3xl" />
+        <div className="absolute -bottom-32 -start-32 h-96 w-96 rounded-full bg-chart-2/10 blur-3xl" />
       </div>
 
       <div className="w-full max-w-md">
@@ -181,12 +181,12 @@ export default function ResetPassword() {
                     required
                     autoFocus
                     placeholder="••••••••"
-                    className="pr-10"
+                    className="pe-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-accent text-muted-foreground"
+                    className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-accent text-muted-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -227,7 +227,7 @@ export default function ResetPassword() {
 
               <Link to="/login">
                 <Button type="button" variant="ghost" className="w-full" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  <ArrowLeft className="h-4 w-4 me-1" />
                   {t("forgotPassword.backToLogin", "Back to Login")}
                 </Button>
               </Link>

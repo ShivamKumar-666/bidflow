@@ -128,6 +128,7 @@ class AuthService:
     @classmethod
     def get_user_response(cls, user: dict) -> dict:
         return {
+            '_id': str(user['_id']),
             'name': user['name'],
             'email': user['email'],
             'role': user['role'],

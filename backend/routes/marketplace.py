@@ -25,8 +25,8 @@ def list_marketplace():
         return jsonify({"msg": "Forbidden"}), 403
 
     try:
-        page = min(int(request.args.get('page', 1)), 100)
-        size = min(int(request.args.get('size', 20)), 100)
+        page = max(min(int(request.args.get('page', 1)), 100), 1)
+        size = max(min(int(request.args.get('size', 20)), 100), 1)
     except ValueError:
         return jsonify({"msg": "Invalid pagination parameters"}), 400
     skip = (page - 1) * size
@@ -125,8 +125,8 @@ def get_marketplace_enquiry(enquiry_id):
     all_bids_for_company = bids if (role == 'Company' and enquiry.get("createdBy") == user_id) or role == 'Admin' else []
 
     enquiry_docs = list(db.Documents.find({"enquiryId": enquiry_id}))
-    bid_ids = [b.get("bidId") for b in bids if b.get("bidId")]
-    bid_docs = list(db.Documents.find({"bidId": {"$in": bid_ids}})) if bid_ids else []
+    bid_doc_ids = [str(b["_id"]) for b in bids]
+    bid_docs = list(db.Documents.find({"bidId": {"$in": bid_doc_ids}})) if bid_doc_ids else []
     all_docs = []
     seen = set()
     for doc in enquiry_docs + bid_docs:

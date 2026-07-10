@@ -113,7 +113,6 @@ const Reports = () => {
     }
   };
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const controller = new AbortController();
     const fetchMetrics = async () => {
@@ -127,15 +126,12 @@ const Reports = () => {
         setLoadingMetrics(false);
       }
     };
-    fetchMetrics();
-    fetchModelStatus();
-    if (isAdmin) {
-      fetchSlaReport();
-      fetchModelVersions();
-    }
+    // Run all independent fetches in parallel
+    const fetches = [fetchMetrics(), fetchModelStatus()];
+    if (isAdmin) fetches.push(fetchSlaReport(), fetchModelVersions());
+    Promise.allSettled(fetches);
     return () => controller.abort();
   }, [t, isAdmin, fetchSlaReport, fetchModelStatus, fetchModelVersions]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleRollback = async (version) => {
     setRollingBack(version);
@@ -405,7 +401,7 @@ const Reports = () => {
                             <TableHead>{t("bids.status")}</TableHead>
                             <TableHead>{t("reports.slaLimit", "SLA Limit")}</TableHead>
                             <TableHead>{t("reports.slaElapsed", "Elapsed")}</TableHead>
-                            <TableHead className="text-right">{t("reports.slaDays", "Overdue")}</TableHead>
+                            <TableHead className="text-end">{t("reports.slaDays", "Overdue")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -418,7 +414,7 @@ const Reports = () => {
                               </TableCell>
                               <TableCell>{bid.slaThresholdDays}d</TableCell>
                               <TableCell>{bid.slaElapsedDays}d</TableCell>
-                              <TableCell className="text-right font-semibold text-destructive">
+                              <TableCell className="text-end font-semibold text-destructive">
                                 +{bid.slaElapsedDays - bid.slaThresholdDays}d
                               </TableCell>
                             </TableRow>
@@ -448,7 +444,7 @@ const Reports = () => {
             </div>
             <div>
               <CardTitle className="text-lg">{t("mlModel.modelHeader")}</CardTitle>
-              <CardDescription>AI model that predicts win probability</CardDescription>
+              <CardDescription>{t("reports.modelDesc", "AI model that predicts win probability")}</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -541,8 +537,8 @@ const Reports = () => {
                   <History className="h-5 w-5" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg">Model Version History</CardTitle>
-                  <CardDescription>Roll back to any previous trained version</CardDescription>
+                  <CardTitle className="text-lg">{t("reports.modelVersionHistory", "Model Version History")}</CardTitle>
+                  <CardDescription>{t("reports.modelVersionDesc", "Roll back to any previous trained version")}</CardDescription>
                 </div>
               </div>
               <Button
@@ -577,7 +573,7 @@ const Reports = () => {
                       <TableHead>Accuracy</TableHead>
                       <TableHead>Records</TableHead>
                       <TableHead>Trained At</TableHead>
-                      <TableHead className="text-right">Action</TableHead>
+                      <TableHead className="text-end">Action</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -607,7 +603,7 @@ const Reports = () => {
                         <TableCell className="text-muted-foreground text-xs">
                           {v.trainedAt ? new Date(v.trainedAt).toLocaleString(i18n.language) : "N/A"}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-end">
                           {!v.isActive ? (
                             <Button
                               variant="outline"

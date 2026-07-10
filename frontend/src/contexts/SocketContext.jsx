@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { io } from "socket.io-client";
 import { useAuth } from "./AuthContext";
 
@@ -8,13 +8,20 @@ export function SocketProvider({ children }) {
   const { user } = useAuth();
   const [socket, setSocket] = useState(null);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+  const socketRef = useRef(null);
+
   useEffect(() => {
     if (!user?._id) {
-      if (socket) {
-        socket.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
         setSocket(null);
       }
+      return;
+    }
+
+    if (socketRef.current) {
+      // Already connected or connecting in this lifecycle
       return;
     }
 
@@ -36,14 +43,17 @@ export function SocketProvider({ children }) {
       });
     }
 
+    socketRef.current = newSocket;
     setSocket(newSocket);
 
     return () => {
-      newSocket.disconnect();
-      setSocket(null);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+        setSocket(null);
+      }
     };
-  }, [user?._id]); // eslint-disable-line react-hooks/exhaustive-deps
-  /* eslint-enable react-hooks/set-state-in-effect */
+  }, [user?._id]);
 
   return (
     <SocketContext.Provider value={socket}>

@@ -62,7 +62,8 @@ const AuditLogs = () => {
 
   useEffect(() => {
     if (isAdmin) {
-      api.get("/auth/users").then((r) => setUsers(r.data)).catch(() => {});
+      // TODO: replace with paginated endpoint when backend supports it
+      api.get("/auth/users?limit=200").then((r) => setUsers(r.data)).catch(() => {});
     }
   }, [isAdmin]);
 
@@ -109,12 +110,12 @@ const AuditLogs = () => {
             </Select>
           )}
           <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" aria-hidden="true" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t("audit.searchLogs", "Search logs...")}
-              className="pl-9"
+              className="ps-9"
               aria-label="Search audit logs"
             />
           </div>

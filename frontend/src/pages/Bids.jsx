@@ -268,7 +268,7 @@ export default function Bids() {
             </div>
             <DialogDescription className="font-mono text-xs">{shapModal.bidId}</DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-2 gap-x-6 gap-y-3 max-h-[60vh] overflow-y-auto pr-1">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3 max-h-[60vh] overflow-y-auto pe-1">
             {shapModal.explanations.length > 0 ? (
               shapModal.explanations.map((ex, i) => (
                 <ShapBar key={i} explanation={ex} />

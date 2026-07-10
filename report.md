@@ -1,7 +1,7 @@
 # BidFlow — Project Report
 
 > **Last Updated**: June 17, 2026
-> **Version**: Production-ready (103 tests)
+> **Version**: Production-ready (109 tests)
 
 ---
 
@@ -9,7 +9,7 @@
 
 BidFlow is an enterprise-grade bid management platform built with Flask and React. It centralizes the entire bid lifecycle — from customer enquiry to final outcome — with ML-powered win predictions, real-time collaboration, and role-based access control.
 
-The platform has undergone three comprehensive audit passes with 37+ fixes applied. All critical vulnerabilities are resolved. The codebase includes a service layer architecture, Docker containerization, GitHub Actions CI/CD, MongoDB schema validation, and a full marketplace extension for multi-party bidding.
+The platform has undergone four comprehensive audit passes (including a strict supply-chain and PII hardening phase) with 45+ fixes applied. All critical vulnerabilities are resolved. The codebase includes a service layer architecture, Docker containerization, GitHub Actions CI/CD with immutable actions, MongoDB schema validation, and a full marketplace extension for multi-party bidding.
 
 ---
 
@@ -86,6 +86,9 @@ ML Pipeline (XGBoost + SHAP)
 | IDOR Prevention | `@bid_access_required` decorator, ownership checks |
 | Non-Sequential IDs | `secrets.token_hex(4)` → `BID-3a7f9c2b` format (8 hex chars) |
 | CORS | Env-driven allowed origins |
+| PII Protection | Email redaction in application logs & strict logging policy |
+| Supply Chain | Strict version locking (`npm ci`) & blocking CI audits (`pip-audit`) |
+| CI/CD Hardening | GitHub Actions pinned to immutable SHAs |
 
 ### User Experience
 

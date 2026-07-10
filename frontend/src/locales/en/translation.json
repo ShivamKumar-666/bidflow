@@ -493,5 +493,26 @@
     "documents": "Documents",
     "navigate": "Navigate",
     "select": "Select"
+  },
+  "portal": {
+    "negotiable": "Negotiation",
+    "timelineDesc": "Track every update to your proposal"
+  },
+  "reports": {
+    "modelDesc": "AI model that predicts win probability",
+    "modelVersionHistory": "Model Version History",
+    "modelVersionDesc": "Roll back to any previous trained version",
+    "refresh": "Refresh"
+  },
+  "calendarView": {
+    "upcomingDesc": "Next 10 active submissions"
+  },
+  "bids": {
+    "filterIndustry": "Industry",
+    "industriesSelected": "{{count}} Industries",
+    "clearIndustries": "Clear industries"
+  },
+  "enquiries": {
+    "searchPlaceholder": "Search enquiries..."
   }
 }

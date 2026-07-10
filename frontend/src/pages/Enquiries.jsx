@@ -124,18 +124,6 @@ export default function Enquiries() {
     }
   };
 
-  const handleSearchKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      const val = search.trim().toLowerCase();
-      if (!val) return;
-      const matchingTag = uniqueTags.find((tg) => tg.toLowerCase() === val);
-      if (matchingTag && !filters.includes(matchingTag)) {
-        setFilters((p) => [...p, matchingTag]);
-        setSearch("");
-      }
-    }
-  };
 
   const removeFilter = (tag) => {
     setFilters((p) => p.filter((x) => x !== tag));
@@ -273,16 +261,35 @@ export default function Enquiries() {
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("enquiries.filter", "Filter")}</span>
           </div>
           <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              placeholder="Search or type a tag + Enter..."
-              className="pl-8 h-8"
+              placeholder={t("enquiries.searchPlaceholder", "Search enquiries...")}
+              className="ps-8 h-8"
               aria-label="Search enquiries"
             />
           </div>
+          {uniqueTags.length > 0 && (
+            <Select
+              value=""
+              onValueChange={(tag) => {
+                if (tag && !filters.includes(tag)) setFilters((p) => [...p, tag]);
+              }}
+            >
+              <SelectTrigger className="h-8 w-[160px]" aria-label="Filter by tag">
+                <TagIcon className="h-3.5 w-3.5 me-1.5 text-muted-foreground" />
+                <SelectValue placeholder={t("common.filterByTags", "Filter by tag")} />
+              </SelectTrigger>
+              <SelectContent>
+                {uniqueTags.map((tag) => (
+                  <SelectItem key={tag} value={tag} disabled={filters.includes(tag)}>
+                    {tag}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Select value={sortBy} onValueChange={setSortBy}>
             <SelectTrigger className="h-8 w-[160px]" aria-label="Sort enquiries">
               <SelectValue />
@@ -310,7 +317,7 @@ export default function Enquiries() {
             </div>
           )}
           {(filters.length > 0 || search) && (
-            <Button variant="ghost" size="sm" onClick={() => { setFilters([]); setSearch(""); }} className="ml-auto">
+            <Button variant="ghost" size="sm" onClick={() => { setFilters([]); setSearch(""); }} className="ms-auto">
               <X className="h-3.5 w-3.5" />
               Clear All
             </Button>
@@ -340,7 +347,7 @@ export default function Enquiries() {
                   <TableHead>Priority</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="text-end">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -370,15 +377,15 @@ export default function Enquiries() {
                     <TableCell>
                       <Badge variant={statusVariants[e.status] || "secondary"}>{e.status}</Badge>
                       {e.visibility === "public" ? (
-                        <Badge variant="success" className="ml-1">Public</Badge>
+                        <Badge variant="success" className="ms-1">Public</Badge>
                       ) : (
-                        <Badge variant="secondary" className="ml-1">Private</Badge>
+                        <Badge variant="secondary" className="ms-1">Private</Badge>
                       )}
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
                       {formatDate(new Date(e.date), "MMM dd, yyyy")}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-end">
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"

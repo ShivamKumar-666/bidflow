@@ -1,4 +1,4 @@
-import { memo, useState } from "react";
+import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Tag, MessageSquare, FileDown, Trash2, Brain, TrendingUp, TrendingDown,
@@ -12,6 +12,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
@@ -100,9 +103,6 @@ const BidTable = memo(function BidTable({
   userRole,
 }) {
   const { t } = useTranslation();
-  const [sortOpen, setSortOpen] = useState(false);
-  const [industryHover, setIndustryHover] = useState(false);
-  const [dateOpen, setDateOpen] = useState(false);
 
   return (
     <>
@@ -113,147 +113,100 @@ const BidTable = memo(function BidTable({
             <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filter</span>
           </div>
           <div className="relative flex-1 min-w-[200px] max-w-xs">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Search className="absolute start-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleSearchKeyDown}
               placeholder="Search or type an industry + Enter..."
-              className="pl-8 h-8"
+              className="ps-8 h-8"
               aria-label="Search bids"
             />
           </div>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setSortOpen((p) => !p)}
-              className="h-8 w-[180px] inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground"
-              aria-label="Sort by"
-              aria-haspopup="listbox"
-              aria-expanded={sortOpen}
-            >
-              <span className="truncate">
-                {sortBy === "deadline" && t("bids.sortDeadline", "Deadline (Urgent First)")}
-                {sortBy === "amount" && t("bids.sortAmount", "Amount (Highest)")}
-                {sortBy === "employee" && t("bids.sortEmployee", "Assigned Employee")}
-                {sortBy === "industry" && t("bids.sortIndustry", "Industry")}
-              </span>
-              <svg className="ml-2 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {sortOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setSortOpen(false)} />
-                <div className="absolute top-full left-0 mt-1 z-50 w-[180px] rounded-md border bg-popover text-popover-foreground shadow-md" role="listbox" aria-label="Sort options">
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={sortBy === "deadline"}
-                    onClick={() => { setSortBy("deadline"); setSortOpen(false); }}
-                    className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent", sortBy === "deadline" && "bg-accent")}
-                  >
-                    {t("bids.sortDeadline", "Deadline (Urgent First)")}
-                  </button>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={sortBy === "amount"}
-                    onClick={() => { setSortBy("amount"); setSortOpen(false); }}
-                    className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent", sortBy === "amount" && "bg-accent")}
-                  >
-                    {t("bids.sortAmount", "Amount (Highest)")}
-                  </button>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={sortBy === "employee"}
-                    onClick={() => { setSortBy("employee"); setSortOpen(false); }}
-                    className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent", sortBy === "employee" && "bg-accent")}
-                  >
-                    {t("bids.sortEmployee", "Assigned Employee")}
-                  </button>
-                  <div
-                    className="relative"
-                    onMouseEnter={() => setIndustryHover(true)}
-                    onMouseLeave={() => setIndustryHover(false)}
-                  >
-                    <div className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center justify-between", sortBy === "industry" && "bg-accent")}>
-                      <span>{t("bids.sortIndustry", "Industry")}</span>
-                      <svg className="h-3 w-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                    </div>
-                    {industryHover && (
-                      <div className="absolute left-full top-0 ml-1 w-[160px] rounded-md border bg-popover text-popover-foreground shadow-md z-50" role="listbox" aria-label="Industry options">
-                        {["Technology", "Banking", "Manufacturing", "Retail", "Healthcare", "Other"].map((ind) => {
-                          const isActive = industryFilters.includes(ind);
-                          return (
-                            <button
-                              key={ind}
-                              type="button"
-                              onClick={() => {
-                                if (isActive) {
-                                  setIndustryFilters((p) => p.filter((x) => x !== ind));
-                                } else {
-                                  setIndustryFilters((p) => [...p, ind]);
-                                }
-                              }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-accent flex items-center gap-2"
-                            >
-                              {isActive && <span className="text-primary">✓</span>}
-                              <span className={cn(!isActive && "ml-4")}>{ind}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setDateOpen((p) => !p)}
-              className={cn(
-                "h-8 inline-flex items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background hover:bg-accent hover:text-accent-foreground",
-                dateFilter !== "all" && "border-primary text-primary"
-              )}
+          {/* Sort */}
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="h-8 w-[190px]" aria-label="Sort by">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="deadline">{t("bids.sortDeadline", "Deadline (Urgent First)")}</SelectItem>
+              <SelectItem value="amount">{t("bids.sortAmount", "Amount (Highest)")}</SelectItem>
+              <SelectItem value="employee">{t("bids.sortEmployee", "Assigned Employee")}</SelectItem>
+              <SelectItem value="industry">{t("bids.sortIndustry", "Industry")}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Date filter */}
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger
+              className={cn("h-8 w-[140px]", dateFilter !== "all" && "border-primary text-primary")}
               aria-label="Filter by date range"
-              aria-haspopup="listbox"
-              aria-expanded={dateOpen}
             >
-              <span>
-                {dateFilter === "all" && t("bids.dateAll", "All Time")}
-                {dateFilter === "7d" && t("bids.date7d", "Last 7 Days")}
-                {dateFilter === "30d" && t("bids.date30d", "Last 30 Days")}
-                {dateFilter === "90d" && t("bids.date90d", "Last 90 Days")}
-              </span>
-              <svg className="ml-2 h-4 w-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {dateOpen && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setDateOpen(false)} />
-                <div className="absolute top-full left-0 mt-1 z-50 w-[160px] rounded-md border bg-popover text-popover-foreground shadow-md" role="listbox" aria-label="Date range options">
-                  {[
-                    { value: "all", label: t("bids.dateAll", "All Time") },
-                    { value: "7d", label: t("bids.date7d", "Last 7 Days") },
-                    { value: "30d", label: t("bids.date30d", "Last 30 Days") },
-                    { value: "90d", label: t("bids.date90d", "Last 90 Days") },
-                  ].map(({ value, label }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="option"
-                      aria-selected={dateFilter === value}
-                      onClick={() => { setDateFilter(value); setDateOpen(false); }}
-                      className={cn("w-full text-left px-3 py-2 text-sm hover:bg-accent", dateFilter === value && "bg-accent")}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("bids.dateAll", "All Time")}</SelectItem>
+              <SelectItem value="7d">{t("bids.date7d", "Last 7 Days")}</SelectItem>
+              <SelectItem value="30d">{t("bids.date30d", "Last 30 Days")}</SelectItem>
+              <SelectItem value="90d">{t("bids.date90d", "Last 90 Days")}</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Industry multi-select */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={industryFilters.length > 0 ? "default" : "outline"}
+                size="sm"
+                className="h-8"
+                aria-label="Filter by industry"
+              >
+                <Filter className="h-3.5 w-3.5" />
+                {industryFilters.length > 0
+                  ? t("bids.industriesSelected", "{{count}} Industries", { count: industryFilters.length })
+                  : t("bids.filterIndustry", "Industry")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              {["Technology", "Banking", "Manufacturing", "Retail", "Healthcare", "Construction", "Energy", "Finance", "Other"].map((ind) => {
+                const active = industryFilters.includes(ind);
+                return (
+                  <DropdownMenuItem
+                    key={ind}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      setIndustryFilters((p) =>
+                        active ? p.filter((x) => x !== ind) : [...p, ind]
+                      );
+                    }}
+                    className="flex items-center gap-2 cursor-pointer"
+                    aria-checked={active}
+                    role="menuitemcheckbox"
+                  >
+                    <span className={cn(
+                      "h-4 w-4 rounded border flex items-center justify-center text-[10px] flex-shrink-0",
+                      active ? "bg-primary border-primary text-primary-foreground" : "border-input"
+                    )}>
+                      {active && "✓"}
+                    </span>
+                    {ind}
+                  </DropdownMenuItem>
+                );
+              })}
+              {industryFilters.length > 0 && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={(e) => { e.preventDefault(); setIndustryFilters([]); }}
+                    className="text-muted-foreground text-xs cursor-pointer"
+                  >
+                    {t("bids.clearIndustries", "Clear industries")}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <button
             type="button"
             onClick={() => setGroupByProject((p) => !p)}
@@ -282,7 +235,7 @@ const BidTable = memo(function BidTable({
             </div>
           )}
           {(industryFilters.length > 0 || search || dateFilter !== "all") && (
-            <Button variant="ghost" size="sm" onClick={clearFilters} className="ml-auto">
+            <Button variant="ghost" size="sm" onClick={clearFilters} className="ms-auto">
               <X className="h-3.5 w-3.5" />
               {t("bids.clearAll", "Clear All")}
             </Button>
@@ -326,7 +279,7 @@ const BidTable = memo(function BidTable({
                             <TableHead>{t("bids.aiPrediction", "AI Prediction")}</TableHead>
                             <TableHead>{t("bids.status", "Status")}</TableHead>
                             <TableHead>{t("bids.assigned", "Assigned")}</TableHead>
-                            <TableHead className="text-right">{t("bids.actions", "Actions")}</TableHead>
+                            <TableHead className="text-end">{t("bids.actions", "Actions")}</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -355,14 +308,14 @@ const BidTable = memo(function BidTable({
                                   <Badge variant={statusVariants[bid.status] || "secondary"}>{bid.status}</Badge>
                                   {bid.slaBreached && (
                                     <Badge variant="destructive" className="text-[10px]">
-                                      <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                                      <AlertTriangle className="h-2.5 w-2.5 me-0.5" />
                                       {t("bids.sla", "SLA")}
                                     </Badge>
                                   )}
                                 </div>
                               </TableCell>
                               <TableCell className="text-xs">{bid.assignedEmployee}</TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-end">
                                 <div className="flex items-center justify-end gap-1">
                                   {userRole !== "Bidder" && (
                                     <Select value={bid.status} onValueChange={(v) => updateStatus(bid._id, v)}>
@@ -415,7 +368,7 @@ const BidTable = memo(function BidTable({
                   <TableHead>{t("bids.aiPrediction", "AI Prediction")}</TableHead>
                   <TableHead>{t("bids.status", "Status")}</TableHead>
                   <TableHead>{t("bids.assigned", "Assigned")}</TableHead>
-                  <TableHead className="text-right">{t("bids.actions", "Actions")}</TableHead>
+                  <TableHead className="text-end">{t("bids.actions", "Actions")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -445,14 +398,14 @@ const BidTable = memo(function BidTable({
                         <Badge variant={statusVariants[bid.status] || "secondary"}>{bid.status}</Badge>
                         {bid.slaBreached && (
                           <Badge variant="destructive" className="text-[10px]">
-                            <AlertTriangle className="h-2.5 w-2.5 mr-0.5" />
+                            <AlertTriangle className="h-2.5 w-2.5 me-0.5" />
                             {t("bids.sla", "SLA")}
                           </Badge>
                         )}
                       </div>
                     </TableCell>
                     <TableCell className="text-xs">{bid.assignedEmployee}</TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-end">
                       <div className="flex items-center justify-end gap-1">
                         {userRole !== "Bidder" && (
                           <Select value={bid.status} onValueChange={(v) => updateStatus(bid._id, v)}>

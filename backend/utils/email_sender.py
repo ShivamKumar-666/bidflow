@@ -130,10 +130,22 @@ If you did not request this, you can safely ignore this email.
     _email_executor.submit(_send_async, msg, current_app._get_current_object())
 
 
+def redact_email(email: str) -> str:
+    """Redact PII from email for logging."""
+    if not email or "@" not in email:
+        return email
+    local, domain = email.split('@', 1)
+    if len(local) > 2:
+        local = f"{local[0]}***{local[-1]}"
+    else:
+        local = "***"
+    return f"{local}@{domain}"
+
 def _send_async(msg, app):
     with app.app_context():
         try:
             mail.send(msg)
         except Exception as e:
             import logging
-            logging.getLogger(__name__).error("Async email send failed: %s", e)
+            recipients = [redact_email(r) for r in msg.recipients]
+            logging.getLogger(__name__).error("Async email send failed for %s: %s", recipients, e)

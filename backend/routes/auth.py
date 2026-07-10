@@ -105,7 +105,7 @@ def login():
 
     resp = jsonify(
         access_token=access_token,
-        user={'name': user['name'], 'email': user['email'], 'role': user['role']}
+        user=AuthService.get_user_response(user)
     )
     _issue_tokens(user, resp)
     return resp, 200
@@ -424,7 +424,7 @@ def google_login():
 
         resp = jsonify(
             access_token=access_token,
-            user={'name': user['name'], 'email': user['email'], 'role': user['role']}
+            user=AuthService.get_user_response(user)
         )
         _issue_tokens(user, resp)
         return resp, 200
