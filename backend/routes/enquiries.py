@@ -191,11 +191,9 @@ def download_public_share_file(token, doc_id):
 
 
 @enquiries_bp.route('/public/share/<token>/upload', methods=['POST'])
-@jwt_required()
 @limiter.limit("10 per minute")
 def upload_public_share_file(token):
-    user_id = get_jwt_identity()
-    role = get_user_role()
+    user_id = f"share:{token[:8]}"
     try:
         enq, error = EnquiryService.validate_share_token(token)
         if error:

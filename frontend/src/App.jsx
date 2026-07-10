@@ -61,7 +61,9 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <AppLayout>
-                <Dashboard />
+                <ErrorBoundary>
+                  <Dashboard />
+                </ErrorBoundary>
               </AppLayout>
             </ProtectedRoute>
           }
@@ -72,7 +74,9 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <AppLayout>
-                <Enquiries />
+                <ErrorBoundary>
+                  <Enquiries />
+                </ErrorBoundary>
               </AppLayout>
             </ProtectedRoute>
           }
@@ -83,7 +87,9 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <AppLayout>
-                <Bids />
+                <ErrorBoundary>
+                  <Bids />
+                </ErrorBoundary>
               </AppLayout>
             </ProtectedRoute>
           }
@@ -94,7 +100,9 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <AppLayout>
-                <Marketplace />
+                <ErrorBoundary>
+                  <Marketplace />
+                </ErrorBoundary>
               </AppLayout>
             </ProtectedRoute>
           }
@@ -105,7 +113,9 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <AppLayout>
-                <CalendarView />
+                <ErrorBoundary>
+                  <CalendarView />
+                </ErrorBoundary>
               </AppLayout>
             </ProtectedRoute>
           }
@@ -116,7 +126,9 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute>
               <AppLayout>
-                <Profile />
+                <ErrorBoundary>
+                  <Profile />
+                </ErrorBoundary>
               </AppLayout>
             </ProtectedRoute>
           }
@@ -127,7 +139,9 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute adminOnly>
               <AppLayout>
-                <AdminUsers />
+                <ErrorBoundary>
+                  <AdminUsers />
+                </ErrorBoundary>
               </AppLayout>
             </ProtectedRoute>
           }
@@ -138,7 +152,9 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute adminOnly>
               <AppLayout>
-                <Reports />
+                <ErrorBoundary>
+                  <Reports />
+                </ErrorBoundary>
               </AppLayout>
             </ProtectedRoute>
           }
@@ -147,11 +163,13 @@ const AppRoutes = () => {
         <Route
           path="/audit-logs"
           element={
-          <ProtectedRoute>
-            <AppLayout>
-              <AuditLogs />
-            </AppLayout>
-          </ProtectedRoute>
+            <ProtectedRoute>
+              <AppLayout>
+                <ErrorBoundary>
+                  <AuditLogs />
+                </ErrorBoundary>
+              </AppLayout>
+            </ProtectedRoute>
           }
         />
 

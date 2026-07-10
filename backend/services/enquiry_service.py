@@ -63,6 +63,8 @@ class EnquiryService:
             ("productServiceRequired", product_service, 500),
             ("notes", data.get("notes", ""), 5000),
         ):
+            if value and not isinstance(value, str):
+                return f"{field} must be a string"
             if isinstance(value, str) and len(value) > limit:
                 return f"{field} exceeds maximum length of {limit} chars"
 
@@ -213,7 +215,7 @@ class EnquiryService:
         docs = list(db.Documents.find({"enquiryId": enq.get("enquiryId")}))
 
         if bid:
-            for doc in db.Documents.find({"bidId": bid.get("bidId")}):
+            for doc in db.Documents.find({"bidId": str(bid["_id"])}):
                 if not any(d["_id"] == doc["_id"] for d in docs):
                     docs.append(doc)
 

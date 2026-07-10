@@ -337,7 +337,7 @@ const MarketplaceBidDialog = ({ open, onOpenChange, enquiry, onSubmitSuccess }) 
             onClick={handleSubmit}
             disabled={submitting || !amount}
           >
-            {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {submitting && <Loader2 className="h-4 w-4 me-2 animate-spin" />}
             {t("marketplace.submitBid", "Submit Bid")}
           </Button>
         </DialogFooter>

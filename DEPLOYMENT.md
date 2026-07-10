@@ -322,6 +322,22 @@ If you need to upgrade for production use:
 
 ---
 
+## Step 5: Production Security Gates (Phase 9)
+
+To ensure vulnerable code cannot bypass GitHub and deploy to Render, you must configure the following:
+
+### 5.1 GitHub Branch Protection
+1. Go to **Settings > Branches** in your GitHub Repo.
+2. Add a branch protection rule for `master` (or `main`).
+3. Enable **Require pull request reviews before merging**.
+4. Enable **Require status checks to pass before merging** and select `Security audit (pip-audit)` and `Security audit (npm audit)`.
+
+### 5.2 Render Auto-Deploy Gates
+1. In the Render Dashboard, go to your Frontend and Backend service settings.
+2. Under the **Auto-Deploy** section, set it to **No**. This forces deployments to happen only when a PR is merged, ensuring that failing CI status checks block the deployment pipeline.
+
+---
+
 ## Support
 
 - Render Docs: https://render.com/docs

@@ -5,8 +5,12 @@ const ThemeContext = createContext({ theme: "dark", toggleTheme: () => {} });
 export function ThemeProvider({ children }) {
   const getInitial = () => {
     if (typeof window === "undefined") return "dark";
-    const stored = localStorage.getItem("theme");
-    if (stored === "light" || stored === "dark") return stored;
+    try {
+      const stored = localStorage.getItem("theme");
+      if (stored === "light" || stored === "dark") return stored;
+    } catch {
+      // Ignore localStorage errors in private browsing
+    }
     return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
   };
 
@@ -16,7 +20,11 @@ export function ThemeProvider({ children }) {
     const root = document.documentElement;
     root.classList.remove("dark", "light");
     root.classList.add(theme);
-    localStorage.setItem("theme", theme);
+    try {
+      localStorage.setItem("theme", theme);
+    } catch {
+      // Ignore localStorage errors
+    }
   }, [theme]);
 
   const toggleTheme = () => setTheme((p) => (p === "dark" ? "light" : "dark"));

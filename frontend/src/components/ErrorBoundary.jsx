@@ -51,7 +51,7 @@ export class ErrorBoundary extends Component {
             )}
             <div className="flex gap-2">
               <Button className="flex-1" onClick={this.handleReset}>
-                <RotateCw className="h-4 w-4 mr-2" />
+                <RotateCw className="h-4 w-4 me-2" />
                 Try Again
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => (window.location.href = "/")}>

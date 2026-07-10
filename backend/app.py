@@ -159,6 +159,10 @@ def create_app():
     def not_found(e):
         return jsonify({"msg": "Resource not found"}), 404
 
+    @app.errorhandler(405)
+    def method_not_allowed(e):
+        return jsonify({"msg": "Method not allowed"}), 405
+
     @app.errorhandler(500)
     def internal_error(e):
         app.logger.exception("Internal server error")
@@ -166,6 +170,9 @@ def create_app():
 
     @app.errorhandler(Exception)
     def handle_exception(e):
+        from werkzeug.exceptions import HTTPException
+        if isinstance(e, HTTPException):
+            return jsonify({"msg": e.name}), e.code
         app.logger.exception("Unhandled exception: %s", e)
         return jsonify({"msg": "Internal server error"}), 500
 

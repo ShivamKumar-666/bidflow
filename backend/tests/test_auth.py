@@ -41,6 +41,8 @@ class TestAuthFlows:
         assert 'access_token' in data
         assert data['user']['email'] == 'sales@bidflow.com'
         assert data['user']['role'] == 'Sales Executive'
+        assert '_id' in data['user']
+        assert isinstance(data['user']['_id'], str)
 
     def test_bad_password(self, client, auth_headers):
         auth_headers('Sales User', 'sales@bidflow.com', 'Salespass123!')

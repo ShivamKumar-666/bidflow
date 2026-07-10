@@ -95,7 +95,7 @@ class TestCustomerPortalSharing:
         bid_data = bid_res.get_json()
 
         doc_id = db.Documents.insert_one({
-            'bidId': bid_data['bidId'],
+            'bidId': bid_data['_id'],
             'filename': 'proposal.pdf',
             'path': 'mock_file.pdf',
             'uploadDate': datetime.datetime.now(datetime.UTC),
@@ -116,3 +116,36 @@ class TestCustomerPortalSharing:
         expired_res = client.get(f'/api/v1/enquiries/public/share/{token}')
         assert expired_res.status_code == 403
         assert 'expired' in expired_res.get_json()['msg'].lower()
+
+    def test_public_upload_without_jwt(self, client, auth_headers):
+        import io
+        headers = auth_headers()
+        
+        enq_res = client.post('/api/v1/enquiries/', json={
+            'customerName': 'Upload Customer Corp',
+            'contactInformation': 'upload@example.com',
+            'productServiceRequired': 'Uploads',
+            'priority': 'Medium'
+        }, headers=headers)
+        enq_data = enq_res.get_json()
+
+        share_res = client.post(f'/api/v1/enquiries/{enq_data["_id"]}/share', headers=headers)
+        token = share_res.get_json()['shareToken']
+
+        # Upload without JWT
+        data = {
+            'file': (io.BytesIO(b"test file content"), 'test.txt')
+        }
+        upload_res = client.post(
+            f'/api/v1/enquiries/public/share/{token}/upload',
+            data=data,
+            content_type='multipart/form-data'
+        )
+        assert upload_res.status_code == 201
+        
+        # Verify it was added
+        public_res = client.get(f'/api/v1/enquiries/public/share/{token}')
+        assert public_res.status_code == 200
+        docs = public_res.get_json().get('documents', [])
+        assert len(docs) == 1
+        assert docs[0]['filename'] == 'test.txt'

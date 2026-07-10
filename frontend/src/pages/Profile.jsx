@@ -53,7 +53,6 @@ export default function Profile() {
     name: "", industry: "Other", winRate: 50, targetBidValue: 10000, bio: "",
   });
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (user) {
       setForm({
@@ -77,7 +76,6 @@ export default function Profile() {
       api.get("/analytics/dashboard").then((r) => setAnalytics(r.data)).catch(() => {});
     }
   }, [user]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -482,9 +480,9 @@ export default function Profile() {
                         value={disablingPassword}
                         onChange={(e) => setDisablingPassword(e.target.value)}
                         placeholder={t("login.passwordLabel", "Password")}
-                        className="pr-10"
+                        className="pe-10"
                       />
-                      <button type="button" onClick={() => setShowDisablePassword((v) => !v)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground" aria-label={showDisablePassword ? t("security.hidePassword") : t("security.showPassword")}>
+                      <button type="button" onClick={() => setShowDisablePassword((v) => !v)} className="absolute end-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground" aria-label={showDisablePassword ? t("security.hidePassword") : t("security.showPassword")}>
                         {showDisablePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>

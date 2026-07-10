@@ -30,30 +30,37 @@ export function useBids() {
   const [dateFilter, setDateFilter] = useState("all");
   const [groupByProject, setGroupByProject] = useState(false);
 
-  const fetchAll = useCallback(async () => {
+  const fetchAll = useCallback(async (signal) => {
     setLoading(true);
     try {
-      const b = await api.get("/bids/");
+      const b = await api.get("/bids/", { signal });
       setBids(Array.isArray(b.data) ? b.data : (b.data.items || []));
-    } catch {
+    } catch (err) {
+      if (err?.name === "CanceledError") return;
       toast.error(t("bids.failedFetch"));
     }
     try {
-      const e = await api.get("/enquiries/");
+      const e = await api.get("/enquiries/", { signal });
       setEnquiries(Array.isArray(e.data) ? e.data : (e.data.items || []));
-    } catch { /* ignore */
+    } catch (err) {
+      if (err?.name === "CanceledError") return;
+      // ignore non-cancel errors for enquiries
     }
     try {
-      const tg = await api.get("/tags/");
+      const tg = await api.get("/tags/", { signal });
       setUniqueTags(tg.data);
-    } catch { /* ignore */
+    } catch (err) {
+      if (err?.name === "CanceledError") return;
+      // ignore non-cancel errors for tags
     }
     setLoading(false);
   }, [t]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => { fetchAll(); }, [fetchAll]);
-  /* eslint-enable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchAll(controller.signal);
+    return () => controller.abort();
+  }, [fetchAll]);
 
   const handleSearchKeyDown = (e) => {
     if (e.key === "Enter") {
@@ -81,7 +88,6 @@ export function useBids() {
 
   const fmt = (n, currency = "USD") => formatCurrency(n, currency);
 
-  /* eslint-disable react-hooks/purity */
   const filtered = useMemo(() => {
     let result = bids.filter((b) => {
       if (industryFilters.length > 0 && !industryFilters.includes(b.industry)) return false;
@@ -122,7 +128,6 @@ export function useBids() {
     }
     return result;
   }, [bids, search, sortBy, industryFilters, dateFilter]);
-  /* eslint-enable react-hooks/purity */
 
   return {
     bids, setBids,

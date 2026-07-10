@@ -171,6 +171,13 @@ class TestMarketplaceList:
         assert data['size'] == 2
         assert len(data['items']) == 2
 
+        # test negative pagination clamping
+        res_neg = client.get('/api/v1/marketplace/?page=-1&size=-5', headers=bidder)
+        assert res_neg.status_code == 200
+        data_neg = res_neg.get_json()
+        assert data_neg['page'] == 1
+        assert data_neg['size'] == 1
+
     def test_unauthenticated_returns_401(self, client):
         res = client.get('/api/v1/marketplace/')
         assert res.status_code == 401

@@ -16,7 +16,7 @@ bind        = f"0.0.0.0:{os.environ.get('PORT', '5000')}"
 # ── Workers ───────────────────────────────────────────────────────────────────
 # gevent workers are co-routine based — one process handles many
 # concurrent connections.  Keep worker count at 1 unless behind a load balancer.
-worker_class = "gevent"
+worker_class = "geventwebsocket.gunicorn.workers.GeventWebSocketWorker"
 workers      = int(os.environ.get("GUNICORN_WORKERS", "1"))
 
 # ── Timeouts ──────────────────────────────────────────────────────────────────

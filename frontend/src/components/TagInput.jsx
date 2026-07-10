@@ -3,7 +3,8 @@ import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
-export function TagInput({ tags = [], onChange, suggestions = [], placeholder = "Add tags..." }) {
+export function TagInput({ tags, onChange, suggestions = [], placeholder = "Add tags..." }) {
+  const safeTags = tags || [];
   const [inputValue, setInputValue] = useState("");
   const [showDropdown, setShowDropdown] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -20,20 +21,20 @@ export function TagInput({ tags = [], onChange, suggestions = [], placeholder = 
   }, []);
 
   const filtered = suggestions.filter(
-    (s) => s.toLowerCase().includes(inputValue.toLowerCase()) && !tags.includes(s)
+    (s) => s.toLowerCase().includes(inputValue.toLowerCase()) && !safeTags.includes(s)
   );
 
   const addTag = (tag) => {
     const clean = tag.trim().toLowerCase();
-    if (clean && !tags.includes(clean)) {
-      onChange([...tags, clean]);
+    if (clean && !safeTags.includes(clean)) {
+      onChange([...safeTags, clean]);
     }
     setInputValue("");
     setShowDropdown(false);
     setActiveIndex(-1);
   };
 
-  const removeTag = (idx) => onChange(tags.filter((_, i) => i !== idx));
+  const removeTag = (idx) => onChange(safeTags.filter((_, i) => i !== idx));
 
   const handleKey = (e) => {
     if (e.key === "Enter") {
@@ -51,21 +52,21 @@ export function TagInput({ tags = [], onChange, suggestions = [], placeholder = 
       if (filtered.length > 0) setActiveIndex((p) => (p - 1 + filtered.length) % filtered.length);
     } else if (e.key === "Escape") {
       setShowDropdown(false);
-    } else if (e.key === "Backspace" && !inputValue && tags.length > 0) {
-      removeTag(tags.length - 1);
+    } else if (e.key === "Backspace" && !inputValue && safeTags.length > 0) {
+      removeTag(safeTags.length - 1);
     }
   };
 
   return (
     <div ref={wrapperRef} className="relative">
       <div className="flex flex-wrap gap-1.5 p-2 border border-input rounded-md bg-transparent min-h-9 items-center focus-within:ring-1 focus-within:ring-ring">
-        {tags.map((tag, idx) => (
-          <Badge key={idx} variant="info" className="gap-1 pr-1">
+        {safeTags.map((tag, idx) => (
+          <Badge key={idx} variant="info" className="gap-1 pe-1">
             {tag}
             <button
               type="button"
               onClick={() => removeTag(idx)}
-              className="ml-0.5 hover:bg-blue-500/20 rounded-full p-0.5"
+              className="ms-0.5 hover:bg-blue-500/20 rounded-full p-0.5"
               aria-label={`Remove tag ${tag}`}
             >
               <X className="h-2.5 w-2.5" />
@@ -75,7 +76,7 @@ export function TagInput({ tags = [], onChange, suggestions = [], placeholder = 
         <input
           type="text"
           className="flex-1 min-w-[120px] bg-transparent outline-none text-sm px-1 py-0.5"
-          placeholder={tags.length === 0 ? placeholder : ""}
+          placeholder={safeTags.length === 0 ? placeholder : ""}
           value={inputValue}
           onChange={(e) => { setInputValue(e.target.value); setShowDropdown(true); setActiveIndex(-1); }}
           onFocus={() => setShowDropdown(true)}
@@ -96,7 +97,7 @@ export function TagInput({ tags = [], onChange, suggestions = [], placeholder = 
                 onMouseDown={(e) => { e.preventDefault(); addTag(s); }}
                 onMouseEnter={() => setActiveIndex(i)}
                 className={cn(
-                  "w-full text-left px-3 py-1.5 text-sm hover:bg-accent",
+                  "w-full text-start px-3 py-1.5 text-sm hover:bg-accent",
                   activeIndex === i && "bg-accent"
                 )}
               >
@@ -107,7 +108,7 @@ export function TagInput({ tags = [], onChange, suggestions = [], placeholder = 
             <button
               type="button"
               onMouseDown={(e) => { e.preventDefault(); addTag(inputValue); }}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
+              className="w-full text-start px-3 py-1.5 text-sm hover:bg-accent"
             >
               Create "{inputValue.trim().toLowerCase()}"
             </button>

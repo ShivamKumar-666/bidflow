@@ -50,7 +50,7 @@ export default function LivePrediction({ livePredict, loading }) {
           {loading ? "Calculating…" : "Live AI Estimate"}
         </span>
         {!loading && (
-          <span className={cn("ml-auto text-lg font-bold", toneTextMap[tone])}>
+          <span className={cn("ms-auto text-lg font-bold", toneTextMap[tone])}>
             {value}%
           </span>
         )}

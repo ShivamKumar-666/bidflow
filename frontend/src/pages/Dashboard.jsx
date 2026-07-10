@@ -156,7 +156,7 @@ export default function Dashboard() {
           <p className="text-sm text-muted-foreground mt-1">{getGreeting()}</p>
         </div>
         <Badge variant="outline" className="font-mono text-[10px]">
-          <Activity className="h-3 w-3 mr-1" />
+          <Activity className="h-3 w-3 me-1" />
           {t("dashboard.live", "LIVE")}
         </Badge>
       </div>
@@ -390,7 +390,7 @@ export default function Dashboard() {
                   </div>
                   {modelStats?.retrainReady && (
                     <Badge variant="success" className="mt-1.5 text-[10px]">
-                      <Cpu className="h-2.5 w-2.5 mr-1" />
+                      <Cpu className="h-2.5 w-2.5 me-1" />
                       {t("dashboard.readyToRetrain", "Ready to retrain")}
                     </Badge>
                   )}

@@ -142,12 +142,12 @@ const AdminUsers = () => {
               </div>
             </div>
             <div className="relative w-full sm:w-72">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute start-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder={t("adminUsers.searchPlaceholder", "Search users...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
+                className="ps-9"
               />
             </div>
           </div>
@@ -177,7 +177,7 @@ const AdminUsers = () => {
                     <TableHead>{t("adminUsers.verified", "Verified")}</TableHead>
                     <TableHead>{t("adminUsers.2fa", "2FA")}</TableHead>
                     <TableHead>{t("adminUsers.joined", "Joined")}</TableHead>
-                    <TableHead className="text-right">
+                    <TableHead className="text-end">
                       {t("adminUsers.actions", "Actions")}
                     </TableHead>
                   </TableRow>
@@ -194,19 +194,19 @@ const AdminUsers = () => {
                       </TableCell>
                       <TableCell>
                         <Badge variant={roleBadgeVariant(user.role)}>
-                          <Shield className="h-3 w-3 mr-1" />
+                          <Shield className="h-3 w-3 me-1" />
                           {user.role}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         {user.is_verified ? (
                           <Badge variant="success">
-                            <CheckCircle className="h-3 w-3 mr-1" />
+                            <CheckCircle className="h-3 w-3 me-1" />
                             {t("adminUsers.yes", "Yes")}
                           </Badge>
                         ) : (
                           <Badge variant="destructive">
-                            <XCircle className="h-3 w-3 mr-1" />
+                            <XCircle className="h-3 w-3 me-1" />
                             {t("adminUsers.no", "No")}
                           </Badge>
                         )}
@@ -214,7 +214,7 @@ const AdminUsers = () => {
                       <TableCell>
                         {user.totp_enabled ? (
                           <Badge variant="success">
-                            <Lock className="h-3 w-3 mr-1" />
+                            <Lock className="h-3 w-3 me-1" />
                             {t("adminUsers.enabled", "Enabled")}
                           </Badge>
                         ) : (
@@ -231,14 +231,14 @@ const AdminUsers = () => {
                             : "—"}
                         </div>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="text-end">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => openResetDialog(user)}
                           className="text-amber-600 border-amber-500/30 hover:bg-amber-500/10"
                         >
-                          <KeyRound className="h-3.5 w-3.5 mr-1" />
+                          <KeyRound className="h-3.5 w-3.5 me-1" />
                           {t("adminUsers.resetPassword", "Reset Password")}
                         </Button>
                       </TableCell>
@@ -300,12 +300,12 @@ const AdminUsers = () => {
             <Button onClick={handleResetPassword} disabled={resetting}>
               {resetting ? (
                 <>
-                  <RefreshCw className="h-4 w-4 animate-spin mr-1" />
+                  <RefreshCw className="h-4 w-4 animate-spin me-1" />
                   {t("adminUsers.resetting", "Resetting...")}
                 </>
               ) : (
                 <>
-                  <Lock className="h-4 w-4 mr-1" />
+                  <Lock className="h-4 w-4 me-1" />
                   {t("adminUsers.confirmReset", "Reset Password")}
                 </>
               )}

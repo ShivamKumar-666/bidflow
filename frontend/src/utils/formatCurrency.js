@@ -1,5 +1,3 @@
-import i18n from "@/i18n";
-
 export const CURRENCIES = ["USD", "EUR", "GBP", "INR", "JPY", "CAD", "AUD"];
 
 export const CURRENCY_SYMBOLS = {
@@ -22,10 +20,11 @@ const LOCALE_MAP = {
   ar: "ar-SA",
 };
 
-export function formatCurrency(amount, currency = "USD") {
+export function formatCurrency(amount, currency = "USD", language = "en") {
   const n = Number(amount || 0);
   const c = CURRENCY_SYMBOLS[currency] ? currency : "USD";
-  const locale = LOCALE_MAP[i18n.language?.split("-")[0]] || "en-US";
+  const baseLanguage = language?.split("-")[0] || navigator.language?.split("-")[0] || "en";
+  const locale = LOCALE_MAP[baseLanguage] || "en-US";
   return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: c,

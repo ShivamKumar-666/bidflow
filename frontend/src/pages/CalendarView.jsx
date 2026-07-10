@@ -36,7 +36,8 @@ export default function CalendarView() {
   const [selected, setSelected] = useState(null);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
-  const [decadeStart, setDecadeStart] = useState(Math.floor(new Date().getFullYear() / 10) * 10); const monthRef = useRef(null);
+  const [decadeStart, setDecadeStart] = useState(Math.floor(new Date().getFullYear() / 10) * 10);
+  const monthRef = useRef(null);
   const yearRef = useRef(null);
 
   const currentYear = currentDate.getFullYear();
@@ -163,7 +164,7 @@ export default function CalendarView() {
                     {monthNames[currentMonth]}
                   </button>
                   {showMonthPicker && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-48 rounded-md border bg-popover text-popover-foreground shadow-md p-2 grid grid-cols-3 gap-1">
+                    <div className="absolute top-full start-1/2 -translate-x-1/2 mt-2 z-50 w-48 rounded-md border bg-popover text-popover-foreground shadow-md p-2 grid grid-cols-3 gap-1">
                       {monthNames.map((m, i) => (
                         <button
                           key={m}
@@ -189,7 +190,7 @@ export default function CalendarView() {
                     {currentYear}
                   </button>
                   {showYearPicker && (
-                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 w-40 rounded-md border bg-popover text-popover-foreground shadow-md p-2">
+                    <div className="absolute top-full start-1/2 -translate-x-1/2 mt-2 z-50 w-40 rounded-md border bg-popover text-popover-foreground shadow-md p-2">
                       <div className="flex items-center justify-between mb-2">
                         <button
                           type="button"
@@ -247,7 +248,7 @@ export default function CalendarView() {
                     key={cell.key}
                     role="gridcell"
                     tabIndex={hasEvents && cell.current ? 0 : -1}
-                    aria-label={`${cell.current ? `${monthNames[cell.month]} ${cell.day}` : ''}${hasEvents ? `, ${dayEvents.length} events` : ''}`}
+                    aria-label={`${cell.current ? `${monthNames[currentMonth]} ${cell.day}` : ''}${hasEvents ? `, ${dayEvents.length} event${dayEvents.length !== 1 ? 's' : ''}` : ''}`}
                     className={cn(
                       "min-h-24 rounded-md border p-1.5 text-xs transition-colors",
                       cell.current ? "bg-card" : "bg-muted/20 text-muted-foreground/50",
@@ -269,7 +270,7 @@ export default function CalendarView() {
                           key={e._id}
                           onClick={() => setSelected(e)}
                           className={cn(
-                            "w-full text-left px-1.5 py-0.5 rounded text-[10px] font-semibold truncate",
+                            "w-full text-start px-1.5 py-0.5 rounded text-[10px] font-semibold truncate",
                             priorityColors[e.priority]
                           )}
                           aria-label={`${e.customerName}: ${formatCurrency(e.amount)}`}
@@ -291,7 +292,7 @@ export default function CalendarView() {
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Upcoming Deadlines</CardTitle>
-            <CardDescription>Next 10 active submissions</CardDescription>
+            <CardDescription>{t("calendarView.upcomingDesc", "Next 10 active submissions")}</CardDescription>
           </CardHeader>
           <CardContent>
             {upcoming.length === 0 ? (
@@ -305,7 +306,7 @@ export default function CalendarView() {
                   <button
                     key={bid._id}
                     onClick={() => setSelected(bid)}
-                    className="w-full text-left p-2.5 rounded-lg border hover:border-primary transition-colors"
+                    className="w-full text-start p-2.5 rounded-lg border hover:border-primary transition-colors"
                   >
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-sm font-semibold truncate">{bid.customerName}</span>

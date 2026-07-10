@@ -104,11 +104,9 @@ export default function Login() {
 
   const isRegistering = mode === "register";
 
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (twoFAPending) setMode("2fa");
   }, [twoFAPending]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   useEffect(() => {
     if (mode === "2fa" && otpRefs.current[0]) {
@@ -169,7 +167,7 @@ export default function Login() {
     };
     const timer = setTimeout(initGoogle, 500);
     return () => clearTimeout(timer);
-  }, [isRegistering, mode]);
+  }, [mode]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -336,8 +334,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
       {/* Decorative background */}
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-sidebar-primary/10 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-chart-2/10 blur-3xl" />
+        <div className="absolute -top-32 -end-32 h-96 w-96 rounded-full bg-sidebar-primary/10 blur-3xl" />
+        <div className="absolute -bottom-32 -start-32 h-96 w-96 rounded-full bg-chart-2/10 blur-3xl" />
       </div>
 
       <div className="w-full max-w-md">
@@ -456,13 +454,13 @@ export default function Login() {
                   required
                   autoComplete={isRegistering ? "new-password" : "current-password"}
                   placeholder="••••••••"
-                  className="pr-10"
+                  className="pe-10"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? t("security.hidePassword") : t("security.showPassword")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-accent text-muted-foreground"
+                  className="absolute end-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md hover:bg-accent text-muted-foreground"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -471,7 +469,7 @@ export default function Login() {
             </div>
 
             {!isRegistering && (
-              <div className="text-right">
+              <div className="text-end">
                 <Link to="/forgot-password" state={{ email }} className="text-xs text-primary hover:underline font-medium">
                   {t("login.forgotPassword", "Forgot Password?")}
                 </Link>
@@ -522,7 +520,7 @@ export default function Login() {
             <button
               type="button"
               onClick={() => { setMode(isRegistering ? "login" : "register"); setError(""); }}
-              className="ml-1 text-primary font-semibold hover:underline"
+              className="ms-1 text-primary font-semibold hover:underline"
             >
               {isRegistering ? t("login.signInHere") : t("login.registerHere")}
             </button>

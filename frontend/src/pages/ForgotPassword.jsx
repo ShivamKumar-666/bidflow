@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import api from "@/services/api";
 import { useTranslation } from "react-i18next";
@@ -15,25 +15,28 @@ export default function ForgotPassword() {
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
-  const autoSent = useRef(false);
+
 
   useEffect(() => {
-    if (passedEmail && !autoSent.current) {
-      autoSent.current = true;
-      setLoading(true);
-      api.post("/auth/forgot-password", { email: passedEmail.trim().toLowerCase() })
-        .then(() => setSent(true))
-        .catch((err) => {
-          const msg = err?.response?.data?.msg;
-          if (err?.response?.status === 429) {
-            setError(t("errors.tooManyAttempts"));
-          } else {
-            setError(msg || t("forgotPassword.failed", "Something went wrong. Please try again."));
-          }
-        })
-        .finally(() => setLoading(false));
-    }
-  }, [passedEmail, t]);
+    if (!passedEmail || sent) return;
+    let mounted = true;
+    setLoading(true);
+    api.post("/auth/forgot-password", { email: passedEmail.trim().toLowerCase() })
+      .then(() => { if (mounted) setSent(true); })
+      .catch((err) => {
+        if (!mounted) return;
+        const msg = err?.response?.data?.msg;
+        if (err?.response?.status === 429) {
+          setError(t("errors.tooManyAttempts"));
+        } else {
+          setError(msg || t("forgotPassword.failed", "Something went wrong. Please try again."));
+        }
+      })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  // passedEmail is stable (derived from location.state which doesn't change after mount)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -57,8 +60,8 @@ export default function ForgotPassword() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative overflow-hidden">
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-32 -right-32 h-96 w-96 rounded-full bg-sidebar-primary/10 blur-3xl" />
-        <div className="absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-chart-2/10 blur-3xl" />
+        <div className="absolute -top-32 -end-32 h-96 w-96 rounded-full bg-sidebar-primary/10 blur-3xl" />
+        <div className="absolute -bottom-32 -start-32 h-96 w-96 rounded-full bg-chart-2/10 blur-3xl" />
       </div>
 
       <div className="w-full max-w-md">
@@ -96,7 +99,7 @@ export default function ForgotPassword() {
               </p>
               <Link to="/login">
                 <Button variant="outline" className="w-full">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  <ArrowLeft className="h-4 w-4 me-1" />
                   {t("forgotPassword.backToLogin", "Back to Login")}
                 </Button>
               </Link>
@@ -128,7 +131,7 @@ export default function ForgotPassword() {
 
               <Link to="/login">
                 <Button type="button" variant="ghost" className="w-full" size="sm">
-                  <ArrowLeft className="h-4 w-4 mr-1" />
+                  <ArrowLeft className="h-4 w-4 me-1" />
                   {t("forgotPassword.backToLogin", "Back to Login")}
                 </Button>
               </Link>

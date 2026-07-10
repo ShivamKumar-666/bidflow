@@ -21,10 +21,10 @@ const api = axios.create({
   withCredentials: true,   // SEC-01: send httpOnly JWT cookie automatically
 });
 
-// SEC-04: attach CSRF token from cookie as X-CSRF-TOKEN header for all
-// state-changing requests (double-submit cookie pattern).
 api.interceptors.request.use((config) => {
-  const csrfToken = getCookie("csrf_access_token");
+  const isRefresh = config.url === "/auth/refresh";
+  const csrfToken = getCookie(isRefresh ? "csrf_refresh_token" : "csrf_access_token");
+  
   if (csrfToken && ["post", "put", "patch", "delete"].includes(config.method?.toLowerCase())) {
     config.headers["X-CSRF-TOKEN"] = csrfToken;
   }
@@ -119,3 +119,9 @@ api.interceptors.response.use(
 );
 
 export default api;
+
+// Public API instance for unauthenticated routes (e.g. customer share portal).
+// No CSRF header, no token refresh, no auto-logout — just the base URL.
+export const publicApi = axios.create({
+  baseURL: `${import.meta.env.VITE_API_BASE_URL}/api/v1`,
+});

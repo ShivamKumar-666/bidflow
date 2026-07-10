@@ -37,7 +37,7 @@ function NotificationBell() {
         <Button variant="ghost" size="icon" className="relative" aria-label="Notifications">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute top-1.5 right-1.5 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
+            <span className="absolute top-1.5 end-1.5 h-4 min-w-4 px-1 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center">
               {unreadCount > 99 ? "99+" : unreadCount}
             </span>
           )}
@@ -69,13 +69,13 @@ function NotificationBell() {
                 <div
                   key={n._id}
                   className={cn(
-                    "relative w-full text-left px-4 py-3 hover:bg-accent/50 transition-colors flex gap-3",
+                    "relative w-full text-start px-4 py-3 hover:bg-accent/50 transition-colors flex gap-3",
                     !n.isRead && "bg-blue-500/5"
                   )}
                 >
                   <button
                     onClick={() => !n.isRead && markAsRead(n._id)}
-                    className="flex-1 min-w-0 text-left"
+                    className="flex-1 min-w-0 text-start"
                   >
                     <div className="flex items-start gap-3">
                       <div className={cn(
@@ -101,7 +101,7 @@ function NotificationBell() {
                       e.stopPropagation();
                       deleteNotification(n._id);
                     }}
-                    className="absolute top-2 right-2 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
+                    className="absolute top-2 end-2 p-1 rounded hover:bg-accent text-muted-foreground hover:text-foreground transition-colors"
                     aria-label="Delete notification"
                   >
                     <X className="h-3.5 w-3.5" />
@@ -146,7 +146,8 @@ function GlobalSearch() {
     return () => window.removeEventListener("keydown", handler);
   }, [open]);
 
-  /* eslint-disable react-hooks/set-state-in-effect */
+  // api is a module-level singleton — it never changes identity, so it is
+  // intentionally omitted from deps. Adding it would cause no behaviour change.
   useEffect(() => {
     if (!query.trim()) {
       setResults({ enquiries: [], bids: [], documents: [] });
@@ -166,7 +167,6 @@ function GlobalSearch() {
     }, 300);
     return () => clearTimeout(t);
   }, [query]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   const flat = useMemo(() => [
     ...results.enquiries.map((d) => ({ type: "enquiry", data: d })),
@@ -252,7 +252,7 @@ function GlobalSearch() {
                     key={enq._id}
                     onClick={() => handleSelect({ type: "enquiry", data: enq })}
                     onMouseEnter={() => setActiveIndex(idx)}
-                    className={cn("w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-accent", activeIndex === idx && "bg-accent")}
+                    className={cn("w-full text-start px-4 py-2.5 text-sm flex items-center justify-between hover:bg-accent", activeIndex === idx && "bg-accent")}
                   >
                     <div>
                       <div className="font-medium">{enq.customerName}</div>
@@ -274,7 +274,7 @@ function GlobalSearch() {
                     key={bid._id}
                     onClick={() => handleSelect({ type: "bid", data: bid })}
                     onMouseEnter={() => setActiveIndex(idx)}
-                    className={cn("w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-accent", activeIndex === idx && "bg-accent")}
+                    className={cn("w-full text-start px-4 py-2.5 text-sm flex items-center justify-between hover:bg-accent", activeIndex === idx && "bg-accent")}
                   >
                     <div>
                       <div className="font-medium">{bid.bidId} · {bid.customerName}</div>
@@ -296,7 +296,7 @@ function GlobalSearch() {
                     key={doc._id}
                     onClick={() => handleSelect({ type: "document", data: doc })}
                     onMouseEnter={() => setActiveIndex(idx)}
-                    className={cn("w-full text-left px-4 py-2.5 text-sm flex items-center justify-between hover:bg-accent", activeIndex === idx && "bg-accent")}
+                    className={cn("w-full text-start px-4 py-2.5 text-sm flex items-center justify-between hover:bg-accent", activeIndex === idx && "bg-accent")}
                   >
                     <span className="font-medium">{doc.filename}</span>
                     <span className="text-xs text-muted-foreground">{doc.bidId}</span>
@@ -369,7 +369,7 @@ export function Navbar() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="flex items-center gap-2 ml-2 pl-2 pr-1 py-1 rounded-md hover:bg-accent transition-colors" aria-label="User menu" aria-haspopup="true">
+              <button className="flex items-center gap-2 ms-2 ps-2 pe-1 py-1 rounded-md hover:bg-accent transition-colors" aria-label="User menu" aria-haspopup="true">
                 <div className="hidden sm:flex flex-col items-end">
                   <span className="text-xs font-semibold leading-tight">{user?.name}</span>
                   <span className="text-[10px] text-muted-foreground leading-tight">{user?.role}</span>
